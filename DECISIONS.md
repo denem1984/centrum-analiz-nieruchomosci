@@ -1,54 +1,85 @@
-# DECISIONS.md — podjęte decyzje i kwestie do rozstrzygnięcia
+# DECISIONS.md — decyzje i kwestie otwarte
 
-Status: po wstępnych decyzjach właściciela; E0 nie jest jeszcze zakończony.
+**Data aktualizacji:** 2026-10-26. Ustalenia właściciela z tej daty mają pierwszeństwo przed starszymi zapisami. Nie zapisujemy tu wartości RCN_ADMIN_TOKEN ani jej skutków; status tej zmiennej jest pozycją checklisty M1 w E0_CHECKLIST.md.
 
-## A. Decyzje właściciela projektu
+## D1 — Źródło danych RCN
 
-1. Etap E0 obejmuje wyłącznie inwentaryzację i odczyt konfiguracji. Bez zmian kodu, konfiguracji produkcyjnej i wdrożeń.
-2. Zachowujemy obecne technologie i działające rozwiązania, o ile nie ma uzasadnionej przyczyny zmiany.
-3. Nie zakładamy jednego wspólnego backendu. Wstępny kierunek to niezależne usługi połączone wspólną powłoką i kontraktem kontekstu.
-4. Sekretów nie kopiujemy do dokumentacji ani promptów. W `CONFIG.md` zapisujemy wyłącznie nazwy zmiennych oraz status: ustawiona/nieustawiona; bez wartości.
-5. **D1 — źródło danych RCN:** wstępna decyzja: Parquet z Cloudflare R2. Podczas E0 należy potwierdzić, że produkcja rzeczywiście działa w tym trybie i sprawdzić status źródła przez dostępny endpoint lub ustawienia hostingu.
-6. **D2 — słownik lokalizacji:** wstępna decyzja: wykorzystać słownik SIMC z aplikacji RCN jako podstawę wspólnego słownika. W E0 należy sprawdzić dostępność i jakość potrzebnych pól oraz potwierdzić sposób wykorzystania przez pozostałe moduły.
-7. **D3 — miejsce powłoki MEGA:** bez decyzji. Najpierw trzeba przejrzeć kod panelu DENEM i ustalić, czy powłokę dodać do istniejącego panelu, czy uruchomić obok niego.
-8. **D4 — sposób otwierania modułów:** bez decyzji. Najpierw trzeba sprawdzić nagłówki bezpieczeństwa i zachowanie usług na produkcji. Do czasu weryfikacji nie zakładamy możliwości osadzania w ramkach.
+- **Status:** wstępne wskazanie; potwierdzenie w M1.
+- **Decyzja:** wstępny wybór to Parquet z Cloudflare R2. Właściciel odczyta w M1 niesekretną wartość RCN_DATA_SOURCE, aby potwierdzić rzeczywisty tryb.
+- **Wpływ architektury:** brak zmiany statusu; tryb wpływa na interpretację danych i pomiary modułu RCN.
 
-## B. Rekomendacje architektoniczne do potwierdzenia
+## D2 — Wspólny słownik lokalizacji
 
-- R1. Zachować pięć niezależnych modułów i dodać lekką powłokę MEGA.
-- R2. Użyć TERYT/SIMC jako wspólnego klucza lokalizacji, po potwierdzeniu mapowania dla modułu Gminy.
-- R3. Wdrażać etapami: najpierw przekazywanie kontekstu przez linki, później powłoka z zakładkami.
-- R4. Wstępna kolejność adapterów: gminy → rozkład → działki → RCN → oferty.
+- **Status:** kandydat do potwierdzenia w M1.
+- **Decyzja:** kandydatem jest słownik SIMC z aplikacji RCN. W M1 sprawdzić jego dostępność, wymagane pola i możliwość wykorzystania przez istniejące API.
+- **Wpływ architektury:** brak zmiany statusu; TERYT/SIMC pozostaje wspólnym kluczem dla wyszukiwania.
 
-## C. Kwestie do rozstrzygnięcia po E0
+## D3 — Miejsce aplikacji
 
-### Blokujące rozpoczęcie implementacji
+- **Status:** rozstrzygnięte; NIEBLOKUJĄCE.
+- **Decyzja:** Centrum Analiz Nieruchomości jest samodzielną aplikacją, poza portalem i panelem denem.pl. Nie modyfikujemy repozytorium denem1984/denem.
+- **Wpływ architektury:** wcześniejszy wariant powłoki w panelu został odrzucony; sprawdzanie kodu panelu nie jest warunkiem startu.
 
-- **D3. Miejsce powłoki:** wymaga przeglądu kodu panelu `denem.pl/panel` i potwierdzenia, jak panel obsługuje aplikacje, logowanie, role i slugi.
-- **D4. Osadzanie modułów:** sprawdzić `X-Frame-Options` oraz `Content-Security-Policy` na produkcyjnych adresach. Jeśli osadzanie nie jest dozwolone lub jest niepewne, rozpocząć od osobnych kart z kontekstem.
-- **D9. Mapowanie BDL ↔ TERYT:** potwierdzić strukturę tabeli Supabase `gus_bdl_commune_wide`; nie zakładać, że `unit_id` zawiera kod TERYT.
-- **Konfiguracja hostingu:** potwierdzić dostawcę, nazwy usług, domeny, komendy start/build, plany/regiony oraz status zmiennych środowiskowych. Nie zapisywać wartości sekretów.
+## D4 — Sposób otwierania modułów
 
-### Do rozstrzygnięcia przed odpowiednimi późniejszymi etapami
+- **Status:** rozstrzygnięte dla planowanej architektury; NIEBLOKUJĄCE.
+- **Decyzja:** moduły są natywnymi zakładkami aplikacji, a integracja odbywa się przez bezpośrednie wywołania API. Nie zakładamy iframe.
+- **Wpływ architektury:** kontrola nagłówków pod kątem osadzania nie jest wymagana. D4 wraca tylko wtedy, gdy właściciel ponownie rozważy iframe.
 
-- **D5. Weryfikacja tokenów w backendach:** ustalić docelowy zakres ochrony API. Nie wdrażać zmian autoryzacji w E0.
-- **D6. Testy automatyczne:** wstępnie testy ręczne do E4; ponownie ocenić automatyzację przed E5.
-- **D7. Scalenie proxy rozkładu z backendem działek:** odłożyć do etapu E9.
-- **D8. Slugi dostępu:** rekomendacja: własny slug powłoki `mega` i uprawnienia do poszczególnych zakładek zgodne ze slugami modułów; potwierdzić przed implementacją bramki.
-- **D10. Raport zbiorczy:** przed E8 określić odbiorcę, format PDF/Word i wymagane sekcje.
-- **D11. Trwałość analiz:** przed projektowaniem zapisu wyników zdecydować, czy potrzebne są „teczki analiz” przechowywane w Supabase.
-- **D12. Regulaminy portali:** przed udostępnianiem wyników innym użytkownikom ocenić dopuszczalność pobierania i prezentowania ofert.
-- **D13. Dokumentacja RCN:** ustalić, czy aktualizować nieaktualną dokumentację w ramach pierwszych prac implementacyjnych.
+## D5 — Logowanie i dostęp
 
-## D. Kryterium zakończenia E0
+- **Status:** otwarte; właściciel rozstrzyga przed M8.
+- **Decyzja:** do czasu tej decyzji aplikacja nie ma własnej bramki. Nie wdrażać własnego logowania ani kontroli dostępu w M0–M7.
+- **Wpływ architektury:** bez zmiany integracji bezpośrednio z API; dostęp musi być rozstrzygnięty przed rozpoczęciem modułu Gminy.
 
-E0 można uznać za zakończony dopiero, gdy:
-1. Powstanie `CONFIG.md` bez sekretów.
-2. Potwierdzony zostanie rzeczywisty tryb danych RCN na produkcji.
-3. Przejrzany zostanie kod panelu DENEM albo zostanie dostarczony wiarygodny opis jego działania.
-4. Zapisane zostaną wyniki kontroli nagłówków bezpieczeństwa dla modułów.
-5. Sprawdzona zostanie struktura tabeli `gus_bdl_commune_wide` i dostępność mapowania BDL ↔ TERYT.
-6. Odpowiedzi i nierozstrzygnięte kwestie zostaną wpisane do tego pliku.
-7. Właściciel projektu zatwierdzi przejście do E1.
+## D6 — Automatyzacja testów
 
-W trakcie E0 nie zmieniać kodu, konfiguracji produkcyjnej, danych ani wdrożeń.
+- **Status:** do ponownej oceny w M2.
+- **Decyzja:** M2 określi podstawowe lintowanie, build i testy dla nowej aplikacji. Testy ręczne modułów pozostają w macierzy regresji.
+- **Wpływ architektury:** brak zmiany statusu.
+
+## D7 — Łączenie backendów źródłowych
+
+- **Status:** poza zakresem M0–M10.
+- **Decyzja:** nie zmieniamy ani nie łączymy backendów w pięciu repozytoriach źródłowych. Ewentualne prace wymagają osobnego polecenia właściciela.
+- **Wpływ architektury:** nowa aplikacja łączy moduły przez API; nie wymaga łączenia usług.
+
+## D8 — Identyfikatory dostępu do modułów
+
+- **Status:** otwarte; do decyzji razem z D5 przed M8.
+- **Decyzja:** rekomendacja pozostaje: slug nowej aplikacji mega i uprawnienia do zakładek zgodne ze slugami modułów; właściciel potwierdzi to razem z D5 przed M8.
+- **Wpływ architektury:** brak zmiany statusu; do tego czasu nie implementować bramki.
+
+## D9 — Mapowanie BDL ↔ TERYT
+
+- **Status:** otwarte; sprawdzić w M1, wymagane przed M8.
+- **Decyzja:** potwierdzić wiarygodne mapowanie identyfikatora jednostki BDL na TERYT dla modułu Gminy.
+- **Wpływ architektury:** pozostaje zależnością modułu Gminy; wspólne wyszukiwanie M3 nadal używa TERYT/SIMC.
+
+## D10 — Zakres raportu zbiorczego
+
+- **Status:** otwarte; rozstrzygnąć przed M9.
+- **Decyzja:** określić odbiorcę, format i wymagane sekcje raportu.
+- **Wpływ architektury:** raport pozostaje w M9; bez zmiany statusu.
+
+## D11 — Trwałość analiz
+
+- **Status:** otwarte; rozstrzygnąć przed dodaniem zapisu analiz.
+- **Decyzja:** ustalić, czy aplikacja ma przechowywać analizy i gdzie.
+- **Wpływ architektury:** nie wpływa na moduły M0–M8; nie projektować trwałego zapisu bez decyzji.
+
+## D12 — Zasady prezentowania ofert
+
+- **Status:** do rozstrzygnięcia przed udostępnieniem wyników ofert dodatkowym użytkownikom.
+- **Decyzja:** właściciel oceni warunki użycia źródeł ofert w planowanym sposobie prezentacji.
+- **Wpływ architektury:** bez zmiany integracji API; decyzja dotyczy sposobu użycia wyników.
+
+## D13 — Dokumentacja RCN
+
+- **Status:** otwarte; poza zakresem M0.
+- **Decyzja:** ustalić, czy aktualizować dokumentację w repozytorium RCN.
+- **Wpływ architektury:** brak wpływu. Repozytorium RCN pozostaje tylko do odczytu bez osobnego polecenia.
+
+## Zasady repozytorium
+
+[FAKT: decyzja właściciela z 2026-10-26] Repozytorium jest publiczne. Nie zapisujemy w nim wartości sekretów, konfiguracji, tokenów, kluczy, danych osobowych ani identyfikatorów kont lub usług. Wyjątkiem jest niesekretna wartość trybu RCN_DATA_SOURCE. Pięć repozytoriów źródłowych jest tylko do odczytu.
