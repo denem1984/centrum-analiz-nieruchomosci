@@ -27,7 +27,7 @@ const rules = [
   },
   { name: "AWS access key", pattern: /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g },
   { name: "GitHub token", pattern: /\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/g },
-  { name: "OpenAI token", pattern: /\bsk-[A-Za-z0-9]{24,}\b/g },
+  { name: "OpenAI token", pattern: /\bsk-[A-Za-z0-9_-]{24,}\b/g },
   { name: "Anthropic token", pattern: /\bsk-ant-[A-Za-z0-9_-]{20,}\b/g },
   { name: "JWT", pattern: /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{8,}\b/g },
   {
