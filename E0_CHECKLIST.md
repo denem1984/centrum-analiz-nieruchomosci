@@ -8,6 +8,8 @@ D3 (miejsce aplikacji) i D4 (iframe) są NIEBLOKUJĄCE. Samodzielna aplikacja ni
 
 ## 1. CORS i preflight czterech API
 
+[FAKT z audytu kodu AUDIT.md; do potwierdzenia pomiarem w M1] Dokumentacja audytu wskazuje CORS `*` dla czterech backendów; rzeczywiste odpowiedzi i preflight pozostają do zmierzenia.
+
 Dla każdego API wykonaj bezpieczne wywołanie z origin spoza domeny usługi i zapisz metodę, origin, datę oraz odpowiedź. Nie wysyłaj sekretów.
 
 - [ ] RCN — CORS dla żądania właściwego.
@@ -45,7 +47,7 @@ Dla każdego API wykonaj bezpieczne wywołanie z origin spoza domeny usługi i z
 
 ## 6. Punkt wejścia Ofert
 
-- [ ] [FAKT: według kontekstu właściciela z 2026-10-26] usługa na Render ma startować poleceniem node server.js.
+- [ ] [FAKT: odczyt konfiguracji usługi przez kierownika 2026-10-26; do potwierdzenia w kodzie] usługa ma startować poleceniem `node server.js`.
 - [ ] W AUDIT.md opisano ścieżkę npm start. Sprawdzić wyłącznie przez odczyt kodu, czy wskazany punkt wejścia i ścieżka startu odpowiadają aktualnemu kodowi.
 - [ ] Zapisać potwierdzony punkt wejścia w CONFIG.md z oznaczeniem [FAKT] albo [HIP]. Nie zmieniać ustawień usługi.
 
@@ -73,6 +75,7 @@ Dla każdego API wykonaj bezpieczne wywołanie z origin spoza domeny usługi i z
 - [ ] D2 — dostępne pola TERYT/SIMC: _____________________________________
 - [ ] D9 — mapowanie BDL ↔ TERYT: _______________________________________
 - [ ] Oferty — punkt wejścia: ____________________________________________
+- [ ] SHA wdrożonych commitów — odczyt właściciela z panelu: ______________
 - [ ] RCN frontend — wywołania sprawdzone tylko do odczytu: ______________
 - [ ] RCN_ADMIN_TOKEN — status: __________________________________________
 - [ ] Otwarte kwestie, źródła i data: ___________________________________

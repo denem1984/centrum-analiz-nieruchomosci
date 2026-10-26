@@ -83,3 +83,8 @@
 ## Zasady repozytorium
 
 [FAKT: decyzja właściciela z 2026-10-26] Repozytorium jest publiczne. Nie zapisujemy w nim wartości sekretów, konfiguracji, tokenów, kluczy, danych osobowych ani identyfikatorów kont lub usług. Wyjątkiem jest niesekretna wartość trybu RCN_DATA_SOURCE. Pięć repozytoriów źródłowych jest tylko do odczytu.
+
+## Źródła do potwierdzenia w M1
+
+- CORS `*` dla backendów RCN, Oferty, Działek i Podobnych: [FAKT z audytu kodu AUDIT.md; do potwierdzenia pomiarem w M1].
+- Punkt wejścia usługi Ofert `node server.js`: [FAKT: odczyt konfiguracji usługi przez kierownika 2026-10-26; do potwierdzenia w kodzie].
