@@ -1,0 +1,11 @@
+.env*
+*.pem
+*.key
+node_modules/
+.local-results/
+local-results/
+results/
+output/
+*.log
+*.tmp
+.DS_Store
