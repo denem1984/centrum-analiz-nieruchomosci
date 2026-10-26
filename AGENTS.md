@@ -1,27 +1,42 @@
-# AGENTS.md — instrukcje dla agentów pracujących nad MEGA DENEM
+# AGENTS.md — zasady pracy w repozytorium
 
-## Źródło prawdy
-1. Przed pracą przeczytaj `README.md`, `MEGA_PROJECT.md`, `DECISIONS.md` oraz właściwy etap `IMPLEMENTATION_PLAN.md`.
-2. Kod pięciu istniejących aplikacji jest w osobnych repozytoriach. Przed zmianami sprawdź aktualny kod w GitHub; nie polegaj wyłącznie na audycie.
-3. Dokumentacja tego repo opisuje zamiary i decyzje, ale nie zastępuje weryfikacji rzeczywistego kodu i konfiguracji.
+## Źródła prawdy
 
-## Zasady bezpieczeństwa i zmian
-- Do czasu formalnego zamknięcia E0 wykonuj wyłącznie odczyt i dokumentację. Bez zmian kodu, konfiguracji produkcyjnej, danych ani wdrożeń.
-- Nie kopiuj do plików, promptów ani logów sekretów, tokenów, haseł i kluczy API.
-- Nie przebudowuj działających funkcji i nie zmieniaj UI bez uzasadnionej potrzeby oraz zatwierdzonego zakresu.
-- Nie modyfikuj pięciu repozytoriów źródłowych bez osobnego zadania.
-- Nie wdrażaj na produkcję bez wyraźnej zgody właściciela.
-- Pracuj w małych, odwracalnych zmianach i na osobnej gałęzi, gdy rozpocznie się implementacja.
-- Nie usuwaj tras diagnostycznych ani plików, dopóki analiza referencji w kodzie nie potwierdzi, że nie są używane.
+Przed rozpoczęciem zadania przeczytaj README.md, AGENTS.md, CLAUDE.md, AUDIT.md, MEGA_PROJECT.md, IMPLEMENTATION_PLAN.md, DECISIONS.md, E0_CHECKLIST.md i CONFIG.md. Ustalenia właściciela z 2026-10-26 mają pierwszeństwo przed starszymi zapisami. AUDIT.md pozostaje dokumentem historycznym i nie jest zmieniany.
 
-## Weryfikacja
-- Dla każdego zadania podaj zakres, pliki zmienione, testy uruchomione i wynik.
-- Nie twierdź, że test przeszedł, jeśli faktycznie go nie uruchomiono.
-- Jeśli dokumenty są sprzeczne, kod zachowuje się inaczej niż opis, lub zadanie wymaga decyzji architektonicznej, zatrzymaj się i przedstaw problem.
-- Po każdej zmianie oceniaj regresje w istniejących modułach i zachowuj kompatybilność starych adresów oraz uruchomienia bez kontekstu.
+## Zakazy bezwzględne
 
-## Współpraca agentów
-- Claude: analiza, plan, decyzje, niezależny przegląd.
-- Codex: realizacja zatwierdzonych zadań, testy i raport zmian.
-- Nie zlecaj dwóm agentom równoczesnej edycji tych samych plików.
-- Zadanie implementacyjne musi zawierać kryteria akceptacji.
+- Nie zmieniaj portalu denem.pl ani repozytorium denem1984/denem.
+- Pięć repozytoriów źródłowych — rcn-web-app, Analizator-cen-ofertowych, analizator-nieruchomosci, rozklad-nieruchomosci-podobnych i gminy — jest tylko do odczytu. Nie zapisuj w nich zmian.
+- Nie wykonuj żadnych operacji na Render, Supabase ani Cloudflare R2, także przez narzędzia MCP, chyba że właściciel wyda osobne, wyraźne polecenie dla takiej pracy.
+- Nie wdrażaj ani nie scalaj zmian do main. PR ma pozostać otwarty do decyzji właściciela.
+- Nie odczytuj, nie zapisuj ani nie wklejaj wartości sekretów, tokenów, haseł, kluczy ani wartości zmiennych środowiskowych. RCN_DATA_SOURCE jest niesekretną wartością trybu źródła i może zostać odczytana przez właściciela w M1.
+- Repozytorium jest publiczne. Nie dodawaj do niego wartości konfiguracji, tokenów, kluczy, danych osobowych ani identyfikatorów kont lub usług. Dozwolone są nazwy zmiennych i status ustawienia; wyjątek stanowi niesekretna wartość RCN_DATA_SOURCE.
+- Nie dopisuj nowych opisów luk bezpieczeństwa pięciu starych aplikacji. Ustalenia AUDIT.md pozostają historyczne.
+- Nie rozszerzaj zakresu poza pliki dozwolone w zadaniu.
+
+## Zasady pracy
+
+- Pracuj na osobnej gałęzi wskazanej w zadaniu, w małych i czytelnych commitach.
+- Otwórz PR do main i pozostaw go bez scalania.
+- Nie zgaduj. Twierdzenia o produkcji oznaczaj [FAKT] albo [HIP] i podaj źródło, jeśli jest znane.
+- Przy niejasności zatrzymaj zależną część pracy i zapisz konkretne pytanie w raporcie. Kontynuuj niezależną pracę, jeśli to możliwe.
+- Raportuj tylko komendy faktycznie uruchomione i wyniki faktycznie sprawdzone.
+- Właściciel podejmuje decyzje, scala PR, autoryzuje wdrożenia i wykonuje testy ręczne.
+
+## Raport końcowy
+
+Każde zadanie zakończ blokiem RAPORT dla kierownika w tym formacie:
+
+    RAPORT dla kierownika
+    1. Status: WYKONANE / CZĘŚCIOWO / ZABLOKOWANE
+    2. Repozytorium, gałąź, SHA początkowy → końcowy, link do PR
+    3. Zmienione pliki (+/- linii)
+    4. Kryteria akceptacji: każde spełnione/nie oraz dowód
+    5. Uruchomione komendy i skrót wyników
+    6. Odstępstwa i założenia [FAKT]/[HIP]
+    7. Dotknięto zakazanych obszarów? TAK/NIE
+    8. Sekrety: potwierdzenie, że żadnych nie odczytano ani zapisano
+    9. Sprzeczności i otwarte pytania
+    10. Test ręczny dla właściciela
+    11. Proponowany następny krok

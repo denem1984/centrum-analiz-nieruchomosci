@@ -1,51 +1,48 @@
-# CONFIG.md — inwentaryzacja konfiguracji produkcyjnej
+# CONFIG.md — szablon konfiguracji bez sekretów
 
-Status: szablon. Uzupełniać podczas E0, wyłącznie na podstawie odczytu.
+> **Repozytorium jest publiczne.** Wpisuj wyłącznie nazwy zmiennych i status ustawiona / nieustawiona / nieznany. Nigdy nie wpisuj wartości sekretów, tokenów, kluczy ani innych wartości konfiguracji. Jedyny wyjątek: niesekretna wartość trybu RCN_DATA_SOURCE, odczytana przez właściciela w M1.
 
-**Nie wpisywać wartości sekretów, haseł, tokenów ani kluczy API.** Dla zmiennych środowiskowych zapisywać tylko nazwę oraz status: ustawiona / nieustawiona.
+**Status:** szablon do uzupełnienia po pomiarach M1. Nie zawiera wartości produkcyjnych.
 
-## Metadane
-- Data kontroli:
+## Metadane pomiaru
+
+- Data:
 - Osoba wykonująca:
-- Zakres: tylko odczyt
+- Zakres: odczyt
+- Źródła i metoda:
 
-## Usługi
+## API i punkty wejścia
 
-| Moduł | Dostawca/hosting | Nazwa usługi | Domena | Plan/region | Build/start |
-|---|---|---|---|---|---|
-| RCN | | | | | |
-| Oferty | | | | | |
-| Działki | | | | | |
-| Rozkład | | | | | |
-| Gminy | | | | | |
-| Panel DENEM | | | | | |
-
-## Zmienne środowiskowe — bez wartości
-
-| Moduł | Nazwa zmiennej | Status ustawienia | Uwagi bez sekretów |
+| Moduł | Adres API | Punkt wejścia / metoda | Źródło potwierdzenia |
 |---|---|---|---|
-| RCN | `RCN_DATA_SOURCE` | | |
-| RCN | `DATA_SOURCE` | | |
-| RCN | `R2_BUCKET` | | |
-| RCN | `R2_ENDPOINT` | | |
-| RCN | `R2_ACCESS_KEY_ID` | | |
-| RCN | `R2_SECRET_ACCESS_KEY` | | |
-| RCN | `RCN_ADMIN_TOKEN` | | |
-| RCN | `GEOAPIFY_API_KEY` | | |
-| Oferty | `PORT` | | |
-| Działki | `PORT` | | |
-| Rozkład | `PORT` | | |
-| Rozkład | `UPSTREAM_PRG` | | |
-| Rozkład | `UPSTREAM_WFS` | | |
+| RCN | | | |
+| Oferty | | | |
+| Działki | | | |
+| Podobne | | | |
+| Gminy | | | |
 
-Dopisz inne wykryte zmienne, ale tylko ich nazwy i status.
+## Zmienne środowiskowe — tylko nazwy i status
 
-## Wyniki E0
-- D1 — potwierdzone źródło RCN i źródło potwierdzenia:
-- D2 — lokalizacja słownika SIMC i sposób udostępniania:
-- D3 — repozytorium panelu i rekomendacja miejsca powłoki:
-- D4 — wyniki kontroli nagłówków bezpieczeństwa:
-- Supabase — kolumny tabeli `gus_bdl_commune_wide`:
-- Mapowanie BDL ↔ TERYT:
-- Otwarte kwestie:
-- Zatwierdzenie przejścia do E1:
+| Moduł | Nazwa zmiennej | Status | Uwagi bez wartości |
+|---|---|---|---|
+| RCN | RCN_DATA_SOURCE | | Wartość trybu jest niesekretna; właściciel odczytuje ją w M1. |
+| RCN | DATA_SOURCE | | |
+| RCN | RCN_ADMIN_TOKEN | | |
+| Oferty | PORT | | |
+| Działki | PORT | | |
+| Podobne | PORT | | |
+| Podobne | UPSTREAM_PRG | | |
+| Podobne | UPSTREAM_WFS | | |
+
+Dopisuj wyłącznie nazwy i statusy. Nie zapisuj adresów usług administracyjnych, identyfikatorów kont ani wartości konfiguracji.
+
+## Wyniki M1
+
+- CORS i OPTIONS z Authorization dla czterech API:
+- Czas zimnego i ciepłego startu oraz metoda pomiaru:
+- D1 — tryb RCN i źródło potwierdzenia:
+- D2 — dostępność i pola TERYT/SIMC:
+- D9 — mapowanie BDL ↔ TERYT:
+- Oferty — potwierdzony punkt wejścia:
+- RCN — odczyt kodu wywołań frontendowych:
+- Otwarte kwestie i źródła:

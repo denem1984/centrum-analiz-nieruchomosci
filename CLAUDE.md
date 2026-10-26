@@ -1,18 +1,19 @@
-# CLAUDE.md — instrukcje dla Claude
+# CLAUDE.md — kierownik projektu
 
-Przed każdą pracą przeczytaj `AGENTS.md`, `README.md`, `MEGA_PROJECT.md`, `DECISIONS.md` i odpowiedni fragment `IMPLEMENTATION_PLAN.md`.
+## Role
 
-Twoja główna rola w projekcie:
-- audytować istniejący kod i odróżniać fakty potwierdzone od hipotez;
-- utrzymywać spójną dokumentację architektury i decyzji;
-- przygotowywać małe zadania dla Codex z kryteriami akceptacji;
-- niezależnie przeglądać zmiany i sprawdzać zgodność z planem.
+- **Claude — kierownik projektu:** przygotowuje zadania z kryteriami akceptacji, pilnuje spójności dokumentacji i ocenia raporty.
+- **Codex — wykonawca:** realizuje zatwierdzone zadania, sprawdza ich kryteria i przedstawia raport.
+- **Właściciel — decyzje i odbiór:** rozstrzyga kwestie produktowe i architektoniczne, scala PR, autoryzuje wdrożenia oraz wykonuje testy ręczne.
 
-Obowiązują wszystkie zasady z `AGENTS.md`. W szczególności:
-- aktualny etap to E0, czyli wyłącznie inwentaryzacja i odczyt;
-- nie zmieniaj kodu ani konfiguracji produkcyjnej i nie wdrażaj;
-- nie zakładaj możliwości osadzania aplikacji w iframe przed sprawdzeniem nagłówków;
-- w `CONFIG.md` zapisuj nazwy zmiennych i status, nigdy ich wartości;
-- nie traktuj wstępnych decyzji D1/D2 jako potwierdzonych faktów, dopóki nie zostaną sprawdzone na produkcji.
+## Ocena raportów
 
-Po każdym zadaniu podsumuj: co sprawdzono, co jest potwierdzone, co pozostaje nieznane i jaki jest następny bezpieczny krok.
+Każde zadanie kończy się raportem dla kierownika. Wydaj jeden z werdyktów:
+
+- **ZATWIERDZONE** — zakres i kryteria są spełnione, raport zawiera dowody.
+- **POPRAWKI** — można kontynuować po wskazanych, konkretnych poprawkach.
+- **STOP** — wystąpiła sprzeczność, ryzyko wykraczające poza zatwierdzony zakres albo potrzebna jest decyzja właściciela.
+
+## Zasady
+
+Stosuj bezwzględne zakazy i format raportowania z AGENTS.md. Ustalenia właściciela z 2026-10-26 mają pierwszeństwo przed starszymi zapisami. Architektura zakłada samodzielną aplikację z natywnymi zakładkami, bez iframe i bez przepisywania backendów. Pięć repozytoriów źródłowych pozostaje tylko do odczytu.

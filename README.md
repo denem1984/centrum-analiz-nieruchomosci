@@ -1,33 +1,43 @@
-# Centrum Analiz Nieruchomości — MEGA DENEM
+# Centrum Analiz Nieruchomości
 
-Centralne repozytorium planowania i rozwoju platformy MEGA, która ma połączyć pięć istniejących modułów DENEM bez niepotrzebnego przepisywania działających aplikacji.
+Samodzielna aplikacja do wspólnej pracy z pięcioma modułami analiz nieruchomości: działkami, transakcjami RCN, ofertami, nieruchomościami podobnymi i porównywaniem gmin.
 
-## Repozytoria źródłowe
+[FAKT: decyzja właściciela z 2026-10-26] To repozytorium jest publiczne. Nowa aplikacja rozwijana jest niezależnie od portalu i panelu denem.pl. Pięć repozytoriów źródłowych pozostaje tylko do odczytu.
 
-- [RCN Analizator](https://github.com/denem1984/rcn-web-app)
-- [Analizator cen ofertowych](https://github.com/denem1984/Analizator-cen-ofertowych)
-- [Analizator nieruchomości / działki](https://github.com/denem1984/analizator-nieruchomosci)
-- [Rozkład nieruchomości podobnych](https://github.com/denem1984/rozklad-nieruchomosci-podobnych)
-- [Gminy](https://github.com/denem1984/gminy)
+## Cel
 
-## Zasada nadrzędna
+Udostępnić moduły jako natywne zakładki jednej aplikacji. Każdy moduł będzie bezpośrednio wywoływał istniejący backend przez API. Nie zakładamy iframe i nie przepisujemy backendów. Wspólny kontekst lokalizacji i nieruchomości będzie oparty na DenemContext v1.
 
-Repozytorium jest centrum dokumentacji i docelowego kodu nowej powłoki MEGA. Pięć aplikacji źródłowych pozostaje w swoich repozytoriach i musi zachować dotychczasowe działanie oraz adresy.
+## Status
 
-## Aktualny etap
+**Etap M0 — dokumentacja i zasady pracy.** Aplikacja nie ma jeszcze kodu. Przed modułem Gminy (M8) właściciel rozstrzygnie sposób logowania i dostępu; do tego czasu aplikacja nie ma własnej bramki.
 
-**E0 — inwentaryzacja produkcji.** Na tym etapie wolno tylko odczytywać i dokumentować konfigurację. Nie wolno zmieniać kodu, ustawień produkcyjnych ani wykonywać wdrożeń.
+## Moduły
 
-## Dokumentacja
+- **Działki** — mapy, działki i warstwy przestrzenne.
+- **RCN** — transakcje.
+- **Oferty** — ceny ofertowe.
+- **Podobne** — nieruchomości porównawcze.
+- **Gminy** — porównywanie gmin.
 
-- `AUDIT.md` — audyt pięciu repozytoriów.
-- `MEGA_PROJECT.md` — proponowana architektura i zakres.
-- `IMPLEMENTATION_PLAN.md` — etapy, kryteria akceptacji i testy.
-- `DECISIONS.md` — decyzje i otwarte kwestie.
-- `E0_CHECKLIST.md` — checklista inwentaryzacji produkcji.
-- `CONFIG.md` — konfiguracja usług bez sekretów.
-- `AGENTS.md` i `CLAUDE.md` — instrukcje pracy agentów.
+Repozytoria źródłowe: rcn-web-app, Analizator-cen-ofertowych, analizator-nieruchomosci, rozklad-nieruchomosci-podobnych i gminy. Są tylko do odczytu; zmiany w nich wymagają osobnego polecenia właściciela.
 
-## Bezpieczeństwo
+## Struktura repozytorium
 
-Nie commituj haseł, tokenów, kluczy API ani wartości zmiennych środowiskowych. W `CONFIG.md` zapisuj wyłącznie nazwy zmiennych i status ich ustawienia. Każda zmiana kodu wymaga osobnego, jasno określonego zadania i testów regresyjnych.
+- README.md — cel, status i zasady orientacyjne.
+- AGENTS.md i CLAUDE.md — role, zakazy oraz sposób współpracy.
+- DECISIONS.md — decyzje właściciela i kwestie otwarte.
+- MEGA_PROJECT.md — architektura docelowa.
+- IMPLEMENTATION_PLAN.md — etapy M0–M10 i macierz regresji.
+- E0_CHECKLIST.md — checklista pomiarów M1.
+- CONFIG.md — szablon konfiguracji bez sekretów.
+- scripts/check-no-secrets.mjs — skaner plików śledzonych przez Git.
+- .github/workflows/secret-scan.yml — uruchomienie skanera na push i pull request.
+
+## Pętla pracy
+
+Kierownik przygotowuje prompt z zakresem i kryteriami akceptacji → Codex realizuje zadanie na osobnej gałęzi → Codex przedstawia raport → kierownik wydaje werdykt: ZATWIERDZONE, POPRAWKI albo STOP. Właściciel podejmuje decyzje, scala PR, wdraża i wykonuje testy ręczne.
+
+## Zasady bezpieczeństwa
+
+Repozytorium jest publiczne. Nie zapisuj w nim wartości konfiguracji, tokenów, kluczy ani danych osobowych. Dozwolone są nazwy zmiennych i status ustawienia. Jedyny wyjątek wartościowy to niesekretna wartość trybu RCN_DATA_SOURCE. Nie zapisuj identyfikatorów kont ani usług.

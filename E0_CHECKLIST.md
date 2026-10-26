@@ -1,149 +1,85 @@
-# E0_CHECKLIST.md — inwentaryzacja produkcji MEGA DENEM
+# E0_CHECKLIST.md — checklista pomiarów M1
 
-**Cel:** zebrać informacje niewidoczne w repozytoriach i przygotować bezpieczny start implementacji.
+**Zakres:** przygotowanie pomiarów M1. W M0 tę checklistę jedynie aktualizujemy. M1 ma charakter wyłącznie odczytowy; nie zmienia ustawień, danych, wdrożeń ani konfiguracji produkcyjnej.
 
-**Zakres bezpieczeństwa:** tylko odczyt. Nie zmieniać ustawień, nie zapisywać formularzy, nie uruchamiać wdrożeń, nie odświeżać danych i nie wykonywać operacji administracyjnych.
+[FAKT: według ustaleń właściciela z 2026-10-26] Repozytorium jest publiczne. Do CONFIG.md wpisuje się tylko nazwy zmiennych i status ustawienia, nigdy wartości sekretów. Wyjątek stanowi niesekretna wartość RCN_DATA_SOURCE.
 
-## 1. Przygotowanie
+D3 (miejsce aplikacji) i D4 (iframe) są NIEBLOKUJĄCE. Samodzielna aplikacja nie wymaga przeglądu panelu ani pomiaru nagłówków pod kątem ramek. D4 wraca tylko po ponownym rozważeniu iframe przez właściciela.
 
-- [ ] Otworzyć `AUDIT.md`, `IMPLEMENTATION_PLAN.md` i `DECISIONS.md`.
-- [ ] Utworzyć `CONFIG.md` na podstawie szablonu poniżej.
-- [ ] Ustalić dokładne produkcyjne adresy pięciu modułów i panelu.
-- [ ] Zapisać datę kontroli i osobę wykonującą sprawdzenie.
+## 1. CORS i preflight czterech API
 
-## 2. Hosting — osobno dla każdej usługi
+Dla każdego API wykonaj bezpieczne wywołanie z origin spoza domeny usługi i zapisz metodę, origin, datę oraz odpowiedź. Nie wysyłaj sekretów.
 
-Sprawdź panel hostingu dla RCN, Ofert, Działek, Rozkładu oraz hostingu statycznego Gmin (jeśli jest zarządzany osobno).
+- [ ] RCN — CORS dla żądania właściwego.
+- [ ] RCN — OPTIONS z nagłówkiem Authorization.
+- [ ] Oferty — CORS dla żądania właściwego.
+- [ ] Oferty — OPTIONS z nagłówkiem Authorization.
+- [ ] Działki — CORS dla żądania właściwego.
+- [ ] Działki — OPTIONS z nagłówkiem Authorization.
+- [ ] Podobne — CORS dla żądania właściwego.
+- [ ] Podobne — OPTIONS z nagłówkiem Authorization.
 
-Dla każdej usługi:
-- [ ] Potwierdzić dostawcę i nazwę usługi.
-- [ ] Zapisać domenę produkcyjną.
-- [ ] Zapisać plan, region i informację o ewentualnym usypianiu/zimnym starcie.
-- [ ] Zapisać komendę build i start.
-- [ ] Wypisać wyłącznie nazwy zmiennych środowiskowych i oznaczyć `ustawiona` / `nieustawiona`. **Nie kopiować wartości.**
-- [ ] Zaznaczyć, czy usługa korzysta z R2, Supabase lub innych usług zewnętrznych.
-- [ ] Nie naciskać Deploy, Restart, Clear cache, Refresh ani podobnych przycisków.
+## 2. Zimny i ciepły start
 
-## 3. D1 — potwierdzenie źródła RCN
+- [ ] Dla RCN, Ofert, Działek i Podobnych zapisać czas pierwszego wywołania po bezczynności i czas kolejnego wywołania.
+- [ ] Nie restartować usług ani nie zmieniać ustawień w celu wymuszenia zimnego startu.
+- [ ] Opisać metodę pomiaru i oznaczyć wynik [FAKT] albo [HIP].
 
-Wstępna decyzja: Parquet z Cloudflare R2.
+## 3. D1 — źródło danych RCN
 
-- [ ] Odczytać status przez `GET /api/data_source_status` na produkcyjnej usłudze RCN, jeśli endpoint jest dostępny i bezpieczny do odczytu.
-- [ ] Odczytać w panelu hostingu status zmiennych `RCN_DATA_SOURCE` i `DATA_SOURCE` (tylko ustawiona/nieustawiona; wartość sprawdzić lokalnie w panelu, ale nie kopiować jej do dokumentacji).
-- [ ] Potwierdzić, czy skonfigurowane są wymagane zmienne R2: `R2_BUCKET`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` — zapisać wyłącznie status obecności.
-- [ ] Zanotować potwierdzony tryb działania oraz źródło potwierdzenia.
-- [ ] Jeśli endpoint wymaga operacji odświeżania lub nie jest jednoznaczny, przerwać i nie uruchamiać operacji modyfikującej.
+- [ ] Właściciel odczytuje wartość RCN_DATA_SOURCE; to wartość niesekretna.
+- [ ] Do CONFIG.md wpisać tryb źródła i źródło potwierdzenia; nie dopisywać żadnych innych wartości zmiennych.
+- [ ] Status D1: Parquet/R2 potwierdzone / WFS potwierdzone / nieustalone.
 
-**Wynik D1:** `Parquet/R2 potwierdzone` / `WFS potwierdzone` / `nieustalone`.
+## 4. D2 — TERYT/SIMC
 
-## 4. D2 — SIMC jako wspólny słownik
+- [ ] Sprawdzić wyłącznie przez odczyt kodu i dostępnych odpowiedzi API, jakie pola słownika są dostępne.
+- [ ] Potwierdzić kody TERYT/SIMC i rozróżnianie miejscowości o tej samej nazwie.
+- [ ] Zapisać źródło oraz braki w CONFIG.md bez zmieniania repozytoriów źródłowych.
 
-Wstępna decyzja: wykorzystać istniejący słownik SIMC w RCN.
+## 5. D9 — mapowanie BDL ↔ TERYT
 
-- [ ] Potwierdzić, gdzie w repozytorium i w uruchomionej usłudze znajduje się słownik SIMC.
-- [ ] Sprawdzić, czy zawiera kody SIMC i TERYT oraz nazwy potrzebne do rozróżniania miejscowości o tej samej nazwie.
-- [ ] Ustalić, jak słownik jest aktualizowany i czy aktualizacja może być uruchamiana automatycznie.
-- [ ] Sprawdzić, czy inne moduły mogą pobrać słownik przez istniejące endpointy bez modyfikowania RCN.
-- [ ] Zapisać braki, w szczególności dla gmin wieloosadniczych.
+- [ ] Potwierdzić dostępne, zatwierdzone źródło mapowania identyfikatora BDL na TERYT.
+- [ ] Nie zakładać, że unit_id zawiera kod TERYT.
+- [ ] Zapisać źródło potwierdzenia albo oznaczyć D9 jako nieustalone; D9 pozostaje warunkiem rozpoczęcia M8.
 
-Nie uruchamiać endpointów odświeżania danych podczas E0.
+## 6. Punkt wejścia Ofert
 
-## 5. D3 — kod panelu DENEM
+- [ ] [FAKT: według kontekstu właściciela z 2026-10-26] usługa na Render ma startować poleceniem node server.js.
+- [ ] W AUDIT.md opisano ścieżkę npm start. Sprawdzić wyłącznie przez odczyt kodu, czy wskazany punkt wejścia i ścieżka startu odpowiadają aktualnemu kodowi.
+- [ ] Zapisać potwierdzony punkt wejścia w CONFIG.md z oznaczeniem [FAKT] albo [HIP]. Nie zmieniać ustawień usługi.
 
-- [ ] Zlokalizować repozytorium zawierające `denem.pl/panel` lub wskazać, że panel jest w innym repozytorium/hostingu.
-- [ ] Jeśli panel jest w repozytorium, przejrzeć kod bramki dostępu, routingu aplikacji, logowania i uprawnień.
-- [ ] Ustalić, jak panel przypisuje użytkownikowi dostęp do aplikacji (slugi).
-- [ ] Ustalić, czy dodanie nowej pozycji MEGA wymaga zmiany panelu, czy można dodać osobną stronę.
-- [ ] Zapisać rekomendację: `rozszerzyć panel` / `osobna strona` / `wymaga dalszej analizy`.
+## 7. RCN — odczyt kodu frontendu
 
-Nie zmieniać panelu ani uprawnień.
+- [ ] W repozytorium rcn-web-app tylko do odczytu sprawdzić, czy frontend wywołuje data_source_refresh.
+- [ ] Sprawdzić, czy frontend wywołuje trasy admin/debug.
+- [ ] Zanotować znalezione wywołania albo ich brak w zakresie sprawdzonego kodu; nie zmieniać repozytorium.
 
-## 6. D4 — możliwość osadzania modułów
+## 8. Status RCN_ADMIN_TOKEN
 
-Dla każdego z pięciu produkcyjnych adresów oraz powłoki/panelu:
+- [ ] Status dopuszczalne wartości: ustawiony / nieustawiony / nieznany.
+- [ ] [FAKT: zrzut listy zmiennych przekazany przez właściciela 2026-10-26] na zrzucie RCN_ADMIN_TOKEN jest nieustawiony.
+- [ ] [HIP] kompletność zrzutu i to, czy dotyczy właściwej usługi, nie są w pełni potwierdzone; status wymaga weryfikacji.
+- [ ] Zapisać wyłącznie status. Nie wpisywać wartości ani szczegółów o skutkach.
 
-- [ ] Odczytać nagłówki odpowiedzi HTTP `X-Frame-Options` i `Content-Security-Policy`, zwłaszcza dyrektywę `frame-ancestors`.
-- [ ] Zanotować wynik osobno dla każdego adresu.
-- [ ] Jeśli nagłówki są nieobecne, nie zakładać automatycznie, że osadzanie jest bezpieczne lub będzie działać we wszystkich przeglądarkach.
-- [ ] Sprawdzić, czy logowanie i bramka dostępu działają w kontekście osadzonej strony — wyłącznie przez bezpieczny test w przeglądarce, bez zmian produkcyjnych.
-- [ ] Do czasu potwierdzenia przyjąć osobne karty jako wariant awaryjny.
+## 9. Wyniki M1
 
-**Wynik D4:** `ramki potwierdzone` / `osobne karty` / `nieustalone`.
+- [ ] CORS i OPTIONS z Authorization — RCN: ______________________________
+- [ ] CORS i OPTIONS z Authorization — Oferty: ___________________________
+- [ ] CORS i OPTIONS z Authorization — Działki: __________________________
+- [ ] CORS i OPTIONS z Authorization — Podobne: __________________________
+- [ ] Zimny/ciepły start i metoda: ________________________________________
+- [ ] D1 — źródło danych RCN: ____________________________________________
+- [ ] D2 — dostępne pola TERYT/SIMC: _____________________________________
+- [ ] D9 — mapowanie BDL ↔ TERYT: _______________________________________
+- [ ] Oferty — punkt wejścia: ____________________________________________
+- [ ] RCN frontend — wywołania sprawdzone tylko do odczytu: ______________
+- [ ] RCN_ADMIN_TOKEN — status: __________________________________________
+- [ ] Otwarte kwestie, źródła i data: ___________________________________
 
-## 7. Supabase — tylko odczyt
+## 10. Ograniczenia
 
-- [ ] Potwierdzić nazwę/projekt używany przez pięć aplikacji.
-- [ ] Odczytać strukturę tabeli `gus_bdl_commune_wide` (nazwy kolumn, bez danych osobowych).
-- [ ] Sprawdzić, czy dostępna jest kolumna lub tabela mapująca `unit_id` BDL na TERYT.
-- [ ] Odczytać polityki RLS tabeli i zapisać jedynie ich sens oraz wynik kontroli.
-- [ ] Nie zmieniać RLS, kluczy, użytkowników, ról ani uprawnień.
-
-## 8. Macierz wyników
-
-- [ ] D1 — źródło RCN: ______________________________
-- [ ] D2 — słownik SIMC: _____________________________
-- [ ] D3 — miejsce powłoki: __________________________
-- [ ] D4 — osadzanie modułów: ________________________
-- [ ] Hosting i konfiguracja zebrane: tak / nie
-- [ ] Mapowanie BDL ↔ TERYT: potwierdzone / brak / nieustalone
-- [ ] Kod panelu przejrzany: tak / nie
-- [ ] Pozostałe blokery: ______________________________
-
-## 9. Warunki zamknięcia E0
-
-- [ ] Uzupełniono `CONFIG.md` bez sekretów.
-- [ ] Uzupełniono `DECISIONS.md` o wyniki D1–D4 oraz mapowanie BDL ↔ TERYT.
-- [ ] Każdy wynik ma wskazane źródło i datę sprawdzenia.
-- [ ] Nie dokonano żadnych zmian w kodzie ani na produkcji.
-- [ ] Właściciel projektu zatwierdził przejście do E1.
-
----
-
-# Szablon CONFIG.md
-
-## Metadane
-- Data kontroli:
-- Osoba wykonująca:
-- Zakres: tylko odczyt
-
-## Usługi
-
-| Moduł | Dostawca/hosting | Nazwa usługi | Domena | Plan/region | Build/start |
-|---|---|---|---|---|---|
-| RCN | | | | | |
-| Oferty | | | | | |
-| Działki | | | | | |
-| Rozkład | | | | | |
-| Gminy | | | | | |
-| Panel DENEM | | | | | |
-
-## Zmienne środowiskowe — bez wartości
-
-| Moduł | Nazwa zmiennej | Status ustawienia | Uwagi (bez sekretów) |
-|---|---|---|---|
-| RCN | `RCN_DATA_SOURCE` | | |
-| RCN | `DATA_SOURCE` | | |
-| RCN | `R2_BUCKET` | | |
-| RCN | `R2_ENDPOINT` | | |
-| RCN | `R2_ACCESS_KEY_ID` | | |
-| RCN | `R2_SECRET_ACCESS_KEY` | | |
-| RCN | `RCN_ADMIN_TOKEN` | | |
-| RCN | `GEOAPIFY_API_KEY` | | |
-| Oferty | `PORT` | | |
-| Działki | `PORT` | | |
-| Rozkład | `PORT` | | |
-| Rozkład | `UPSTREAM_PRG` | | |
-| Rozkład | `UPSTREAM_WFS` | | |
-
-Dopisz inne wykryte zmienne, zapisując tylko ich nazwy i status.
-
-## Wyniki E0
-
-- RCN — potwierdzony tryb źródła:
-- SIMC — lokalizacja i sposób udostępniania:
-- Panel — repozytorium i sposób dodawania aplikacji:
-- Ramki — wyniki kontroli nagłówków:
-- Supabase — tabela `gus_bdl_commune_wide`, dostępne kolumny:
-- Mapowanie BDL ↔ TERYT:
-- Otwarte kwestie:
-- Osoba zatwierdzająca przejście do E1:
+- [ ] Nie zmieniono pięciu repozytoriów źródłowych, konfiguracji ani danych.
+- [ ] Nie wykonano operacji na Render, Supabase ani Cloudflare R2 podczas M0.
+- [ ] Nie odczytano ani nie zapisano sekretów.
+- [ ] D3 i D4 pozostają nieblokujące zgodnie z DECISIONS.md.
