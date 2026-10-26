@@ -71,7 +71,7 @@ Każdy moduł zachowuje funkcje swojego źródła. Zmiany w źródłach lub ich 
 
 1. **CORS i preflight:** [FAKT: według właściciela 2026-10-26] backendy deklarują CORS *. M1 zmierzy odpowiedzi z obcego origin, w tym OPTIONS z Authorization; wynik może ograniczyć bezpośrednią integrację.
 2. **Dostępność API i czasy odpowiedzi:** [HIP] wpływ zimnego startu i różnic między pierwszym a kolejnym wywołaniem będzie mierzony w M1.
-3. **Lokalizacja:** mapowanie BDL ↔ TERYT nie jest jeszcze potwierdzone; D9 jest wymagane przed M8.
+3. **Lokalizacja:** [HIP] mapowanie BDL ↔ TERYT nie jest jeszcze potwierdzone; D9 jest wymagane przed M8.
 4. **Dostęp:** model logowania i dostępu pozostaje decyzją właściciela przed M8. Gminy nie rozpoczyna się przed jej podjęciem.
 5. **Uruchamianie Ofert:** [FAKT: według kontekstu właściciela 2026-10-26] usługa Render ma startować poleceniem node server.js; rozbieżność z opisem npm start w AUDIT.md wymaga sprawdzenia ścieżki startu w kodzie podczas M1.
 6. **Widoki zbiorcze:** zgodność liczb między modułami i zakres raportu wymagają osobnej weryfikacji w M9; D10 pozostaje otwarte.
