@@ -1,6 +1,7 @@
 # E0_CHECKLIST.md — checklista pomiarów M1
 
-**Zakres:** przygotowanie pomiarów M1. W M0 tę checklistę jedynie aktualizujemy. M1 ma charakter wyłącznie odczytowy; nie zmienia ustawień, danych, wdrożeń ani konfiguracji produkcyjnej.
+**Status na 2026-10-27:** M0 wykonane. M1 wykonane warunkowo; D2 i D9 pozostają otwarte i wracają w M3/M8 po otrzymaniu od właściciela plików TERC/SIMC z GUS oraz pełnego eksportu gmin. Pozostałe nieodhaczone pozycje wymagają własnego źródła potwierdzenia.
+**Zakres:** checklista pomiarów M1. M1 ma charakter wyłącznie odczytowy; nie zmienia ustawień, danych, wdrożeń ani konfiguracji produkcyjnej.
 
 [FAKT: według ustaleń właściciela z 2026-10-26] Repozytorium jest publiczne. Do CONFIG.md wpisuje się tylko nazwy zmiennych i status ustawienia, nigdy wartości sekretów. Wyjątek stanowi niesekretna wartość RCN_DATA_SOURCE.
 
@@ -35,11 +36,15 @@ Dla każdego API wykonaj bezpieczne wywołanie z origin spoza domeny usługi i z
 
 ## 4. D2 — TERYT/SIMC
 
+[Status: otwarte, przeniesione do M3] Właściciel dostarczy pliki TERC/SIMC z GUS. Do czasu ich otrzymania poniższe punkty pozostają nieodhaczone.
+
 - [ ] Sprawdzić wyłącznie przez odczyt kodu i dostępnych odpowiedzi API, jakie pola słownika są dostępne.
 - [ ] Potwierdzić kody TERYT/SIMC i rozróżnianie miejscowości o tej samej nazwie.
 - [ ] Zapisać źródło oraz braki w CONFIG.md bez zmieniania repozytoriów źródłowych.
 
 ## 5. D9 — mapowanie BDL ↔ TERYT
+
+[Status: otwarte, wraca w M3/M8] Właściciel dostarczy pliki TERC/SIMC z GUS oraz pełny eksport gmin. Próbka 100 rekordów nie zamyka D9.
 
 - [ ] Potwierdzić dostępne, zatwierdzone źródło mapowania identyfikatora BDL na TERYT.
 - [ ] Nie zakładać, że unit_id zawiera kod TERYT.
@@ -51,9 +56,9 @@ Dla każdego API wykonaj bezpieczne wywołanie z origin spoza domeny usługi i z
 
 ## 6. Punkt wejścia Ofert
 
-- [ ] [FAKT: odczyt konfiguracji usługi przez kierownika 2026-10-26; do potwierdzenia w kodzie] usługa ma startować poleceniem `node server.js`.
-- [ ] W AUDIT.md opisano ścieżkę npm start. Sprawdzić wyłącznie przez odczyt kodu, czy wskazany punkt wejścia i ścieżka startu odpowiadają aktualnemu kodowi.
-- [ ] Zapisać potwierdzony punkt wejścia w CONFIG.md z oznaczeniem [FAKT] albo [HIP]. Nie zmieniać ustawień usługi.
+- [x] Punkt wejścia produkcji `node server.js` potwierdzono w kodzie i porównano z `npm start` [FAKT z kodu: reports/m1a-code-review.md C1].
+- [x] Rozbieżność względem AUDIT.md sprawdzono wyłącznie przez odczyt kodu [FAKT z kodu: reports/m1a-code-review.md C1].
+- [x] Punkt wejścia zapisano w CONFIG.md; bez zmian ustawień usługi.
 
 ## 6a. Podobne — reguły hostingu frontu
 
@@ -61,9 +66,9 @@ Dla każdego API wykonaj bezpieczne wywołanie z origin spoza domeny usługi i z
 
 ## 7. RCN — odczyt kodu frontendu
 
-- [ ] W repozytorium rcn-web-app tylko do odczytu sprawdzić, czy frontend wywołuje data_source_refresh.
-- [ ] Sprawdzić, czy frontend wywołuje trasy admin/debug.
-- [ ] Zanotować znalezione wywołania albo ich brak w zakresie sprawdzonego kodu; nie zmieniać repozytorium.
+- [x] W repozytorium rcn-web-app tylko do odczytu sprawdzono, czy frontend wywołuje data_source_refresh [FAKT z kodu: reports/m1a-code-review.md B2].
+- [x] Sprawdzono wywołania tras admin/debug [FAKT z kodu: reports/m1a-code-review.md B2].
+- [x] Wynik zapisano w raporcie; repozytorium źródłowe pozostało bez zmian.
 
 ## 8. Status RCN_ADMIN_TOKEN
 
@@ -80,11 +85,11 @@ Dla każdego API wykonaj bezpieczne wywołanie z origin spoza domeny usługi i z
 - [x] CORS i OPTIONS z Authorization — Podobne: wyniki w CONFIG.md [FAKT: pomiar właściciela 2026-10-27].
 - [x] Dwa kolejne czasy i metoda: wyniki w CONFIG.md; klasyfikacja zimnego startu pozostaje [HIP].
 - [x] D1 — źródło danych RCN: potwierdzone w CONFIG.md [FAKT: odczyt właściciela z panelu 2026-10-27].
-- [ ] D2 — dostępne pola TERYT/SIMC: _____________________________________
-- [ ] D9 — mapowanie BDL ↔ TERYT: _______________________________________
-- [ ] Oferty — punkt wejścia: ____________________________________________
+- [ ] D2 — oczekuje na pliki TERC/SIMC od właściciela; powrót w M3.
+- [ ] D9 — oczekuje na pełny eksport gmin i TERC/SIMC; powrót w M3/M8.
+- [x] Oferty — punkt wejścia potwierdzono w reports/m1a-code-review.md C1.
 - [x] SHA wdrożonych commitów — odczyt właściciela z panelu; lista w CONFIG.md [FAKT: 2026-10-27].
-- [ ] RCN frontend — wywołania sprawdzone tylko do odczytu: ______________
+- [x] RCN frontend — wywołania sprawdzono tylko do odczytu; wynik w reports/m1a-code-review.md B2.
 - [ ] RCN_ADMIN_TOKEN — status: __________________________________________
 - [ ] Otwarte kwestie, źródła i data: ___________________________________
 
