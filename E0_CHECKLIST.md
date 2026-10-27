@@ -12,26 +12,26 @@ D3 (miejsce aplikacji) i D4 (iframe) są NIEBLOKUJĄCE. Samodzielna aplikacja ni
 
 Dla każdego API wykonaj bezpieczne wywołanie z origin spoza domeny usługi i zapisz metodę, origin, datę oraz odpowiedź. Nie wysyłaj sekretów.
 
-- [ ] RCN — CORS dla żądania właściwego.
-- [ ] RCN — OPTIONS z nagłówkiem Authorization.
-- [ ] Oferty — CORS dla żądania właściwego.
-- [ ] Oferty — OPTIONS z nagłówkiem Authorization.
-- [ ] Działki — CORS dla żądania właściwego.
-- [ ] Działki — OPTIONS z nagłówkiem Authorization.
-- [ ] Podobne — CORS dla żądania właściwego.
-- [ ] Podobne — OPTIONS z nagłówkiem Authorization.
+- [x] RCN — CORS dla żądania właściwego. [FAKT: pomiar właściciela 2026-10-27; wynik w CONFIG.md]
+- [x] RCN — OPTIONS z nagłówkiem Authorization. [FAKT: pomiar właściciela 2026-10-27; wynik w CONFIG.md]
+- [x] Oferty — CORS dla żądania właściwego. [FAKT: pomiar właściciela 2026-10-27; wynik w CONFIG.md]
+- [x] Oferty — OPTIONS z nagłówkiem Authorization. [FAKT: pomiar właściciela 2026-10-27; wynik w CONFIG.md]
+- [x] Działki — CORS dla żądania właściwego. [FAKT: pomiar właściciela 2026-10-27; wynik w CONFIG.md]
+- [x] Działki — OPTIONS z nagłówkiem Authorization. [FAKT: pomiar właściciela 2026-10-27; wynik w CONFIG.md]
+- [x] Podobne — CORS dla żądania właściwego. [FAKT: pomiar właściciela 2026-10-27; wynik w CONFIG.md]
+- [x] Podobne — OPTIONS z nagłówkiem Authorization. [FAKT: pomiar właściciela 2026-10-27; wynik w CONFIG.md]
 
 ## 2. Zimny i ciepły start
 
-- [ ] Dla RCN, Ofert, Działek i Podobnych zapisać czas pierwszego wywołania po bezczynności i czas kolejnego wywołania.
+- [x] Dla RCN, Ofert, Działek i Podobnych zapisano czas dwóch kolejnych wywołań. Status zimnego startu pozostaje [HIP], bo nie potwierdzono 15 minut bezczynności. Wyniki w CONFIG.md.
 - [ ] Nie restartować usług ani nie zmieniać ustawień w celu wymuszenia zimnego startu.
-- [ ] Opisać metodę pomiaru i oznaczyć wynik [FAKT] albo [HIP].
+- [x] Metoda: dwa kolejne wywołania w odstępie 2 s; status zimnego startu oznaczony [HIP], bo bezczynności ≥15 min nie potwierdzono. Wynik w CONFIG.md.
 
 ## 3. D1 — źródło danych RCN
 
-- [ ] Właściciel odczytuje wartość RCN_DATA_SOURCE; to wartość niesekretna.
-- [ ] Do CONFIG.md wpisać tryb źródła i źródło potwierdzenia; nie dopisywać żadnych innych wartości zmiennych.
-- [ ] Status D1: Parquet/R2 potwierdzone / WFS potwierdzone / nieustalone.
+- [x] Właściciel odczytał wartość RCN_DATA_SOURCE; potwierdzone w CONFIG.md [FAKT: odczyt właściciela z panelu 2026-10-27].
+- [x] Do CONFIG.md wpisano tryb źródła i źródło potwierdzenia; nie dopisano innych wartości zmiennych.
+- [x] Status D1: Parquet/R2 potwierdzone [FAKT: odczyt właściciela z panelu 2026-10-27; CONFIG.md].
 
 ## 4. D2 — TERYT/SIMC
 
@@ -45,6 +45,10 @@ Dla każdego API wykonaj bezpieczne wywołanie z origin spoza domeny usługi i z
 - [ ] Nie zakładać, że unit_id zawiera kod TERYT.
 - [ ] Zapisać źródło potwierdzenia albo oznaczyć D9 jako nieustalone; D9 pozostaje warunkiem rozpoczęcia M8.
 
+## 5a. Gminy — struktura tabeli przekazana przez właściciela
+
+- [x] Zapisano strukturę `gus_bdl_commune_wide`, pola i liczności `unit_kind` w CONFIG.md [FAKT: odczyt właściciela z panelu 2026-10-27]. Nie oznacza to potwierdzenia mapowania BDL ↔ TERYT; D9 pozostaje otwarte.
+
 ## 6. Punkt wejścia Ofert
 
 - [ ] [FAKT: odczyt konfiguracji usługi przez kierownika 2026-10-26; do potwierdzenia w kodzie] usługa ma startować poleceniem `node server.js`.
@@ -53,7 +57,7 @@ Dla każdego API wykonaj bezpieczne wywołanie z origin spoza domeny usługi i z
 
 ## 6a. Podobne — reguły hostingu frontu
 
-- [ ] Odczytać z panelu reguły przekierowań/rewrite usługi statycznej frontu Podobnych (bez zmian).
+- [x] Odczytano z panelu reguły przekierowań/rewrite usługi statycznej frontu Podobnych; brak reguł [FAKT: odczyt właściciela z panelu 2026-10-27; CONFIG.md].
 
 ## 7. RCN — odczyt kodu frontendu
 
@@ -70,16 +74,16 @@ Dla każdego API wykonaj bezpieczne wywołanie z origin spoza domeny usługi i z
 
 ## 9. Wyniki M1
 
-- [ ] CORS i OPTIONS z Authorization — RCN: ______________________________
-- [ ] CORS i OPTIONS z Authorization — Oferty: ___________________________
-- [ ] CORS i OPTIONS z Authorization — Działki: __________________________
-- [ ] CORS i OPTIONS z Authorization — Podobne: __________________________
-- [ ] Zimny/ciepły start i metoda: ________________________________________
-- [ ] D1 — źródło danych RCN: ____________________________________________
+- [x] CORS i OPTIONS z Authorization — RCN: wyniki w CONFIG.md [FAKT: pomiar właściciela 2026-10-27].
+- [x] CORS i OPTIONS z Authorization — Oferty: wyniki w CONFIG.md [FAKT: pomiar właściciela 2026-10-27].
+- [x] CORS i OPTIONS z Authorization — Działki: wyniki w CONFIG.md [FAKT: pomiar właściciela 2026-10-27].
+- [x] CORS i OPTIONS z Authorization — Podobne: wyniki w CONFIG.md [FAKT: pomiar właściciela 2026-10-27].
+- [x] Dwa kolejne czasy i metoda: wyniki w CONFIG.md; klasyfikacja zimnego startu pozostaje [HIP].
+- [x] D1 — źródło danych RCN: potwierdzone w CONFIG.md [FAKT: odczyt właściciela z panelu 2026-10-27].
 - [ ] D2 — dostępne pola TERYT/SIMC: _____________________________________
 - [ ] D9 — mapowanie BDL ↔ TERYT: _______________________________________
 - [ ] Oferty — punkt wejścia: ____________________________________________
-- [ ] SHA wdrożonych commitów — odczyt właściciela z panelu: ______________
+- [x] SHA wdrożonych commitów — odczyt właściciela z panelu; lista w CONFIG.md [FAKT: 2026-10-27].
 - [ ] RCN frontend — wywołania sprawdzone tylko do odczytu: ______________
 - [ ] RCN_ADMIN_TOKEN — status: __________________________________________
 - [ ] Otwarte kwestie, źródła i data: ___________________________________
