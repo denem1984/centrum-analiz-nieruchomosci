@@ -82,3 +82,34 @@ Frontend używa supabase-js 2 z CDN, a dane gmin pobiera przez select z tabeli g
 | Gminy, c1b682c4877553c9978b2942a429c7a9b1f4e54a | Jeden plik index.html 75 475 B z HTML/JavaScript; html2pdf.js i supabase-js 2 są ładowane z CDN. [FAKT z kodu: index.html:71-73; rozmiar pliku] | Brak package.json i requirements.txt w katalogu głównym; lokalny manifest zależności nie jest zadeklarowany. [FAKT z kodu: inwentarz plików repozytorium] | Klient Supabase konfiguruje się w pliku źródłowym; identyfikator projektu pominięto. [FAKT z kodu: index.html:96,100] |
 
 Nie odczytywano wartości zmiennych środowiskowych ani nie wysyłano żądań HTTP do usług wskazanych w kodzie. [FAKT: lokalny przegląd checkoutów; klient HTTP nie był uruchamiany]
+
+
+## C1. Oferty — relacja entrypointów
+
+- `npm start` uruchamia `node regional-fetch-bootstrap.js`. Bootstrap modyfikuje globalny `fetch` dla hostów Nieruchomości-online, podmienia odczyt index.html i przekierowuje import live-combined w compat-server; następnie ładuje compat-server. [FAKT z kodu: package.json:7-8; regional-fetch-bootstrap.js:40-54,58-77]
+- `node server.js` jest odrębną ścieżką: plik ustawia wewnętrzny port 10001, ładuje compat-server i uruchamia publiczny wrapper/proxy. Importuje też location-resolver, combined-apartment-diagnostics i live-combined-api-v05. Nie uruchamia regional-fetch-bootstrap. [FAKT z kodu: server.js:2,10-17]
+- Wniosek: audyt opisujący `npm start` nie dowodzi, że `node server.js` jest równoważnym entrypointem; te polecenia uruchamiają różne ścieżki kodu. [FAKT z kodu: package.json:7-8; server.js:2,10-17; regional-fetch-bootstrap.js:66-77]
+
+## C2. Podobne — konfiguracja tras API
+
+- Backend Node definiuje `/api/health`, `/api/prg`, `/api/regions`, `/api/prg-wfs` i `/api/uldk`; front wywołuje względne ścieżki `/api/*`. [FAKT z kodu: server.js:192-214; index.html:359-360,369,493,557]
+- W publicznym inwentarzu repo są `index.html`, `server.js` i `package.json`; nie znaleziono repozytoryjnego pliku konfiguracji rewrite/redirect. [FAKT z kodu: inwentarz `rg --files` repozytorium]
+- Czy hosting statycznego frontu przekazuje `/api/*` do backendu, pozostaje niepotwierdzone bez odczytu jego konfiguracji. [HIP] Dodano punkt E0 dla właściciela: odczyt reguł rewrite/redirect z panelu bez zmian.
+
+## C3. Działki — handler report-snapshot
+
+- Handler pobiera bbox i listę warstw, a dla zaznaczonych warstw pobiera obrazy mapowe z zewnętrznych usług, składa wynik w JSON i oczekuje na równoległe zadania. Przy wszystkich rozpoznawanych warstwach obrazu może uruchomić do siedmiu pobrań. [FAKT z kodu: api-dzialki/server.js:162-226]
+- W ciele handlera nie znaleziono zapisu do pliku ani bazy danych; jego widocznym skutkiem są żądania obrazów do usług mapowych. [FAKT z kodu: api-dzialki/server.js:162-226]
+- Front deklaruje `reportSnapshotApi`, ale sprawdzenie wystąpień w `index.html` znalazło tylko deklarację i brak wywołania tej zmiennej. [FAKT z kodu: index.html:863; przeszukanie wszystkich wystąpień `reportSnapshotApi`]
+
+## C4. Zewnętrzne zależności uruchamiane w przeglądarce
+
+| Moduł | Bezpośrednie połączenia z przeglądarki i częstotliwość |
+|---|---|
+| Oferty | Podpowiedzi idą do własnego `/api/location-suggestions` po debounce 250 ms przy wpisywaniu; kliknięcie wyszukiwania wykonuje `/api/resolve-location` i `/api/live/combined`. Nie znaleziono bezpośredniego fetchu frontu do zewnętrznego portalu. [FAKT z kodu: index.html:87,91] |
+| RCN | Mapa używa kafli OpenStreetMap i Esri; reverse geocoding Nominatim jest wywoływany przy wskazanych zdarzeniach zmiany/ustawienia centrum analizy. [FAKT z kodu: static/app.js:704-711,792,806,824-826,856-860] |
+| Działki | Front ładuje zależności Leaflet/proj4 i generatory raportu z CDN; warstwy mapy pobierają kafle/WMS, a wybór działki odpytuje ULDK. Własność WFS jest odświeżana przy zmianie widoku mapy po debounce 350 ms, jeżeli warstwa jest włączona. [FAKT z kodu: index.html:1,21,211-212,412,451,557,567] |
+| Podobne | Mapa pobiera kafle Esri; Nominatim geokoduje adres komparatora przy jego lokalizowaniu oraz adres główny po akcji wyszukania. [FAKT z kodu: index.html:333-334,629-631,735-738,1127-1130] |
+| Gminy | Front ładuje supabase-js z CDN; podczas inicjalizacji odczytuje profil przez RPC, warunkowo sprawdza dostęp przez RPC, a następnie stronicuje odczyt tabeli po 1000 wierszy. Nie wykonano żadnego zapytania do Supabase w ramach przeglądu. [FAKT z kodu: index.html:72,130,145-160; brak połączenia z Supabase] |
+
+Żaden kod ani konfiguracja pięciu repozytoriów źródłowych nie został zmieniony. Wszystkie ustalenia powyżej pochodzą z lokalnego odczytu zapisanych checkoutów; nie wykonano połączeń HTTP do ich usług. [FAKT: checkouty lokalne; skrypt pomiarowy nie był uruchamiany]

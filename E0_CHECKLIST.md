@@ -51,6 +51,10 @@ Dla każdego API wykonaj bezpieczne wywołanie z origin spoza domeny usługi i z
 - [ ] W AUDIT.md opisano ścieżkę npm start. Sprawdzić wyłącznie przez odczyt kodu, czy wskazany punkt wejścia i ścieżka startu odpowiadają aktualnemu kodowi.
 - [ ] Zapisać potwierdzony punkt wejścia w CONFIG.md z oznaczeniem [FAKT] albo [HIP]. Nie zmieniać ustawień usługi.
 
+## 6a. Podobne — reguły hostingu frontu
+
+- [ ] Odczytać z panelu reguły przekierowań/rewrite usługi statycznej frontu Podobnych (bez zmian).
+
 ## 7. RCN — odczyt kodu frontendu
 
 - [ ] W repozytorium rcn-web-app tylko do odczytu sprawdzić, czy frontend wywołuje data_source_refresh.
