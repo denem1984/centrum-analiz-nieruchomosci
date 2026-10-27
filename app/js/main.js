@@ -1,16 +1,128 @@
 import { BACKENDS, BACKEND_IDS } from "./config.js";
 import { checkBackend, getBackendStatus } from "./health.js";
+import { decodeContext, encodeContext, contextStore } from "./context.js";
 import { MODULES, MODULE_BY_ID } from "./modules/registry.js";
 
 export const MODULE_IDS = Object.freeze(MODULES.map((module) => module.id));
 
 export function resolveRoute(hash) {
-  const value = String(hash ?? "").replace(/^#/, "").replace(/^\/+/, "");
-  return MODULE_IDS.includes(value) ? value : "start";
+  const fragment = String(hash ?? "").replace(/^#/, "");
+  const path = fragment.split("?", 1)[0].replace(/^\/+/, "");
+  return MODULE_IDS.includes(path) ? path : "start";
 }
 
-export function hashForRoute(id) {
-  return "#/" + (MODULE_IDS.includes(id) ? id : "start");
+export function hashForRoute(id, encodedContext = null) {
+  const route = MODULE_IDS.includes(id) ? id : "start";
+  const hash = "#/" + route;
+  return typeof encodedContext === "string" && encodedContext
+    ? hash + "?ctx=" + encodedContext
+    : hash;
+}
+
+function encodedCurrentContext() {
+  const context = contextStore.get();
+  if (context.kind === "nieokreslona") return null;
+  return encodeContext(context).encoded;
+}
+
+export function decodeContextFromHash(hash) {
+  const fragment = String(hash ?? "").replace(/^#/, "");
+  const queryIndex = fragment.indexOf("?");
+  if (queryIndex === -1) return { present: false, context: null, reason: null };
+  const params = new URLSearchParams(fragment.slice(queryIndex + 1));
+  if (!params.has("ctx")) return { present: false, context: null, reason: null };
+  const decoded = decodeContext(params.get("ctx"));
+  return { present: true, context: decoded.context, reason: decoded.reason };
+}
+
+export function formatLocationSummary(context) {
+  if (!context || context.kind === "nieokreslona") return "Nie wybrano lokalizacji";
+
+  const primary = context.name
+    ?? context.place?.name
+    ?? context.gmina?.name
+    ?? (context.parcel ? "Działka " + context.parcel.id : null)
+    ?? (context.point ? "Punkt " + context.point.lat + ", " + context.point.lon : "Lokalizacja");
+  const details = [];
+  if (context.gmina?.name) details.push("gmina: " + context.gmina.name);
+  if (context.powiat?.name) details.push("powiat: " + context.powiat.name);
+  if (context.voivodeship?.name) details.push("województwo: " + context.voivodeship.name);
+  return "Wybrana lokalizacja: " + [primary, ...details].join(" · ");
+}
+
+function updateLocationToolbar(context = contextStore.get()) {
+  const summary = document.getElementById("location-summary");
+  if (summary) summary.textContent = locationSummary(context);
+  const clearButton = document.getElementById("clear-location");
+  if (clearButton) clearButton.disabled = context.kind === "nieokreslona";
+}
+
+function renderNavigation(activeId) {
+  const nav = document.getElementById("module-nav");
+  nav.replaceChildren();
+  const encodedContext = encodedCurrentContext();
+
+  for (const module of MODULES) {
+    const link = document.createElement("a");
+    link.className = "module-link";
+    link.href = hashForRoute(module.id, encodedContext);
+    link.dataset.moduleLink = module.id;
+    link.textContent = module.label;
+    if (module.id === activeId) link.setAttribute("aria-current", "page");
+    nav.append(link);
+  }
+}
+
+function updateNavigationLinks() {
+  const encodedContext = encodedCurrentContext();
+  for (const link of document.querySelectorAll("[data-module-link]")) {
+    link.href = hashForRoute(link.dataset.moduleLink, encodedContext);
+  }
+}
+
+function showContextLoadError(message = "") {
+  const status = document.getElementById("context-load-status");
+  if (status) status.textContent = message;
+}
+
+function loadContextFromHash(hash) {
+  const decoded = decodeContextFromHash(hash);
+  showContextLoadError();
+  if (!decoded.present) {
+    contextStore.clear();
+    return true;
+  }
+
+  if (!decoded.context) {
+    showContextLoadError("Nie udało się wczytać lokalizacji z adresu");
+    return false;
+  }
+  const stored = contextStore.set(decoded.context);
+  if (!stored.context) {
+    showContextLoadError("Nie udało się wczytać lokalizacji z adresu");
+    return false;
+  }
+  return true;
+}
+
+function writeContextToHash() {
+  if (typeof window === "undefined") return;
+  const route = resolveRoute(window.location.hash);
+  const hash = hashForRoute(route, encodedCurrentContext());
+  if (window.location.hash !== hash) {
+    const url = window.location.pathname + window.location.search + hash;
+    window.history.replaceState(null, "", url);
+  }
+  updateNavigationLinks();
+}
+
+function setAppContext(value) {
+  const result = contextStore.set(value);
+  if (result.context) {
+    showContextLoadError();
+    writeContextToHash();
+  }
+  return result;
 }
 
 function textElement(tagName, text, className) {
@@ -97,26 +209,14 @@ function renderBackendCards(container) {
   container.append(section);
 }
 
-function renderNavigation(activeId) {
-  const nav = document.getElementById("module-nav");
-  nav.replaceChildren();
-
-  for (const module of MODULES) {
-    const link = document.createElement("a");
-    link.className = "module-link";
-    link.href = hashForRoute(module.id);
-    link.textContent = module.label;
-    if (module.id === activeId) link.setAttribute("aria-current", "page");
-    nav.append(link);
-  }
-}
-
 function renderCurrentView() {
-  const route = resolveRoute(window.location.hash);
-  const normalizedHash = hashForRoute(route);
-  if (window.location.hash !== normalizedHash) {
-    const currentUrl = window.location.pathname + window.location.search + normalizedHash;
-    window.history.replaceState(null, "", currentUrl);
+  const rawHash = window.location.hash;
+  loadContextFromHash(rawHash);
+  const route = resolveRoute(rawHash);
+  const normalizedHash = hashForRoute(route, encodedCurrentContext());
+  if (rawHash !== normalizedHash) {
+    const url = window.location.pathname + window.location.search + normalizedHash;
+    window.history.replaceState(null, "", url);
   }
 
   renderNavigation(route);
@@ -126,6 +226,8 @@ function renderCurrentView() {
     createBackendStatusPanel,
     renderBackendCards,
     getBackendStatus,
+    setContext: setAppContext,
+    providerConfig: { provider: "fixture" },
   };
   MODULE_BY_ID[route].mount(view, ctx);
 }
@@ -137,6 +239,16 @@ function startHealthChecks() {
 }
 
 function init() {
+  contextStore.subscribe((context) => {
+    updateLocationToolbar(context);
+    updateNavigationLinks();
+  });
+  updateLocationToolbar();
+  document.getElementById("clear-location").addEventListener("click", () => {
+    contextStore.clear();
+    showContextLoadError();
+    writeContextToHash();
+  });
   renderCurrentView();
   window.addEventListener("hashchange", renderCurrentView);
   startHealthChecks();
@@ -145,3 +257,6 @@ function init() {
 if (typeof document !== "undefined" && typeof window !== "undefined") {
   init();
 }
+
+
+

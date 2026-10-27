@@ -1,3 +1,5 @@
+import { mountLocationSearch } from "../location/search-ui.js";
+
 function appendText(parent, tagName, text, className) {
   const element = document.createElement(tagName);
   if (className) element.className = className;
@@ -35,6 +37,7 @@ function mountStart(container, ctx) {
   );
   appendText(section, "p", "moduł w przygotowaniu", "preparation-note");
   container.append(section);
+  mountLocationSearch(container, ctx);
   ctx.renderBackendCards(container);
 }
 
@@ -62,3 +65,4 @@ export const MODULES = Object.freeze([
 export const MODULE_BY_ID = Object.freeze(
   Object.fromEntries(MODULES.map((module) => [module.id, module])),
 );
+
