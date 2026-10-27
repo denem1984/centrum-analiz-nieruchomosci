@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * M1 read-only probe. This script sends only GET and OPTIONS to the fixed
- * allowlist below; it never follows redirects or reads response bodies.
- * First pass is followed by a 2-second pause and a second pass. A reliable
- * cold-start measurement requires at least 15 minutes of service inactivity;
- * the 2-second gap only provides a nearby second sample.
+ * M1 read-only probe for owner-run measurements only.
+ * This script sends only GET and OPTIONS requests to the fixed method/path
+ * allowlist below. It never follows redirects or reads response bodies.
+ * Each pass is followed by a 2-second pause before the next pass. A reliable
+ * cold-start measurement requires at least 15 minutes of service inactivity.
  */
 
 import { mkdir, writeFile } from "node:fs/promises";
@@ -12,11 +12,37 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const ALLOWED_METHODS = Object.freeze(["GET", "OPTIONS"]);
+export const DEFAULT_TIMEOUT_MS = 120000;
+export const MIN_TIMEOUT_MS = 5000;
+export const MAX_TIMEOUT_MS = 300000;
+const ORIGIN = "https://example.org";
+
+const GET_PREFLIGHT_HEADERS = Object.freeze({
+  Origin: ORIGIN,
+  "Access-Control-Request-Method": "GET",
+  "Access-Control-Request-Headers": "authorization",
+});
+const EXPORT_PREFLIGHT_HEADERS = Object.freeze({
+  Origin: ORIGIN,
+  "Access-Control-Request-Method": "POST",
+  "Access-Control-Request-Headers": "content-type",
+});
+const STANDARD_METHODS = Object.freeze(["GET", "OPTIONS"]);
+const OPTIONS_ONLY = Object.freeze(["OPTIONS"]);
+
+function pathRule(methods, preflightHeaders = GET_PREFLIGHT_HEADERS) {
+  return Object.freeze({ methods, preflightHeaders });
+}
+
 export const ALLOWLIST = Object.freeze({
-  RCN: Object.freeze({ path: "/" }),
-  Oferty: Object.freeze({ path: "/health" }),
-  Dzialki: Object.freeze({ path: "/health" }),
-  Podobne: Object.freeze({ path: "/api/health" }),
+  RCN: Object.freeze({
+    "/": pathRule(STANDARD_METHODS),
+    "/api/export_current.xlsx": pathRule(OPTIONS_ONLY, EXPORT_PREFLIGHT_HEADERS),
+    "/api/export_current.docx": pathRule(OPTIONS_ONLY, EXPORT_PREFLIGHT_HEADERS),
+  }),
+  Oferty: Object.freeze({ "/health": pathRule(STANDARD_METHODS) }),
+  Dzialki: Object.freeze({ "/health": pathRule(STANDARD_METHODS) }),
+  Podobne: Object.freeze({ "/api/health": pathRule(STANDARD_METHODS) }),
 });
 
 const CONFIG = Object.freeze([
@@ -26,11 +52,6 @@ const CONFIG = Object.freeze([
   { key: "podobne", label: "Podobne", env: "M1_PODOBNE_BASE_URL" },
 ]);
 
-const PREFLIGHT_HEADERS = Object.freeze({
-  Origin: "https://example.org",
-  "Access-Control-Request-Method": "GET",
-  "Access-Control-Request-Headers": "authorization",
-});
 const SAFE_RESPONSE_HEADERS = Object.freeze([
   "access-control-allow-origin",
   "access-control-allow-methods",
@@ -42,26 +63,37 @@ const SAFE_RESPONSE_HEADERS = Object.freeze([
 ]);
 
 function normalizedLabel(service) {
-  const found = Object.entries(ALLOWLIST).find(([key]) =>
+  const found = Object.keys(ALLOWLIST).find((key) =>
     key.toLowerCase() === String(service).toLowerCase()
       || (key === "Dzialki" && String(service).toLowerCase() === "działki")
   );
   if (!found) throw new Error("Request denied by allowlist");
-  return found[0];
+  return found;
+}
+
+function getPathRule(service, path) {
+  const label = normalizedLabel(service);
+  const rules = ALLOWLIST[label][path];
+  if (!rules) throw new Error("Request denied by allowlist");
+  return { service: label, rules };
 }
 
 export function assertAllowedRequest(service, method, path) {
-  const label = normalizedLabel(service);
+  const { service: label, rules } = getPathRule(service, path);
   const verb = String(method).toUpperCase();
-  if (!ALLOWED_METHODS.includes(verb) || path !== ALLOWLIST[label].path) {
+  if (!ALLOWED_METHODS.includes(verb) || !rules.methods.includes(verb)) {
     throw new Error("Request denied by allowlist");
   }
-  return { service: label, method: verb, path };
+  return {
+    service: label,
+    method: verb,
+    path,
+    preflightHeaders: rules.preflightHeaders,
+  };
 }
 
 export function buildProbeUrl(baseUrl, service, path) {
-  const label = normalizedLabel(service);
-  assertAllowedRequest(label, "GET", path);
+  getPathRule(service, path);
   let url;
   try {
     url = new URL(baseUrl);
@@ -75,6 +107,49 @@ export function buildProbeUrl(baseUrl, service, path) {
   }
   url.pathname = path;
   return url;
+}
+
+export function parseTimeoutMs(value = DEFAULT_TIMEOUT_MS) {
+  const timeoutMs = typeof value === "number" ? value : Number(value);
+  if (!Number.isInteger(timeoutMs) || timeoutMs < MIN_TIMEOUT_MS || timeoutMs > MAX_TIMEOUT_MS) {
+    throw new Error("Timeout must be an integer from 5000 to 300000 milliseconds");
+  }
+  return timeoutMs;
+}
+
+export function readCliOptions(argv, env) {
+  const addresses = {};
+  const optionToKey = new Map(CONFIG.map((entry) => ["--" + entry.key, entry.key]));
+  let cliTimeout;
+  for (let i = 0; i < argv.length; i += 1) {
+    if (argv[i] === "--timeout-ms") {
+      if (cliTimeout !== undefined || i + 1 >= argv.length || argv[i + 1].startsWith("--")) {
+        throw new Error("Use --timeout-ms with an integer from 5000 to 300000.");
+      }
+      cliTimeout = argv[i + 1];
+      i += 1;
+      continue;
+    }
+    const key = optionToKey.get(argv[i]);
+    if (!key || i + 1 >= argv.length || argv[i + 1].startsWith("--")) {
+      throw new Error("Use --rcn, --oferty, --dzialki and --podobne with base URLs.");
+    }
+    addresses[key] = argv[i + 1];
+    i += 1;
+  }
+  for (const entry of CONFIG) {
+    addresses[entry.key] ||= env[entry.env] || "";
+  }
+  const missing = CONFIG.filter((entry) => !addresses[entry.key]).map((entry) => entry.label);
+  if (missing.length) throw new Error("Missing base URL for: " + missing.join(", "));
+  for (const entry of CONFIG) {
+    const path = Object.keys(ALLOWLIST[entry.label])[0];
+    buildProbeUrl(addresses[entry.key], entry.label, path);
+  }
+  return {
+    addresses,
+    timeoutMs: parseTimeoutMs(cliTimeout ?? env.M1_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS),
+  };
 }
 
 export function parseProbeResponse(status, headers, elapsedMs, timestamp) {
@@ -98,75 +173,71 @@ export async function requestProbe({
   baseUrl,
   method,
   path,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
   fetchImpl = globalThis.fetch,
   now = () => performance.now(),
   dateNow = () => new Date(),
 }) {
   const allowed = assertAllowedRequest(service, method, path);
+  const timeout = parseTimeoutMs(timeoutMs);
   const url = buildProbeUrl(baseUrl, allowed.service, allowed.path);
+  const signal = AbortSignal.timeout(timeout);
   const init = {
     method: allowed.method,
     redirect: "manual",
     cache: "no-store",
-    signal: AbortSignal.timeout(15000),
+    signal,
+    headers: allowed.method === "GET"
+      ? { Origin: ORIGIN }
+      : { ...allowed.preflightHeaders },
   };
-  if (allowed.method === "OPTIONS") init.headers = { ...PREFLIGHT_HEADERS };
 
   const started = now();
   const checkedAt = dateNow();
-  const response = await fetchImpl(url, init);
-  const elapsedMs = now() - started;
   try {
-    await response.body?.cancel?.();
-  } catch {
-    // The response body is intentionally ignored; cancellation is best effort.
-  }
-  return {
-    service: allowed.service,
-    method: allowed.method,
-    path: allowed.path,
-    ...parseProbeResponse(response.status, response.headers, elapsedMs, checkedAt),
-  };
-}
-
-function readCliAddresses(argv, env) {
-  const addresses = {};
-  const optionToKey = new Map(CONFIG.map((entry) => ["--" + entry.key, entry.key]));
-  for (let i = 0; i < argv.length; i += 1) {
-    const key = optionToKey.get(argv[i]);
-    if (!key || i + 1 >= argv.length || argv[i + 1].startsWith("--")) {
-      throw new Error("Use --rcn, --oferty, --dzialki and --podobne with base URLs.");
+    const response = await fetchImpl(url, init);
+    const elapsedMs = now() - started;
+    try {
+      await response.body?.cancel?.();
+    } catch {
+      // The response body is intentionally ignored; cancellation is best effort.
     }
-    addresses[key] = argv[i + 1];
-    i += 1;
+    return {
+      service: allowed.service,
+      method: allowed.method,
+      path: allowed.path,
+      ...parseProbeResponse(response.status, response.headers, elapsedMs, checkedAt),
+    };
+  } catch (error) {
+    const elapsedMs = Math.max(0, now() - started);
+    return {
+      service: allowed.service,
+      method: allowed.method,
+      path: allowed.path,
+      timestamp: new Date(checkedAt).toISOString(),
+      elapsedMs: Math.round(elapsedMs * 100) / 100,
+      httpStatus: null,
+      headers: {},
+      errorType: signal.aborted || error?.name === "TimeoutError" ? "timeout" : "network",
+    };
   }
-  for (const entry of CONFIG) {
-    addresses[entry.key] ||= env[entry.env] || "";
-  }
-  const missing = CONFIG.filter((entry) => !addresses[entry.key]).map((entry) => entry.label);
-  if (missing.length) throw new Error("Missing base URL for: " + missing.join(", "));
-  return addresses;
-}
-
-function sleep(ms) {
-  return new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
 }
 
 export function formatConfigSummary(results) {
   const lines = [
     "## M1 — wyniki pomiaru HTTP",
     "",
-    "| API | Próba | Metoda | Data UTC | Czas (ms) | HTTP | Access-Control-* / Cache-Control |",
-    "|---|---:|---|---|---:|---:|---|",
+    "| API | Ścieżka | Próba | Metoda | Data UTC | Czas (ms) | HTTP | Błąd | Access-Control-* / Cache-Control |",
+    "|---|---|---:|---|---|---:|---:|---|---|",
   ];
   for (const result of results) {
-    const headerText = Object.entries(result.headers)
+    const headerText = Object.entries(result.headers || {})
       .map(([name, value]) => name + ": " + value)
       .join("; ") || "brak";
     lines.push(
-      "| " + result.service + " | " + result.sample + " | " + result.method + " | "
-      + result.timestamp + " | " + (result.elapsedMs ?? "—") + " | "
-      + (result.httpStatus ?? "błąd") + " | " + headerText + " |"
+      "| " + result.service + " | " + result.path + " | " + result.sample + " | "
+      + result.method + " | " + result.timestamp + " | " + (result.elapsedMs ?? "—") + " | "
+      + (result.httpStatus ?? "błąd") + " | " + (result.errorType || "—") + " | " + headerText + " |"
     );
   }
   lines.push("", "Uwaga: wiarygodny zimny start wymaga co najmniej 15 min bezczynności usługi.");
@@ -174,9 +245,9 @@ export function formatConfigSummary(results) {
 }
 
 async function main() {
-  let addresses;
+  let options;
   try {
-    addresses = readCliAddresses(process.argv.slice(2), process.env);
+    options = readCliOptions(process.argv.slice(2), process.env);
   } catch (error) {
     process.stderr.write((error?.message || "Invalid arguments") + "\n");
     process.exitCode = 2;
@@ -185,30 +256,18 @@ async function main() {
 
   const results = [];
   for (const sample of ["pierwsze", "drugie"]) {
-    if (sample === "drugie") await sleep(2000);
+    if (sample === "drugie") await new Promise((resolvePromise) => setTimeout(resolvePromise, 2000));
     for (const entry of CONFIG) {
-      const path = ALLOWLIST[entry.label].path;
-      for (const method of ALLOWED_METHODS) {
-        try {
+      for (const [path, rules] of Object.entries(ALLOWLIST[entry.label])) {
+        for (const method of rules.methods) {
           const result = await requestProbe({
             service: entry.label,
-            baseUrl: addresses[entry.key],
+            baseUrl: options.addresses[entry.key],
             method,
             path,
+            timeoutMs: options.timeoutMs,
           });
           results.push({ sample, ...result });
-        } catch (error) {
-          results.push({
-            service: entry.label,
-            sample,
-            method,
-            path,
-            timestamp: new Date().toISOString(),
-            elapsedMs: null,
-            httpStatus: null,
-            headers: {},
-            errorType: error?.name || "Error",
-          });
         }
       }
     }
