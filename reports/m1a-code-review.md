@@ -113,3 +113,14 @@ Nie odczytywano wartości zmiennych środowiskowych ani nie wysyłano żądań H
 | Gminy | Front ładuje supabase-js z CDN; podczas inicjalizacji odczytuje profil przez RPC, warunkowo sprawdza dostęp przez RPC, a następnie stronicuje odczyt tabeli po 1000 wierszy. Nie wykonano żadnego zapytania do Supabase w ramach przeglądu. [FAKT z kodu: index.html:72,130,145-160; brak połączenia z Supabase] |
 
 Żaden kod ani konfiguracja pięciu repozytoriów źródłowych nie został zmieniony. Wszystkie ustalenia powyżej pochodzą z lokalnego odczytu zapisanych checkoutów; nie wykonano połączeń HTTP do ich usług. [FAKT: checkouty lokalne; skrypt pomiarowy nie był uruchamiany]
+
+## A4 — potwierdzenie tras sond
+
+| Usługa | Trasa sondy | Dowód z kodu | Status |
+|---|---|---|---|
+| Działki | GET /health | [FAKT z kodu: api-dzialki/server.js:1951] | Potwierdzona: stały JSON, bez upstreamu i skutków ubocznych. |
+| Oferty | GET /health | [FAKT z kodu: server.js:2,10-17; compat-server.js:15] | Potwierdzona: wrapper przekazuje przez proxy do compat-server; handler zwraca lekki JSON. |
+| Podobne | GET /api/health | [FAKT z kodu: server.js:192] | Potwierdzona: lokalny JSON statusu, bez upstreamu. |
+| RCN | GET / | [FAKT z kodu: main.py:5425-5428] | Potwierdzona: statyczny FileResponse dla index.html, bez DuckDB/Parquet. |
+
+Wszystkie cztery trasy sondy zgadzają się z ALLOWLIST w scripts/m1-probe.mjs; nie zmieniano allowlisty, README ani testów.
