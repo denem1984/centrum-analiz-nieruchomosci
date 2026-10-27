@@ -8,7 +8,7 @@ Przed rozpoczęciem zadania przeczytaj README.md, AGENTS.md, CLAUDE.md, AUDIT.md
 
 - Nie zmieniaj portalu denem.pl ani repozytorium denem1984/denem.
 - Pięć repozytoriów źródłowych — rcn-web-app, Analizator-cen-ofertowych, analizator-nieruchomosci, rozklad-nieruchomosci-podobnych i gminy — jest tylko do odczytu. Nie zapisuj w nich zmian.
-- Nie wykonuj żadnych operacji na Render, Supabase ani Cloudflare R2, także przez narzędzia MCP, chyba że właściciel wyda osobne, wyraźne polecenie dla takiej pracy.
+- Wykonawca bez żadnych wyjątków nie wykonuje operacji na panelach ani API zarządzania Render, Supabase i Cloudflare R2. Wykonawca nie odczytuje ani nie zapisuje wartości zmiennych środowiskowych, także niesekretnych. W M1 wykonawca może wysyłać wyłącznie proste żądania HTTP GET, OPTIONS lub HEAD do publicznych adresów API wskazanych w części C zadania; w pozostałych etapach nie wysyła żądań do tych usług.
 - Nie wdrażaj ani nie scalaj zmian do main. PR ma pozostać otwarty do decyzji właściciela.
 - Nie odczytuj, nie zapisuj ani nie wklejaj wartości sekretów, tokenów, haseł, kluczy ani wartości zmiennych środowiskowych. RCN_DATA_SOURCE jest niesekretną wartością trybu źródła i może zostać odczytana przez właściciela w M1.
 - Repozytorium jest publiczne. Nie dodawaj do niego wartości konfiguracji, tokenów, kluczy, danych osobowych ani identyfikatorów kont lub usług. Dozwolone są nazwy zmiennych i status ustawienia; wyjątek stanowi niesekretna wartość RCN_DATA_SOURCE.
