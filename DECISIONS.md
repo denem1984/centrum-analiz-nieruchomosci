@@ -10,9 +10,9 @@
 
 ## D2 — Wspólny słownik lokalizacji (2026-10-27)
 
-- **Status:** kandydat potwierdzony w kodzie; pełna lista runtime nie została pobrana.
+- **Status:** otwarte; do ponownego podjęcia w M3 z plikami TERC/SIMC z GUS od właściciela.
 - **Decyzja:** [FAKT z kodu] RCN ładuje SIMC z cache, a przy jego braku pobiera SIMC i TERC, z małym `teryt_places.csv` jako fallback. Kod zwraca TERYT gminy i SIMC miejscowości; szczegóły i ograniczenia próbek zapisano w reports/m1c-d2-simc.md.
-- **Wpływ architektury:** TERYT/SIMC pozostaje kandydatem wspólnego klucza. Użyteczne pola i zachowanie przy nazwach powtarzalnych wymagają uwzględnienia w adapterze M3.
+- **Wpływ architektury:** TERYT/SIMC pozostaje kandydatem wspólnego klucza. Właściciel dostarczy pliki TERC/SIMC z GUS do M3; pełna lista i zachowanie przy nazwach powtarzalnych wymagają potwierdzenia.
 
 ## D3 — Miejsce aplikacji (2026-10-26)
 
@@ -31,13 +31,16 @@
 - **Status:** otwarte; właściciel rozstrzyga przed M8.
 - **Decyzja:** do czasu tej decyzji aplikacja nie ma własnej bramki. Nie wdrażać własnego logowania ani kontroli dostępu w M0–M7.
 - **Wniosek techniczny:** [FAKT: pomiar właściciela 2026-10-27] preflight Ofert, Działek i Podobnych nie dopuszcza nagłówka Authorization; RCN go dopuszcza. [HIP] Nowa aplikacja nie powinna przekazywać tokenów do trzech pierwszych usług. To ograniczenie transportu CORS nie rozstrzyga modelu dostępu aplikacji.
-- **Wpływ architektury:** bez zmiany integracji bezpośrednio z API; dostęp musi być rozstrzygnięty przed rozpoczęciem modułu Gminy. Szczegóły pomiaru są w CONFIG.md.
+- [FAKT: ustalenie właściciela 2026-10-27] Moduł Gminy korzysta z pliku danych (opcja B) i nie zależy od Supabase ani logowania modułu.
+- **Wpływ architektury:** logowanie całej aplikacji pozostaje odrębną decyzją D5 do rozstrzygnięcia przed M8; szczegóły pomiaru są w CONFIG.md.
 
-## D6 — Automatyzacja testów (2026-10-26)
+## D6 — Technologia i automatyzacja testów (2026-10-27)
 
-- **Status:** do ponownej oceny w M2.
-- **Decyzja:** M2 określi podstawowe lintowanie, build i testy dla nowej aplikacji. Testy ręczne modułów pozostają w macierzy regresji.
-- **Wpływ architektury:** brak zmiany statusu.
+- **Status:** przyjęta przez właściciela przez przekazanie zadania.
+- **Decyzja:** aplikacja jest statyczna: czysty HTML, moduły ES i CSS, bez kroku budowania i bez zależności npm. Testy uruchamiają się przez `node --test`.
+- **Powód:** uproszczone wdrożenie jako Render Static Site z katalogiem publikacji `app/` i bez build command, ograniczona dostępność sieci w środowisku wykonawcy oraz spójność ze starymi aplikacjami opartymi na czystym HTML/JS.
+- **Biblioteki zewnętrzne:** w M2 nie ładujemy CDN ani innych zasobów zewnętrznych. W M4 właściciel/kierownik zdecyduje, czy przypinać wersje CDN, czy dodać pliki do repo.
+- **Wpływ architektury:** brak build command; testy nie wysyłają żądań do backendów. Jedynymi połączeniami aplikacji M2 są lekkie GET-y zdrowia z konfiguracji.
 
 ## D7 — Łączenie backendów źródłowych (2026-10-26)
 
@@ -53,10 +56,10 @@
 
 ## D9 — Mapowanie BDL ↔ TERYT (2026-10-27)
 
-- **Status:** otwarte; kandydat reguły sprawdzony na próbce, pełne mapowanie wymagane przed M8.
+- **Status:** otwarte; wraca w M3/M8 po otrzymaniu przez właściciela pełnego eksportu gmin i plików TERC/SIMC.
 - **Decyzja:** [FAKT: odczyt właściciela z panelu 2026-10-27] `gus_bdl_commune_wide` nie ma kolumny TERYT. [FAKT z danych] Dołączony CSV zawiera 100 jednostek i tylko jeden kod województwa; wyprowadzona reguła daje 100 unikalnych kandydatów TERC7, ale tylko jeden kandydat można porównać z lokalnym 22-wierszowym fallbackiem RCN. Szczegóły są w reports/m1c-d9-mapping.md.
 - **Rekomendacja [HIP]:** dla M3 rozważyć wyliczanie TERC7 z `unit_id` po walidacji całego zbioru 2479 jednostek z autorytatywnym TERC. Nie zamykać D9 na podstawie próbki.
-- **Wpływ architektury:** zależność modułu Gminy pozostaje otwarta do walidacji pełnego zbioru. Wspólne wyszukiwanie M3 nadal używa TERYT/SIMC.
+- **Wpływ architektury:** właściciel dostarczy pełny eksport gmin do M8 oraz pliki TERC/SIMC z GUS; zależność mapowania pozostaje otwarta do walidacji. Wspólne wyszukiwanie M3 nadal używa TERYT/SIMC.
 
 ## D10 — Zakres raportu zbiorczego (2026-10-26)
 
