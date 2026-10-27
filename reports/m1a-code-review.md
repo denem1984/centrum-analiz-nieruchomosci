@@ -50,9 +50,9 @@ Nie ma parametrów ograniczających status do lekkiej odpowiedzi. Do pomiaru w s
 | /api/wfs | GET jako URL warstwy WFS. [FAKT z kodu: index.html:451] |
 | /api/mpzp-info | GET z latitude/longitude. [FAKT z kodu: index.html:332,451] |
 | /api/rwdz-feature-info | GET z query string. [FAKT z kodu: index.html:772] |
-| /api/report-snapshot | GET pobierający snapshot. [FAKT z kodu: index.html:863,875] |
+| /api/report-snapshot | Nie znaleziono wywołania frontu; `reportSnapshotApi` jest tylko zadeklarowane. [FAKT z kodu: index.html:863; wyszukanie wszystkich użyć w pliku] |
 
-Wywołania używają fetch bez jawnego pola method, czyli domyślnego GET. [FAKT z kodu: index.html:324-345,412,451,772,863-875; HIP: wniosek o metodzie domyślnej fetch] Front ma zaszyty host backendu analizator-nieruchomosci.onrender.com. [FAKT z kodu: index.html:320,342,412,451,772,863]
+Wywołania frontu do API używają fetch bez jawnego pola method ani body, czyli domyślnego GET; nie znaleziono POST/PUT. [FAKT z kodu: index.html:320-345,412,451,772; HIP: wniosek o metodzie domyślnej fetch] Trzy wywołania ustawiają nagłówek Accept: application/json; nie znaleziono nagłówka Content-Type ani innych nagłówków w żądaniach do API. [FAKT z kodu: index.html:412,539,676; wyszukanie method/headers w całym pliku] Front ma zaszyty host backendu analizator-nieruchomosci.onrender.com. [FAKT z kodu: index.html:320,342,412,451,772]. `reportSnapshotApi` jest stałą bez wywołania fetch.
 
 ### Podobne — rozklad-nieruchomosci-podobnych
 
@@ -124,3 +124,33 @@ Nie odczytywano wartości zmiennych środowiskowych ani nie wysyłano żądań H
 | RCN | GET / | [FAKT z kodu: main.py:5425-5428] | Potwierdzona: statyczny FileResponse dla index.html, bez DuckDB/Parquet. |
 
 Wszystkie cztery trasy sondy zgadzają się z ALLOWLIST w scripts/m1-probe.mjs; nie zmieniano allowlisty, README ani testów.
+
+
+## M1c — porównanie rewizji i metody frontu
+
+### B1. Checkouty a wdrożone SHA
+
+| Usługa | HEAD checkoutu przeglądanego wcześniej | SHA wdrożenia odczytany przez właściciela | Wynik |
+|---|---|---|---|
+| RCN | `85cb2f91348e10fc1fa3491c5e4e0c07b4a952bb` | `85cb2f9` | zgodny |
+| Oferty | `596451bae3af76790c0b96b0c5927191ced7add8` | `596451b` | zgodny |
+| Działki | `a1aa39d711b2730dfcf62799e42ab7d79d4bf3d3` | `a1aa39d` | zgodny |
+| Podobne | `a75020163912d23dbd5e48bfdc2fbcf2134e0931` | `a750201` | zgodny |
+| Gminy | `c1b682c4877553c9978b2942a429c7a9b1f4e54a` | `c1b682c` | zgodny |
+
+[FAKT: lokalne `git rev-parse HEAD` dla pięciu checkoutów oraz odczyt właściciela z panelu 2026-10-27]. Wszystkie pięć SHA wdrożeń pokrywa się z checkoutami w B5, więc nie było różnic do porównania przez `git diff --stat`.
+
+### B2. Podobne — serwowanie frontu i metody
+
+- Backend Node zwraca zawartość `index.html` dla `/` i `/index.html`; kod nie montuje katalogu statycznego ani osobnych plików assetów. [FAKT z kodu: rozklad-nieruchomosci-podobnych/server.js:6-7,218-224; inwentarz repozytorium]
+- Front wywołuje `/api/prg/{layer}/query`, `/api/regions?teryt=` i `/api/uldk`; żądania nie ustawiają pola `method` ani `body`, więc są GET. Bezpośrednie wyszukiwanie w Nominatim również jest GET i ustawia tylko `Accept-Language`. [FAKT z kodu: index.html:359-360,369,493,557,630; HIP: metoda domyślna fetch]
+- W pliku frontu nie znaleziono POST ani PUT. [FAKT z kodu: wyszukanie method/fetch w całym index.html]
+- Właściciel potwierdził, że osobna usługa statyczna nie ma reguł rewrite ani redirect. [FAKT: odczyt właściciela z panelu 2026-10-27]. Front używa ścieżek względnych, a źródło nie zawiera hostname usługi backendu; routing między usługami pozostaje poza kodem i wymaga decyzji hostingu. [FAKT z kodu: index.html:359-360,369,493,557; HIP: skutek ścieżek względnych przy braku rewrite]
+
+### B3. Oferty i Działki — metody oraz nagłówki frontu
+
+- Oferty: front wywołuje `/api/location-suggestions`, `/api/resolve-location` i `/api/live/combined`; wszystkie `fetch` nie podają `method`, `body` ani nagłówków i domyślnie używają GET. Nie znaleziono POST/PUT ani `Content-Type` w żądaniach frontu. [FAKT z kodu: Analizator-cen-ofertowych/index.html:87,91; HIP: metoda domyślna fetch]
+- Działki: rzeczywiste trasy frontu to `/api/mpzp-gmina-info`, `/api/dzinfo`, `/api/ownership-national`, `/api/wfs`, `/api/mpzp-info` i `/api/rwdz-feature-info`. Wszystkie używają domyślnego GET; nie znaleziono POST/PUT. `/api/report-snapshot` jest zadeklarowane jako stała, ale nieużyte. [FAKT z kodu: analizator-nieruchomosci/index.html:320,324,332,342-345,412,451,772,863; wyszukanie wszystkich wystąpień]
+- W trzech wywołaniach Działek front ustawia `Accept: application/json`; żadne żądanie API nie ustawia `Content-Type` ani innego nagłówka. [FAKT z kodu: analizator-nieruchomosci/index.html:412,539,676; wyszukanie headers w całym pliku]
+- Działki zaszywają publiczny host `analizator-nieruchomosci.onrender.com`; Oferty używają ścieżek względnych obsługiwanych przez wrapper; Podobne używają ścieżek względnych. [FAKT z kodu: analizator-nieruchomosci/index.html:320,342,412,451,772; Analizator-cen-ofertowych/index.html:87,91; rozklad-nieruchomosci-podobnych/index.html:359-360,493,557]
+- Wykonawca nie wysyłał żądań HTTP do API produkcyjnych. [FAKT: zakres wykonanych czynności]

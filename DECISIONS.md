@@ -2,17 +2,17 @@
 
 **Data aktualizacji:** 2026-10-26. Ustalenia właściciela z tej daty mają pierwszeństwo przed starszymi zapisami.
 
-## D1 — Źródło danych RCN (2026-10-26)
+## D1 — Źródło danych RCN (2026-10-27)
 
-- **Status:** wstępne wskazanie; potwierdzenie w M1.
-- **Decyzja:** wstępny wybór to Parquet z Cloudflare R2. Właściciel odczyta w M1 niesekretną wartość RCN_DATA_SOURCE, aby potwierdzić rzeczywisty tryb.
-- **Wpływ architektury:** brak zmiany statusu; tryb wpływa na interpretację danych i pomiary modułu RCN.
+- **Status:** rozstrzygnięte; potwierdzone przez właściciela.
+- **Decyzja:** `RCN_DATA_SOURCE = r2_parquet` [FAKT: odczyt właściciela z panelu 2026-10-27]. To niesekretna wartość trybu.
+- **Wpływ architektury:** moduł RCN planuje się i porównuje z danymi Parquet w R2. Szczegóły pomiaru znajdują się w CONFIG.md.
 
-## D2 — Wspólny słownik lokalizacji (2026-10-26)
+## D2 — Wspólny słownik lokalizacji (2026-10-27)
 
-- **Status:** kandydat do potwierdzenia w M1.
-- **Decyzja:** kandydatem jest słownik SIMC z aplikacji RCN. W M1 sprawdzić jego dostępność, wymagane pola i możliwość wykorzystania przez istniejące API.
-- **Wpływ architektury:** brak zmiany statusu; TERYT/SIMC pozostaje wspólnym kluczem dla wyszukiwania.
+- **Status:** kandydat potwierdzony w kodzie; pełna lista runtime nie została pobrana.
+- **Decyzja:** [FAKT z kodu] RCN ładuje SIMC z cache, a przy jego braku pobiera SIMC i TERC, z małym `teryt_places.csv` jako fallback. Kod zwraca TERYT gminy i SIMC miejscowości; szczegóły i ograniczenia próbek zapisano w reports/m1c-d2-simc.md.
+- **Wpływ architektury:** TERYT/SIMC pozostaje kandydatem wspólnego klucza. Użyteczne pola i zachowanie przy nazwach powtarzalnych wymagają uwzględnienia w adapterze M3.
 
 ## D3 — Miejsce aplikacji (2026-10-26)
 
@@ -26,11 +26,12 @@
 - **Decyzja:** moduły są natywnymi zakładkami aplikacji, a integracja odbywa się przez bezpośrednie wywołania API. Nie zakładamy iframe.
 - **Wpływ architektury:** kontrola nagłówków pod kątem osadzania nie jest wymagana. D4 wraca tylko wtedy, gdy właściciel ponownie rozważy iframe.
 
-## D5 — Logowanie i dostęp (2026-10-26)
+## D5 — Logowanie i dostęp (2026-10-27)
 
 - **Status:** otwarte; właściciel rozstrzyga przed M8.
 - **Decyzja:** do czasu tej decyzji aplikacja nie ma własnej bramki. Nie wdrażać własnego logowania ani kontroli dostępu w M0–M7.
-- **Wpływ architektury:** bez zmiany integracji bezpośrednio z API; dostęp musi być rozstrzygnięty przed rozpoczęciem modułu Gminy.
+- **Wniosek techniczny:** [FAKT: pomiar właściciela 2026-10-27] preflight Ofert, Działek i Podobnych nie dopuszcza nagłówka Authorization; RCN go dopuszcza. [HIP] Nowa aplikacja nie powinna przekazywać tokenów do trzech pierwszych usług. To ograniczenie transportu CORS nie rozstrzyga modelu dostępu aplikacji.
+- **Wpływ architektury:** bez zmiany integracji bezpośrednio z API; dostęp musi być rozstrzygnięty przed rozpoczęciem modułu Gminy. Szczegóły pomiaru są w CONFIG.md.
 
 ## D6 — Automatyzacja testów (2026-10-26)
 
@@ -50,11 +51,12 @@
 - **Decyzja:** rekomendacja pozostaje: slug nowej aplikacji mega i uprawnienia do zakładek zgodne ze slugami modułów; właściciel potwierdzi to razem z D5 przed M8.
 - **Wpływ architektury:** brak zmiany statusu; do tego czasu nie implementować bramki.
 
-## D9 — Mapowanie BDL ↔ TERYT (2026-10-26)
+## D9 — Mapowanie BDL ↔ TERYT (2026-10-27)
 
-- **Status:** otwarte; sprawdzić w M1, wymagane przed M8.
-- **Decyzja:** potwierdzić wiarygodne mapowanie identyfikatora jednostki BDL na TERYT dla modułu Gminy.
-- **Wpływ architektury:** pozostaje zależnością modułu Gminy; wspólne wyszukiwanie M3 nadal używa TERYT/SIMC.
+- **Status:** otwarte; kandydat reguły sprawdzony na próbce, pełne mapowanie wymagane przed M8.
+- **Decyzja:** [FAKT: odczyt właściciela z panelu 2026-10-27] `gus_bdl_commune_wide` nie ma kolumny TERYT. [FAKT z danych] Dołączony CSV zawiera 100 jednostek i tylko jeden kod województwa; wyprowadzona reguła daje 100 unikalnych kandydatów TERC7, ale tylko jeden kandydat można porównać z lokalnym 22-wierszowym fallbackiem RCN. Szczegóły są w reports/m1c-d9-mapping.md.
+- **Rekomendacja [HIP]:** dla M3 rozważyć wyliczanie TERC7 z `unit_id` po walidacji całego zbioru 2479 jednostek z autorytatywnym TERC. Nie zamykać D9 na podstawie próbki.
+- **Wpływ architektury:** zależność modułu Gminy pozostaje otwarta do walidacji pełnego zbioru. Wspólne wyszukiwanie M3 nadal używa TERYT/SIMC.
 
 ## D10 — Zakres raportu zbiorczego (2026-10-26)
 
@@ -86,5 +88,5 @@
 
 ## Źródła do potwierdzenia w M1
 
-- CORS `*` dla backendów RCN, Oferty, Działek i Podobnych: [FAKT z audytu kodu AUDIT.md; do potwierdzenia pomiarem w M1].
-- Punkt wejścia usługi Ofert `node server.js`: [FAKT: odczyt konfiguracji usługi przez kierownika 2026-10-26; do potwierdzenia w kodzie].
+- CORS `*` dla backendów RCN, Oferty, Działek i Podobnych: [FAKT: pomiar właściciela 2026-10-27; wynik w CONFIG.md].
+- Punkt wejścia usługi Ofert `node server.js`: [FAKT z kodu: server.js:1-2,10-17; przegląd checkoutu zgodnego z wdrożonym SHA; reports/m1a-code-review.md C1].
