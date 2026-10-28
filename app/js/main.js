@@ -52,7 +52,7 @@ export function formatLocationSummary(context) {
 
 function updateLocationToolbar(context = contextStore.get()) {
   const summary = document.getElementById("location-summary");
-  if (summary) summary.textContent = locationSummary(context);
+  if (summary) summary.textContent = formatLocationSummary(context);
   const clearButton = document.getElementById("clear-location");
   if (clearButton) clearButton.disabled = context.kind === "nieokreslona";
 }
@@ -257,6 +257,7 @@ function init() {
 if (typeof document !== "undefined" && typeof window !== "undefined") {
   init();
 }
+
 
 
 

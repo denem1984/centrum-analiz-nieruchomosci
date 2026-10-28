@@ -23,6 +23,7 @@ Przed rozpoczęciem zadania przeczytaj README.md, AGENTS.md, CLAUDE.md, AUDIT.md
 - Przy niejasności zatrzymaj zależną część pracy i zapisz konkretne pytanie w raporcie. Kontynuuj niezależną pracę, jeśli to możliwe.
 - Raportuj tylko komendy faktycznie uruchomione i wyniki faktycznie sprawdzone.
 - Właściciel podejmuje decyzje, scala PR, autoryzuje wdrożenia i wykonuje testy ręczne.
+- Każde zadanie dotyczące interfejsu musi zawierać test startowy aplikacji (z atrapą DOM) oraz opis ręcznego sprawdzenia; zielone testy jednostkowe same nie dowodzą, że strona się uruchamia.
 
 ## Raport końcowy
 
@@ -40,3 +41,4 @@ Każde zadanie zakończ blokiem RAPORT dla kierownika w tym formacie:
     9. Sprzeczności i otwarte pytania
     10. Test ręczny dla właściciela
     11. Proponowany następny krok
+

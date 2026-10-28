@@ -16,8 +16,8 @@ function validGmina(overrides = {}) {
     match: "exact",
     name: "Przykładowice",
     voivodeship: { code: "01", name: "Testowe województwo" },
-    powiat: { code: "0012", name: "Powiat testowy" },
-    gmina: { terc7: "0101203", name: "Przykładowice", kind: 2 },
+    powiat: { code: "0101", name: "Powiat testowy" },
+    gmina: { terc7: "0101202", name: "Przykładowice", kind: 2 },
     ...overrides,
   };
 }
@@ -25,15 +25,15 @@ function validGmina(overrides = {}) {
 test("walidator zachowuje kody jako tekst, w tym zera wiodące", () => {
   const result = validateContext(validGmina({ bdlUnitId: "000000000001" }));
   assert.equal(result.context.voivodeship.code, "01");
-  assert.equal(result.context.powiat.code, "0012");
-  assert.equal(result.context.gmina.terc7, "0101203");
+  assert.equal(result.context.powiat.code, "0101");
+  assert.equal(result.context.gmina.terc7, "0101202");
   assert.equal(result.context.bdlUnitId, "000000000001");
 });
 
 test("walidator odrzuca kody liczbowe, błędne długości i typ gmina.kind", () => {
   assert.match(validateContext(validGmina({ voivodeship: { code: 1, name: "Test" } })).reason, /tekst/);
   assert.match(validateContext(validGmina({ powiat: { code: "012", name: "Test" } })).reason, /długość/);
-  assert.match(validateContext(validGmina({ gmina: { terc7: "0101203", name: "Test", kind: "2" } })).reason, /kind/);
+  assert.match(validateContext(validGmina({ gmina: { terc7: "0101202", name: "Test", kind: "2" } })).reason, /kind/);
   assert.match(validateContext(validGmina({ bdlUnitId: "123" })).reason, /długość/);
 });
 
@@ -54,8 +54,8 @@ test("brak wymaganych pól dla rodzaju lokalizacji unieważnia kontekst", () => 
   assert.match(validateContext({
     version: "1", source: "start", kind: "miejscowosc", match: "exact",
     voivodeship: { code: "01", name: "Test" },
-    powiat: { code: "0012", name: "Test" },
-    gmina: { terc7: "0101203", name: "Test", kind: null },
+    powiat: { code: "0101", name: "Test" },
+    gmina: { terc7: "0101202", name: "Test", kind: null },
   }).reason, /place/);
   assert.match(validateContext({ version: "1", source: "start", kind: "dzialka", match: "exact" }).reason, /parcel/);
   assert.match(validateContext({ version: "1", source: "start", kind: "punkt", match: "exact" }).reason, /point/);
@@ -66,8 +66,8 @@ test("JSON kontekstu ma limit 2048 bajtów po UTF-8", () => {
   const result = validateContext(validGmina({
     name: long,
     voivodeship: { code: "01", name: long },
-    powiat: { code: "0012", name: long },
-    gmina: { terc7: "0101203", name: long, kind: 2 },
+    powiat: { code: "0101", name: long },
+    gmina: { terc7: "0101202", name: long, kind: 2 },
     place: { simc7: "0000001", name: long },
     kind: "miejscowosc",
   }));
@@ -92,7 +92,7 @@ test("encode → decode round-trip zachowuje kody i pola kontekstu", () => {
   assert.ok(encoded.encoded);
   const decoded = decodeContext(encoded.encoded);
   assert.equal(decoded.reason, null);
-  assert.equal(decoded.context.gmina.terc7, "0101203");
+  assert.equal(decoded.context.gmina.terc7, "0101202");
   assert.equal(decoded.context.place.simc7, "0000456");
   assert.equal(decoded.context.place.name, "Łódków");
 });
@@ -110,7 +110,7 @@ test("pusty kontekst i magazyn obsługują subscribe, set i clear", () => {
   const unsubscribe = store.subscribe((value) => seen.push(value));
   assert.equal(emptyContext().kind, "nieokreslona");
   assert.equal(store.set(validGmina()).reason, null);
-  assert.equal(store.get().gmina.terc7, "0101203");
+  assert.equal(store.get().gmina.terc7, "0101202");
   store.clear();
   assert.equal(store.get().kind, "nieokreslona");
   assert.equal(seen.length, 2);
@@ -119,4 +119,33 @@ test("pusty kontekst i magazyn obsługują subscribe, set i clear", () => {
   assert.equal(seen.length, 2);
 });
 
+
+
+test("walidator odrzuca niespójne prefiksy województwa, powiatu i gminy", () => {
+  assert.ok(validateContext(validGmina()).context);
+
+  const mismatchedPowiat = validGmina({
+    powiat: { code: "0201", name: "Powiat testowy" },
+  });
+  assert.match(validateContext(mismatchedPowiat).reason, /prefiksu kodu województwa/);
+
+  const mismatchedGmina = validGmina({
+    gmina: { terc7: "0201202", name: "Przykładowice", kind: 2 },
+  });
+  assert.match(validateContext(mismatchedGmina).reason, /prefiksu kodu powiatu/);
+});
+
+test("hipoteza rodzaju gminy wiąże nie-null kind z ostatnią cyfrą TERC7", () => {
+  const mismatch = validGmina({
+    gmina: { terc7: "0101203", name: "Przykładowice", kind: 2 },
+  });
+  assert.match(validateContext(mismatch).reason, /^\[HIP\]/);
+
+  for (const ending of ["4", "5", "8", "9"]) {
+    const context = validGmina({
+      gmina: { terc7: "010120" + ending, name: "Przykładowice", kind: null },
+    });
+    assert.ok(validateContext(context).context, "końcówka " + ending + " z kind=null");
+  }
+});
 

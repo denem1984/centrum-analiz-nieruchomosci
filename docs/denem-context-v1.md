@@ -24,6 +24,13 @@ Wartości kodów są zawsze tekstem. Nie wolno konwertować kodów na liczby, ab
 
 Każdy kod pozostaje tekstem także po dekodowaniu. Nazwy są niepustym tekstem. Nieznane pola obiektu kontekstu oraz zagnieżdżonych pól są ignorowane. Walidator tworzy wynik tylko z rozpoznanych pól. Nieprawidłowy typ, długość lub format kodu unieważnia cały kontekst.
 
+### Spójność kodów
+
+Jeśli jednocześnie podano kod województwa i powiatu, kod powiatu musi zaczynać się kodem województwa. Jeśli podano kod powiatu i gminę, `gmina.terc7` musi zaczynać się kodem powiatu. Niespójność unieważnia cały kontekst.
+
+**[HIP] Do weryfikacji w M3b:** gdy `gmina.kind` nie jest `null`, ostatnia cyfra `gmina.terc7` ma być równa rodzajowi; końcówki 4, 5, 8 lub 9 mają wymagać `kind: null`. Hipoteza wynika z próbki opisanej w `reports/m1c-d9-mapping.md` i nie jest traktowana jako potwierdzona reguła danych; komunikaty walidacji oznaczają ją jako [HIP]. M3b sprawdzi ją na pełnym, autorytatywnym TERC i może wymagać zmiany kontraktu.
+
+
 ## Wymagane pola według rodzaju
 
 | `kind` | Pola wymagane |
@@ -67,4 +74,5 @@ Wyniki o tej samej znormalizowanej nazwie mają `match: "ambiguous"` i etykietę
 ## Etapy i ograniczenia
 
 M3a dostarcza kontrakt, walidację, magazyn pamięci, pasek lokalizacji, routing `?ctx=` oraz fikcyjne wyszukiwanie. Nie dodaje rzeczywistego słownika, plików GUS/TERYT ani logiki modułów merytorycznych. M3b zależy od plików TERC/SIMC od właściciela i ponownej walidacji D2/D9. Kontrakt może wymagać nowej wersji zamiast cichej zmiany formatu, jeżeli M3b ujawni niezgodność.
+
 

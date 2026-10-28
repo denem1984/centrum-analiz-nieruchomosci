@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeQuery } from "../app/js/location/normalize.js";
+import { validateContext } from "../app/js/context.js";
 import { FIXTURE_CANDIDATES } from "../app/js/location/fixtures.js";
+import { normalizeQuery } from "../app/js/location/normalize.js";
 import { fixtureProvider, selectedCandidateContext } from "../app/js/location/provider.js";
 
 test("normalizacja usuwa polskie znaki diakrytyczne i zwija spacje", () => {
@@ -36,5 +37,15 @@ test("wybór kandydata zmienia match na exact i tworzy ważny kontekst", async (
   assert.equal(selected.context.gmina.terc7, candidate.gmina.terc7);
 });
 
+
+
+
+test("wszystkie fikstury spełniają walidację spójności kodów", () => {
+  assert.ok(FIXTURE_CANDIDATES.length <= 30);
+  for (const candidate of FIXTURE_CANDIDATES) {
+    assert.equal(candidate.test, true);
+    assert.ok(validateContext(candidate).context, candidate.label);
+  }
+});
 
 

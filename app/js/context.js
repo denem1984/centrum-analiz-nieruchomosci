@@ -175,6 +175,24 @@ export function validateContext(input) {
     return invalid("Dla punktu wymagane jest pole point.");
   }
 
+  if (context.voivodeship && context.powiat
+      && !context.powiat.code.startsWith(context.voivodeship.code)) {
+    return invalid("Kod powiatu nie ma prefiksu kodu województwa.");
+  }
+  if (context.powiat && context.gmina
+      && !context.gmina.terc7.startsWith(context.powiat.code)) {
+    return invalid("Kod TERC7 gminy nie ma prefiksu kodu powiatu.");
+  }
+  if (context.gmina) {
+    const lastTercDigit = context.gmina.terc7.at(-1);
+    if (["4", "5", "8", "9"].includes(lastTercDigit) && context.gmina.kind !== null) {
+      return invalid("[HIP] Rodzaj gminy przy tej końcówce TERC7 wymaga weryfikacji w M3b; oczekiwano kind=null.");
+    }
+    if (context.gmina.kind !== null && lastTercDigit !== String(context.gmina.kind)) {
+      return invalid("[HIP] Niespójność TERC7 i gmina.kind według hipotezy do weryfikacji w M3b.");
+    }
+  }
+
   try {
     const byteLength = new TextEncoder().encode(JSON.stringify(context)).length;
     if (byteLength > MAX_CONTEXT_BYTES) {
@@ -281,4 +299,5 @@ export function createContextStore() {
 }
 
 export const contextStore = createContextStore();
+
 
