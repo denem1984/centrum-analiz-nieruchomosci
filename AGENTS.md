@@ -41,4 +41,3 @@ Każde zadanie zakończ blokiem RAPORT dla kierownika w tym formacie:
     9. Sprzeczności i otwarte pytania
     10. Test ręczny dla właściciela
     11. Proponowany następny krok
-
