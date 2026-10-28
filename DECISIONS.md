@@ -10,9 +10,9 @@
 
 ## D2 — Wspólny słownik lokalizacji (2026-10-27)
 
-- **Status:** otwarte; do ponownego podjęcia w M3 z plikami TERC/SIMC z GUS od właściciela.
+- **Status:** otwarte; do ponownego podjęcia w M3b z plikami TERC/SIMC z GUS od właściciela.
 - **Decyzja:** [FAKT z kodu] RCN ładuje SIMC z cache, a przy jego braku pobiera SIMC i TERC, z małym `teryt_places.csv` jako fallback. Kod zwraca TERYT gminy i SIMC miejscowości; szczegóły i ograniczenia próbek zapisano w reports/m1c-d2-simc.md.
-- **Wpływ architektury:** TERYT/SIMC pozostaje kandydatem wspólnego klucza. Właściciel dostarczy pliki TERC/SIMC z GUS do M3; pełna lista i zachowanie przy nazwach powtarzalnych wymagają potwierdzenia.
+- **Wpływ architektury:** TERYT/SIMC pozostaje kandydatem wspólnego klucza. Właściciel dostarczy pliki TERC/SIMC z GUS do M3b; pełna lista i zachowanie przy nazwach powtarzalnych wymagają potwierdzenia.
 
 ## D3 — Miejsce aplikacji (2026-10-26)
 
@@ -56,9 +56,9 @@
 
 ## D9 — Mapowanie BDL ↔ TERYT (2026-10-27)
 
-- **Status:** otwarte; wraca w M3/M8 po otrzymaniu przez właściciela pełnego eksportu gmin i plików TERC/SIMC.
+- **Status:** otwarte; wraca w M3b/M8 po otrzymaniu przez właściciela pełnego eksportu gmin i plików TERC/SIMC.
 - **Decyzja:** [FAKT: odczyt właściciela z panelu 2026-10-27] `gus_bdl_commune_wide` nie ma kolumny TERYT. [FAKT z danych] Dołączony CSV zawiera 100 jednostek i tylko jeden kod województwa; wyprowadzona reguła daje 100 unikalnych kandydatów TERC7, ale tylko jeden kandydat można porównać z lokalnym 22-wierszowym fallbackiem RCN. Szczegóły są w reports/m1c-d9-mapping.md.
-- **Rekomendacja [HIP]:** dla M3 rozważyć wyliczanie TERC7 z `unit_id` po walidacji całego zbioru 2479 jednostek z autorytatywnym TERC. Nie zamykać D9 na podstawie próbki.
+- **Rekomendacja [HIP]:** dla M3b rozważyć wyliczanie TERC7 z `unit_id` po walidacji całego zbioru 2479 jednostek z autorytatywnym TERC. Nie zamykać D9 na podstawie próbki.
 - **Wpływ architektury:** właściciel dostarczy pełny eksport gmin do M8 oraz pliki TERC/SIMC z GUS; zależność mapowania pozostaje otwarta do walidacji. Wspólne wyszukiwanie M3 nadal używa TERYT/SIMC.
 
 ## D10 — Zakres raportu zbiorczego (2026-10-26)
@@ -85,6 +85,13 @@
 - **Decyzja:** ustalić, czy aktualizować dokumentację w repozytorium RCN.
 - **Wpływ architektury:** brak wpływu. Repozytorium RCN pozostaje tylko do odczytu bez osobnego polecenia.
 
+## D14 — DenemContext v1 (2026-10-27)
+
+- **Status:** przyjęta do czasu M3b; M3b ma zweryfikować kontrakt na plikach TERC/SIMC od właściciela.
+- **Decyzja:** wspólny kontekst przekazuje jawnie rozdzielone pola `voivodeship.code`, `powiat.code`, `gmina.terc7`, `place.simc7`, `parcel`, `point` i opcjonalne `bdlUnitId`. Wszystkie kody są tekstem, a kontekst ma wersję `"1"`.
+- **Powód:** TERC gminy, SIMC miejscowości i identyfikator jednostki BDL opisują różne klucze; jedno niejednoznaczne pole utrudniłoby walidację i mapowanie. D9 pozostaje otwarte, dlatego `bdlUnitId` nie jest wypełniany w M3a.
+- **Zakres M3a:** walidacja, magazyn tylko w pamięci, przekazanie kontekstu w hash URL oraz wyszukiwanie na fiksturach. Brak rzeczywistego słownika; M3b zależy od plików TERC/SIMC od właściciela i walidacji D2/D9.
+
 ## Zasady repozytorium
 
 [FAKT: decyzja właściciela z 2026-10-26] Repozytorium jest publiczne. Nie zapisujemy w nim wartości sekretów, konfiguracji, tokenów, kluczy, danych osobowych ani identyfikatorów kont lub usług. Wyjątkiem jest niesekretna wartość trybu RCN_DATA_SOURCE. Pięć repozytoriów źródłowych jest tylko do odczytu.
@@ -93,3 +100,5 @@
 
 - CORS `*` dla backendów RCN, Oferty, Działek i Podobnych: [FAKT: pomiar właściciela 2026-10-27; wynik w CONFIG.md].
 - Punkt wejścia usługi Ofert `node server.js`: [FAKT z kodu: server.js:1-2,10-17; przegląd checkoutu zgodnego z wdrożonym SHA; reports/m1a-code-review.md C1].
+
+
