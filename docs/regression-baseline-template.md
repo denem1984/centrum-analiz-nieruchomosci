@@ -103,6 +103,106 @@ Właściciel zapisuje baseline przed rozpoczęciem M4. Wypełnij osobny blok dla
 - Zrzut ekranu — nazwa pliku:
 - Uwagi; opisz zachowanie każdego modułu:
 
+## Działki — rozszerzone przypadki baseline M4a
+
+Wykonuj tylko przypadki przypisane do najbliższego podetapu i zapisuj baseline bezpośrednio przed jego rozpoczęciem: M4b → D2; M4c → D1; M4d → D4, D5, D6; M4e → D3; M4f → D7. Dla każdego przypadku wybierz te same obszary/usługi także po porcie; wpisuj wyłącznie wyniki zagregowane, bez danych osobowych. Zrzuty ekranu zanonimizuj. Wyników poniżej nie wypełniać w PR.
+
+### D1 — wyszukiwanie i zaznaczenie działki
+
+1. Otwórz obecną aplikację zwykłym sposobem dostępu.
+2. Wybierz powiat piski, gminę Pisz, obręb Łupki i znany numer działki.
+3. Użyj „Szukaj działki”, a następnie kliknij działkę na mapie.
+4. Zapisz widoczność obrysu/etykiety oraz pola widoczne w popupie.
+
+- Data:
+- Wersja / SHA usługi:
+- Liczba widocznych etykiet:
+- Wynik wyszukiwania i popup:
+- Zrzut ekranu — nazwa pliku:
+- Uwagi:
+
+### D2 — podkłady i nawigacja
+
+1. Przełącz OSM, zdjęcia Esri i ortofotomapę archiwalną.
+2. Zmień rok ortofotomapy, jeśli suwak jest dostępny.
+3. Użyj zoomu, skali i przesunięcia mapy.
+4. Zapisz stan każdego podkładu i działanie kontrolek.
+
+- Data:
+- Wersja / SHA usługi:
+- Dostępne podkłady / wybrany rok:
+- Zrzut ekranu — nazwa pliku:
+- Uwagi:
+
+### D3 — warstwy EGiB i rodzina działek
+
+1. Włącz numery, granice działek i kontury budynków.
+2. Kliknij działkę, zapisz widoczne dane i zaznaczenie.
+3. Zmień kolor konturów oraz kolor zaznaczenia.
+4. Użyj „Pokaż działki o wspólnym numerze bazowym”.
+5. Zapisz liczbę etykiet i działek powiązanych.
+
+- Data:
+- Wersja / SHA usługi:
+- Liczba etykiet / działek:
+- Zrzut ekranu — nazwa pliku:
+- Uwagi:
+
+### D4 — MPZP i linie zabudowy
+
+1. Włącz MPZP oraz linie zabudowy.
+2. Kliknij działkę lub obszar planu.
+3. Zapisz widoczną nazwę/status planu i dostępne odnośniki.
+4. Zanotuj brak danych oddzielnie od błędu usługi.
+
+- Data:
+- Wersja / SHA usługi:
+- Liczba widocznych informacji planistycznych:
+- Zrzut ekranu — nazwa pliku:
+- Uwagi:
+
+### D5 — plan ogólny
+
+1. Włącz warstwę POG uchwalonego.
+2. Włącz oddzielnie oba warianty POG projektowanego.
+3. Kliknij miejsce, dla którego usługa zwraca informację.
+4. Zapisz źródło, etykietę/strefę i stan odpowiedzi dla każdej warstwy.
+
+- Data:
+- Wersja / SHA usługi:
+- Wynik per warstwa:
+- Zrzut ekranu — nazwa pliku:
+- Uwagi:
+
+### D6 — własność, sieci, ryzyka i RWDZ
+
+1. Przełącz warstwy KIUT, własności, ryzyka powodziowego i RWDZ.
+2. Kliknij mapę przy włączonych warstwach.
+3. Zapisz, które warstwy są widoczne i jakie informacje pojawiają się w popupie.
+4. Oznacz brak danych, jeśli warstwa nie ma pokrycia dla wybranego miejsca.
+
+- Data:
+- Wersja / SHA usługi:
+- Wynik per warstwa:
+- Zrzut ekranu — nazwa pliku:
+- Uwagi:
+
+### D7 — pomiar, Street View i raport
+
+1. Z menu kontekstowego rozpocznij pomiar odległości, zakończ go i zapisz wynik.
+2. Wykonaj analogicznie pomiar obszaru, a potem anuluj/usuń pomiar.
+3. Otwórz Street View z wybranego punktu.
+4. Dodaj działkę i widok warstw do raportu, usuń jedną pozycję i wygeneruj PDF.
+5. Zapisz liczbę stron, obecność mapy/rekordów i nazwę pliku.
+
+- Data:
+- Wersja / SHA usługi:
+- Długość / powierzchnia:
+- Liczba pozycji i stron PDF:
+- Zrzut ekranu — nazwa pliku:
+- Nazwa pliku PDF:
+- Uwagi:
+
 ## Zestawienie baseline
 
 - Data zakończenia zapisu baseline:

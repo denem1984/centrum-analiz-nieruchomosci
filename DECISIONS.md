@@ -5,7 +5,7 @@
 ## D1 — Źródło danych RCN (2026-10-27)
 
 - **Status:** rozstrzygnięte; potwierdzone przez właściciela.
-- **Decyzja:** `RCN_DATA_SOURCE = r2_parquet` [FAKT: odczyt właściciela z panelu 2026-10-27]. To niesekretna wartość trybu.
+- **Decyzja:** `źródło danych RCN = r2_parquet` [FAKT: odczyt właściciela z panelu 2026-10-27]. To niesekretna wartość trybu.
 - **Wpływ architektury:** moduł RCN planuje się i porównuje z danymi Parquet w R2. Szczegóły pomiaru znajdują się w CONFIG.md.
 
 ## D2 — Wspólny słownik lokalizacji (2026-10-27)
@@ -39,7 +39,7 @@
 - **Status:** przyjęta przez właściciela przez przekazanie zadania.
 - **Decyzja:** aplikacja jest statyczna: czysty HTML, moduły ES i CSS, bez kroku budowania i bez zależności npm. Testy uruchamiają się przez `node --test`.
 - **Powód:** uproszczone wdrożenie jako Render Static Site z katalogiem publikacji `app/` i bez build command, ograniczona dostępność sieci w środowisku wykonawcy oraz spójność ze starymi aplikacjami opartymi na czystym HTML/JS.
-- **Biblioteki zewnętrzne:** w M2 nie ładujemy CDN ani innych zasobów zewnętrznych. W M4 właściciel/kierownik zdecyduje, czy przypinać wersje CDN, czy dodać pliki do repo.
+- **Biblioteki zewnętrzne:** w M2 nie ładujemy CDN ani innych zasobów zewnętrznych. Wybór dostawy dla M4 pozostaje otwarty do decyzji właściciela przed M4b. **Rekomendacja z M4a [HIP]:** dołączyć potrzebne, przypięte pliki bibliotek do statycznego repozytorium wraz z licencjami; nie używać npm ani kroku budowania. Obecny frontend używa Leaflet 1.9.4, proj4 2.9.0, jsPDF 2.5.1, AutoTable 3.5.31 i html2canvas 1.4.1 [FAKT z kodu: index.html:1,21].
 - **Wpływ architektury:** brak build command; testy nie wysyłają żądań do backendów. Jedynymi połączeniami aplikacji M2 są lekkie GET-y zdrowia z konfiguracji.
 
 ## D7 — Łączenie backendów źródłowych (2026-10-26)
@@ -92,9 +92,23 @@
 - **Powód:** TERC gminy, SIMC miejscowości i identyfikator jednostki BDL opisują różne klucze; jedno niejednoznaczne pole utrudniłoby walidację i mapowanie. D9 pozostaje otwarte, dlatego `bdlUnitId` nie jest wypełniany w M3a.
 - **Zakres M3a:** walidacja, magazyn tylko w pamięci, przekazanie kontekstu w hash URL oraz wyszukiwanie na fiksturach. Brak rzeczywistego słownika; M3b zależy od plików TERC/SIMC od właściciela i walidacji D2/D9.
 
+## D15 — Dostęp i integracja modułu Działki (2026-11-01)
+
+- **Status:** przyjęte przez właściciela przez przekazanie zadania.
+- **1. Dostęp:** zakładka działa bez własnej bramki do czasu decyzji D5 przed M8. Nie przenosi się biblioteki logowania starego frontu ani nie odtwarza jego ekranu logowania. [FAKT: decyzja właściciela 2026-11-01]
+- **2. Kod gminy:** dozwolone jest wyprowadzenie sześciocyfrowego `teryt` z `gmina.terc7` przez pominięcie ostatniej cyfry jako osobna, testowana funkcja czysta. Przed użyciem w M4c należy sprawdzić w kodzie frontu, jak budowany jest parametr `teryt` dla właściwej trasy; przy wątpliwości należy się zatrzymać i zapytać. [FAKT: decyzja właściciela 2026-11-01]
+- **3. Działka:** `parcel.id` przejmuje identyfikator działki bez zmian. `obrebTeryt` ustawia się wyłącznie przy niezależnie potwierdzonym kodzie obrębu; w innym przypadku pole pomija się. [FAKT: decyzja właściciela 2026-11-01]
+- **4. Biblioteki:** używane biblioteki dostarcza się jako lokalne, przypięte pliki w `app/vendor/dzialki/` wraz z licencjami, bez CDN, w wersjach obecnego frontu. [FAKT: decyzja właściciela 2026-11-01]
+- **5. Lista PDF:** robocza lista raportu przetrwa przełączanie zakładek w pamięci aplikacji i jest czyszczona po odświeżeniu strony. [FAKT: decyzja właściciela 2026-11-01]
+
+## D16 — Baseline regresji M4 per podetap (2026-11-01)
+
+- **Status:** przyjęte przez właściciela przez przekazanie zadania.
+- **Decyzja:** baseline zapisuje się bezpośrednio przed każdym podetapem, osobno dla przypisanych przypadków: M4b→D2; M4c→D1; M4d→D4, D5, D6; M4e→D3; M4f→D7. [FAKT: decyzja właściciela 2026-11-01]
+
 ## Zasady repozytorium
 
-[FAKT: decyzja właściciela z 2026-10-26] Repozytorium jest publiczne. Nie zapisujemy w nim wartości sekretów, konfiguracji, tokenów, kluczy, danych osobowych ani identyfikatorów kont lub usług. Wyjątkiem jest niesekretna wartość trybu RCN_DATA_SOURCE. Pięć repozytoriów źródłowych jest tylko do odczytu.
+[FAKT: decyzja właściciela z 2026-10-26] Repozytorium jest publiczne. Nie zapisujemy w nim wartości sekretów, konfiguracji, tokenów, kluczy, danych osobowych ani identyfikatorów kont lub usług. Wyjątkiem jest niesekretna wartość trybu źródło danych RCN. Pięć repozytoriów źródłowych jest tylko do odczytu.
 
 ## Źródła do potwierdzenia w M1
 

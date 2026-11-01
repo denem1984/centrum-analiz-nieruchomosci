@@ -50,9 +50,8 @@ Nie ma parametrów ograniczających status do lekkiej odpowiedzi. Do pomiaru w s
 | /api/wfs | GET jako URL warstwy WFS. [FAKT z kodu: index.html:451] |
 | /api/mpzp-info | GET z latitude/longitude. [FAKT z kodu: index.html:332,451] |
 | /api/rwdz-feature-info | GET z query string. [FAKT z kodu: index.html:772] |
-| /api/report-snapshot | Nie znaleziono wywołania frontu; `reportSnapshotApi` jest tylko zadeklarowane. [FAKT z kodu: index.html:863; wyszukanie wszystkich użyć w pliku] |
 
-Wywołania frontu do API używają fetch bez jawnego pola method ani body, czyli domyślnego GET; nie znaleziono POST/PUT. [FAKT z kodu: index.html:320-345,412,451,772; HIP: wniosek o metodzie domyślnej fetch] Trzy wywołania ustawiają nagłówek Accept: application/json; nie znaleziono nagłówka Content-Type ani innych nagłówków w żądaniach do API. [FAKT z kodu: index.html:412,539,676; wyszukanie method/headers w całym pliku] Front ma zaszyty host backendu analizator-nieruchomosci.onrender.com. [FAKT z kodu: index.html:320,342,412,451,772]. `reportSnapshotApi` jest stałą bez wywołania fetch.
+Front wywołuje sześć tras z tabeli B3, każdą metodą GET. [FAKT z kodu: index.html:320–345,412,451,772]
 
 ### Podobne — rozklad-nieruchomosci-podobnych
 
@@ -77,7 +76,7 @@ Frontend używa supabase-js 2 z CDN, a dane gmin pobiera przez select z tabeli g
 |---|---|---|---|
 | RCN, 85cb2f91348e10fc1fa3491c5e4e0c07b4a952bb | static/index.html 68 814 B, static/app.js 123 352 B, static/styles.css 15 843 B; HTML/CSS/JavaScript. [FAKT z kodu: wymienione pliki, rozmiary] | Python 3.11.9; requirements zawiera FastAPI, Uvicorn, httpx, lxml, pyproj, openpyxl, reportlab, Pillow, DuckDB, pytz, boto3, python-docx i shapely. [FAKT z kodu: runtime.txt:1; requirements.txt:1-15] | Front używa ścieżek względnych /api/ na originie aplikacji. [FAKT z kodu: static/app.js:1977-1978,2239] |
 | Oferty, 596451bae3af76790c0b96b0c5927191ced7add8 | index.html 66 261 B; statyczny HTML/JavaScript i serwer Node. [FAKT z kodu: index.html i server.js, rozmiary; server.js:10-17] | Node >=20 <26; npm start wskazuje bootstrap; brak deklaracji dependencies. [FAKT z kodu: package.json:7-14] | Front korzysta ze ścieżek względnych; bezpośredni server.js startuje wrapper. [FAKT z kodu: index.html:87,91; server.js:2,10-17] |
-| Działki, a1aa39d711b2730dfcf62799e42ab7d79d4bf3d3 | index.html 183 901 B; API w api-dzialki/server.js 129 915 B; HTML/JavaScript i Node. [FAKT z kodu: pliki i rozmiary] | package.json deklaruje proj4 i pngjs; nie deklaruje start ani engines. [FAKT z kodu: package.json:1] | Front wskazuje host analizator-nieruchomosci.onrender.com. [FAKT z kodu: index.html:320,342,412,451,772,863] |
+| Działki, a1aa39d711b2730dfcf62799e42ab7d79d4bf3d3 | index.html 183 901 B; API w api-dzialki/server.js 129 915 B; HTML/JavaScript i Node. [FAKT z kodu: pliki i rozmiary] | package.json deklaruje proj4 i pngjs; nie deklaruje start ani engines. [FAKT z kodu: package.json:1] | Front wskazuje host analizator-nieruchomosci.onrender.com. [FAKT z kodu: index.html:320,342,412,451,772] |
 | Podobne, a75020163912d23dbd5e48bfdc2fbcf2134e0931 | index.html 100 720 B; server.js 9 752 B; frontend HTML/JavaScript i Node. [FAKT z kodu: pliki i rozmiary] | npm start uruchamia node server.js; Node >=18; brak deklaracji dependencies. [FAKT z kodu: package.json:5-11] | Front ścieżkami względnymi woła API; backend konfiguruje PRG/WFS/ULDK, z możliwością nadpisania dwóch upstreamów PRG. [FAKT z kodu: index.html:359-360; server.js:9-12] |
 | Gminy, c1b682c4877553c9978b2942a429c7a9b1f4e54a | Jeden plik index.html 75 475 B z HTML/JavaScript; html2pdf.js i supabase-js 2 są ładowane z CDN. [FAKT z kodu: index.html:71-73; rozmiar pliku] | Brak package.json i requirements.txt w katalogu głównym; lokalny manifest zależności nie jest zadeklarowany. [FAKT z kodu: inwentarz plików repozytorium] | Klient Supabase konfiguruje się w pliku źródłowym; identyfikator projektu pominięto. [FAKT z kodu: index.html:96,100] |
 
@@ -96,13 +95,7 @@ Nie odczytywano wartości zmiennych środowiskowych ani nie wysyłano żądań H
 - W publicznym inwentarzu repo są `index.html`, `server.js` i `package.json`; nie znaleziono repozytoryjnego pliku konfiguracji rewrite/redirect. [FAKT z kodu: inwentarz `rg --files` repozytorium]
 - Czy hosting statycznego frontu przekazuje `/api/*` do backendu, pozostaje niepotwierdzone bez odczytu jego konfiguracji. [HIP] Dodano punkt E0 dla właściciela: odczyt reguł rewrite/redirect z panelu bez zmian.
 
-## C3. Działki — handler report-snapshot
-
-- Handler pobiera bbox i listę warstw, a dla zaznaczonych warstw pobiera obrazy mapowe z zewnętrznych usług, składa wynik w JSON i oczekuje na równoległe zadania. Przy wszystkich rozpoznawanych warstwach obrazu może uruchomić do siedmiu pobrań. [FAKT z kodu: api-dzialki/server.js:162-226]
-- W ciele handlera nie znaleziono zapisu do pliku ani bazy danych; jego widocznym skutkiem są żądania obrazów do usług mapowych. [FAKT z kodu: api-dzialki/server.js:162-226]
-- Front deklaruje `reportSnapshotApi`, ale sprawdzenie wystąpień w `index.html` znalazło tylko deklarację i brak wywołania tej zmiennej. [FAKT z kodu: index.html:863; przeszukanie wszystkich wystąpień `reportSnapshotApi`]
-
-## C4. Zewnętrzne zależności uruchamiane w przeglądarce
+## C3. Zewnętrzne zależności uruchamiane w przeglądarce
 
 | Moduł | Bezpośrednie połączenia z przeglądarki i częstotliwość |
 |---|---|
@@ -150,7 +143,7 @@ Wszystkie cztery trasy sondy zgadzają się z ALLOWLIST w scripts/m1-probe.mjs; 
 ### B3. Oferty i Działki — metody oraz nagłówki frontu
 
 - Oferty: front wywołuje `/api/location-suggestions`, `/api/resolve-location` i `/api/live/combined`; wszystkie `fetch` nie podają `method`, `body` ani nagłówków i domyślnie używają GET. Nie znaleziono POST/PUT ani `Content-Type` w żądaniach frontu. [FAKT z kodu: Analizator-cen-ofertowych/index.html:87,91; HIP: metoda domyślna fetch]
-- Działki: rzeczywiste trasy frontu to `/api/mpzp-gmina-info`, `/api/dzinfo`, `/api/ownership-national`, `/api/wfs`, `/api/mpzp-info` i `/api/rwdz-feature-info`. Wszystkie używają domyślnego GET; nie znaleziono POST/PUT. `/api/report-snapshot` jest zadeklarowane jako stała, ale nieużyte. [FAKT z kodu: analizator-nieruchomosci/index.html:320,324,332,342-345,412,451,772,863; wyszukanie wszystkich wystąpień]
+- Działki: front wywołuje sześć tras API: `/api/mpzp-gmina-info`, `/api/dzinfo`, `/api/ownership-national`, `/api/wfs`, `/api/mpzp-info` i `/api/rwdz-feature-info`; wszystkie metodą GET. [FAKT z kodu: index.html:320,324,332,342–345,412,451,772]
 - W trzech wywołaniach Działek front ustawia `Accept: application/json`; żadne żądanie API nie ustawia `Content-Type` ani innego nagłówka. [FAKT z kodu: analizator-nieruchomosci/index.html:412,539,676; wyszukanie headers w całym pliku]
 - Działki zaszywają publiczny host `analizator-nieruchomosci.onrender.com`; Oferty używają ścieżek względnych obsługiwanych przez wrapper; Podobne używają ścieżek względnych. [FAKT z kodu: analizator-nieruchomosci/index.html:320,342,412,451,772; Analizator-cen-ofertowych/index.html:87,91; rozklad-nieruchomosci-podobnych/index.html:359-360,493,557]
 - Wykonawca nie wysyłał żądań HTTP do API produkcyjnych. [FAKT: zakres wykonanych czynności]
