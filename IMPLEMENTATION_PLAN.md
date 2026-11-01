@@ -1,6 +1,6 @@
 # IMPLEMENTATION_PLAN.md — plan M0–M10
 
-**Status na 2026-10-27:** M0 wykonane; M1 wykonane warunkowo, D2/D9 pozostają otwarte i wracają w M3b/M8; M2 wykonane; M3a w trakcie. Każde twierdzenie o produkcji należy oznaczać [FAKT] albo [HIP]. Pięć repozytoriów źródłowych pozostaje tylko do odczytu.
+**Status na 2026-11-01:** M0 wykonane; M1 wykonane warunkowo, D2/D9 pozostają otwarte i wracają w M3b/M8; M2 wykonane; M3a wykonane; M4a analiza przygotowana w PR do przeglądu; implementacja M4 nie rozpoczęta. Każde twierdzenie o produkcji należy oznaczać [FAKT] albo [HIP]. Pięć repozytoriów źródłowych pozostaje tylko do odczytu.
 
 ## Etapy i zależności
 
@@ -9,9 +9,9 @@
 | **M0** | **Wykonane.** Dokumentacja, zasady i skaner sekretów. | Dokumenty opisują architekturę samodzielnej aplikacji, zakazy, plan i checklistę M1; skaner przechodzi pozytywne i negatywne przypadki. | Sprzeczności ze starszymi dokumentami; nie dopisywać niepotwierdzonych faktów. |
 | **M1** | **Wykonane warunkowo.** Pomiary odczytowe CORS, dwóch czasów, D1, SHA, punkt wejścia Ofert i przegląd kodu. D2 i D9 pozostają otwarte i przechodzą do M3b/M8 po dostarczeniu plików przez właściciela. | Wyniki potwierdzone w CONFIG.md i reports; nie wykonano zmian konfiguracji ani danych. | Niepełne źródła TERC/SIMC i próbka zamiast pełnego eksportu gmin. |
 | **M2** | **Wykonane.** Statyczna powłoka z natywnymi zakładkami, makietami, kartami zdrowia, serwerem lokalnym i testami Node. Bez build, lint ani zależności npm. Lekkie health-checki to GET-y z allowlisty. Zależność: M1. | Router, rejestr, health-checki, zgodność z allowlistą i path traversal są testowane przez `node --test`; lokalny podgląd działa. | CORS lub czas odpowiedzi mogą uniemożliwić odczyt stanu usługi. |
-| **M3a** | **W trakcie.** DenemContext v1, pamięciowy magazyn, pasek lokalizacji i wyszukiwanie na jawnie fikcyjnych danych. Zależność: M2; bez prawdziwego słownika. | Testy walidacji, kodowania/dekodowania, routera i fikstur; wybór rozróżnia powtarzalne nazwy. | Kontrakt użycia pól przez istniejące API wymaga potwierdzenia w M4–M8. |
+| **M3a** | **Wykonane.** DenemContext v1, pamięciowy magazyn, pasek lokalizacji i wyszukiwanie na jawnie fikcyjnych danych. Zależność: M2; bez prawdziwego słownika. | Testy walidacji, kodowania/dekodowania, routera i fikstur; wybór rozróżnia powtarzalne nazwy. | Kontrakt użycia pól przez istniejące API wymaga potwierdzenia w M4–M8. |
 | **M3b** | Po M3a, zależne od plików TERC/SIMC z GUS od właściciela; ponowna ocena D2 i walidacja mapowania D9. | Prawdziwy słownik jest zwalidowany względem otrzymanych plików; kodowanie nadal zachowuje zera wiodące. | Brak plików lub nierozstrzygnięte mapowanie BDL ↔ TERYT. |
-| **M4** | Moduł Działki jako natywna zakładka wywołująca istniejące API. Zależność: M3. Przed rozpoczęciem M4 właściciel zapisuje baseline wyników macierzy regresji według `docs/regression-baseline-template.md`. | Podstawowy przepływ działki działa w zakładce i obsługuje kontekst; właściciel zaliczył macierz regresji względem zapisanego przed M4 baseline. | CORS, format geometrii i zachowanie istniejącego API. |
+| **M4** | **M4a:** analiza i plan portu w PR; bez kodu aplikacji. **M4b–M4f:** natywna zakładka Działki korzystająca z istniejącego API. Przed rozpoczęciem implementacji M4 właściciel zapisuje baseline według docs/regression-baseline-template.md; D6 i pytania z reports/m4a-dzialki-analysis.md rozstrzyga się przed zależnymi pracami. | Zachowane funkcje wymienione w inwentarzu M4a; każdy podetap ma test startowy z atrapą DOM/fetch; właściciel odbiera wyniki 7 przypadków Działek względem baseline. | Duży, monolityczny front; wiele usług GIS/CRS; zgodność kodu działki i gminy z DenemContext; cykl życia Leaflet i PDF. |
 | **M5** | Moduł RCN jako natywna zakładka wywołująca istniejące API. Zależność: M3. | Wyszukiwanie i podstawowe statystyki działają dla przekazanego kontekstu; wyniki zgadzają się z macierzą regresji. | Różny tryb źródła danych lub czas odpowiedzi. |
 | **M6** | Moduł Oferty jako natywna zakładka wywołująca istniejące API. Zależność: M3 i potwierdzenie punktu wejścia w M1. | Wyszukiwanie korzysta z potwierdzonego API i kontekstu lokalizacji; podstawowe scenariusze z macierzy regresji działają. | Zmienność odpowiedzi portali i niepotwierdzony sposób uruchamiania usługi. Produkcja uruchamia `node server.js`, który nie ładuje `regional-fetch-bootstrap.js`; zachowanie Ofert do porównania w M6 i baseline należy brać z produkcji, nie z `npm start` [FAKT z kodu, patrz reports/m1a-code-review.md C1]. |
 | **M7** | Moduł Podobne jako natywna zakładka wywołująca istniejące API. Zależność: M3. | Można wprowadzić lub przekazać nieruchomość analizowaną i zobaczyć wyniki modułu; scenariusz regresji działa. | Dane porównawcze mogą wymagać ręcznego uzupełnienia. |
@@ -19,7 +19,7 @@
 | **M9** | Widoki zbiorcze i raport. Zależność: M4–M8; zakres raportu D10 ustalony przed pracą. | Zestawienia są zgodne z wartościami modułów źródłowych; raport odtwarza widoczne wyniki i obsługuje brak danych jednego źródła. | Różne definicje, okresy lub kompletność danych między źródłami. |
 | **M10** | Podgląd wdrożeniowy i odbiór. Zależność: M9. | Właściciel odbiera działający podgląd, macierz regresji i instrukcję uruchomienia; ewentualne wdrożenie wymaga osobnej zgody właściciela. | Różnice między lokalnym buildem a środowiskiem podglądowym. |
 
-M1 jest pomiarem tylko do odczytu. Wartości sekretów nie są odczytywane ani zapisywane. Właściciel odczytuje w M1 niesekretną wartość RCN_DATA_SOURCE, aby zamknąć D1. M0 nie wykonuje żadnych czynności na usługach zewnętrznych.
+M1 jest pomiarem tylko do odczytu. Wartości sekretów nie są odczytywane ani zapisywane. Właściciel odczytuje w M1 niesekretną wartość źródło danych RCN, aby zamknąć D1. M0 nie wykonuje żadnych czynności na usługach zewnętrznych.
 
 ## Zakres pomiarów M1
 
@@ -29,7 +29,7 @@ M1 jest pomiarem tylko do odczytu. Wartości sekretów nie są odczytywane ani z
 - D9 pozostaje otwarte; w M3b/M8 zweryfikować mapowanie na podstawie pełnego eksportu gmin oraz plików TERC/SIMC od właściciela.
 - Sprawdzić w kodzie punkt wejścia Ofert i rozbieżność opisaną w AUDIT.md.
 - Sprawdzić wyłącznie przez odczyt kodu rcn-web-app, czy frontend wywołuje data_source_refresh lub trasy admin/debug.
-- Właściciel odczytuje niesekretną wartość RCN_DATA_SOURCE. Status RCN_ADMIN_TOKEN jest osobną pozycją checklisty i jest zapisywany tylko jako ustawiony / nieustawiony / nieznany, bez komentarza o skutkach.
+- Właściciel odczytuje niesekretną wartość źródło danych RCN. Status token administratora jest osobną pozycją checklisty i jest zapisywany tylko jako ustawiony / nieustawiony / nieznany, bez komentarza o skutkach.
 - Zapisać wyniki i źródła w CONFIG.md. Nie odczytywać wartości sekretów ani nie wykonywać zmian konfiguracji.
 
 ## Macierz testów regresyjnych
