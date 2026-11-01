@@ -92,12 +92,19 @@
 - **Powód:** TERC gminy, SIMC miejscowości i identyfikator jednostki BDL opisują różne klucze; jedno niejednoznaczne pole utrudniłoby walidację i mapowanie. D9 pozostaje otwarte, dlatego `bdlUnitId` nie jest wypełniany w M3a.
 - **Zakres M3a:** walidacja, magazyn tylko w pamięci, przekazanie kontekstu w hash URL oraz wyszukiwanie na fiksturach. Brak rzeczywistego słownika; M3b zależy od plików TERC/SIMC od właściciela i walidacji D2/D9.
 
-## D15 — Dostęp modułu Działki w powłoce (2026-11-01)
+## D15 — Dostęp i integracja modułu Działki (2026-11-01)
 
-- **Status:** otwarte do M4b.
-- **Kontekst:** obecny interfejs pokazuje ekran logowania i odnośnik do panelu [FAKT z kodu: analizator-nieruchomosci/index.html:68–74]. D5 nowej aplikacji pozostawia decyzję o bramce do M8.
-- **Wybór właściciela:** (A) do M8 nowa zakładka działa zgodnie z D5, bez bramki; albo (B) decyzję D5 podejmujemy przed M4b i definiujemy nowe zachowanie widoczne dla użytkownika.
-- **Wpływ:** ustala warunek wejścia do natywnej zakładki. Nie zapisano mechaniki logowania.
+- **Status:** przyjęte przez właściciela przez przekazanie zadania.
+- **1. Dostęp:** zakładka działa bez własnej bramki do czasu decyzji D5 przed M8. Nie przenosi się biblioteki logowania starego frontu ani nie odtwarza jego ekranu logowania. [FAKT: decyzja właściciela 2026-11-01]
+- **2. Kod gminy:** dozwolone jest wyprowadzenie sześciocyfrowego `teryt` z `gmina.terc7` przez pominięcie ostatniej cyfry jako osobna, testowana funkcja czysta. Przed użyciem w M4c należy sprawdzić w kodzie frontu, jak budowany jest parametr `teryt` dla właściwej trasy; przy wątpliwości należy się zatrzymać i zapytać. [FAKT: decyzja właściciela 2026-11-01]
+- **3. Działka:** `parcel.id` przejmuje identyfikator działki bez zmian. `obrebTeryt` ustawia się wyłącznie przy niezależnie potwierdzonym kodzie obrębu; w innym przypadku pole pomija się. [FAKT: decyzja właściciela 2026-11-01]
+- **4. Biblioteki:** używane biblioteki dostarcza się jako lokalne, przypięte pliki w `app/vendor/dzialki/` wraz z licencjami, bez CDN, w wersjach obecnego frontu. [FAKT: decyzja właściciela 2026-11-01]
+- **5. Lista PDF:** robocza lista raportu przetrwa przełączanie zakładek w pamięci aplikacji i jest czyszczona po odświeżeniu strony. [FAKT: decyzja właściciela 2026-11-01]
+
+## D16 — Baseline regresji M4 per podetap (2026-11-01)
+
+- **Status:** przyjęte przez właściciela przez przekazanie zadania.
+- **Decyzja:** baseline zapisuje się bezpośrednio przed każdym podetapem, osobno dla przypisanych przypadków: M4b→D2; M4c→D1; M4d→D4, D5, D6; M4e→D3; M4f→D7. [FAKT: decyzja właściciela 2026-11-01]
 
 ## Zasady repozytorium
 
