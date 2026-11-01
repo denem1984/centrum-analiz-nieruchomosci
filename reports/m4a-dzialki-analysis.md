@@ -94,4 +94,4 @@ Szacunki są orientacyjne [HIP]. Każdy interfejsowy podetap zaczyna się testem
 
 ## 9. Otwarte pytania do właściciela
 
-Brak otwartych pytań z poprzedniej listy. Decyzje właściciela 1–5 z 2026-11-01 zapisano w DECISIONS.md, D15.
+Właściciel rozstrzygnął pięć pytań z poprzedniej wersji 2026-11-01; nie ma pozostawionych pytań otwartych w tym zakresie.
