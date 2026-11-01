@@ -5,7 +5,7 @@
 ## D1 — Źródło danych RCN (2026-10-27)
 
 - **Status:** rozstrzygnięte; potwierdzone przez właściciela.
-- **Decyzja:** `RCN_DATA_SOURCE = r2_parquet` [FAKT: odczyt właściciela z panelu 2026-10-27]. To niesekretna wartość trybu.
+- **Decyzja:** `źródło danych RCN = r2_parquet` [FAKT: odczyt właściciela z panelu 2026-10-27]. To niesekretna wartość trybu.
 - **Wpływ architektury:** moduł RCN planuje się i porównuje z danymi Parquet w R2. Szczegóły pomiaru znajdują się w CONFIG.md.
 
 ## D2 — Wspólny słownik lokalizacji (2026-10-27)
@@ -39,7 +39,7 @@
 - **Status:** przyjęta przez właściciela przez przekazanie zadania.
 - **Decyzja:** aplikacja jest statyczna: czysty HTML, moduły ES i CSS, bez kroku budowania i bez zależności npm. Testy uruchamiają się przez `node --test`.
 - **Powód:** uproszczone wdrożenie jako Render Static Site z katalogiem publikacji `app/` i bez build command, ograniczona dostępność sieci w środowisku wykonawcy oraz spójność ze starymi aplikacjami opartymi na czystym HTML/JS.
-- **Biblioteki zewnętrzne:** w M2 nie ładujemy CDN ani innych zasobów zewnętrznych. W M4 właściciel/kierownik zdecyduje, czy przypinać wersje CDN, czy dodać pliki do repo.
+- **Biblioteki zewnętrzne:** w M2 nie ładujemy CDN ani innych zasobów zewnętrznych. Wybór dostawy dla M4 pozostaje otwarty do decyzji właściciela przed M4b. **Rekomendacja z M4a [HIP]:** dołączyć potrzebne, przypięte pliki bibliotek do statycznego repozytorium wraz z licencjami; nie używać npm ani kroku budowania. Obecny frontend używa Leaflet 1.9.4, proj4 2.9.0, jsPDF 2.5.1, AutoTable 3.5.31 i html2canvas 1.4.1 [FAKT z kodu: index.html:1,21].
 - **Wpływ architektury:** brak build command; testy nie wysyłają żądań do backendów. Jedynymi połączeniami aplikacji M2 są lekkie GET-y zdrowia z konfiguracji.
 
 ## D7 — Łączenie backendów źródłowych (2026-10-26)
@@ -92,9 +92,16 @@
 - **Powód:** TERC gminy, SIMC miejscowości i identyfikator jednostki BDL opisują różne klucze; jedno niejednoznaczne pole utrudniłoby walidację i mapowanie. D9 pozostaje otwarte, dlatego `bdlUnitId` nie jest wypełniany w M3a.
 - **Zakres M3a:** walidacja, magazyn tylko w pamięci, przekazanie kontekstu w hash URL oraz wyszukiwanie na fiksturach. Brak rzeczywistego słownika; M3b zależy od plików TERC/SIMC od właściciela i walidacji D2/D9.
 
+## D15 — Dostęp modułu Działki w powłoce (2026-11-01)
+
+- **Status:** otwarte do M4b.
+- **Kontekst:** obecny interfejs pokazuje ekran logowania i odnośnik do panelu [FAKT z kodu: analizator-nieruchomosci/index.html:68–74]. D5 nowej aplikacji pozostawia decyzję o bramce do M8.
+- **Wybór właściciela:** (A) do M8 nowa zakładka działa zgodnie z D5, bez bramki; albo (B) decyzję D5 podejmujemy przed M4b i definiujemy nowe zachowanie widoczne dla użytkownika.
+- **Wpływ:** ustala warunek wejścia do natywnej zakładki. Nie zapisano mechaniki logowania.
+
 ## Zasady repozytorium
 
-[FAKT: decyzja właściciela z 2026-10-26] Repozytorium jest publiczne. Nie zapisujemy w nim wartości sekretów, konfiguracji, tokenów, kluczy, danych osobowych ani identyfikatorów kont lub usług. Wyjątkiem jest niesekretna wartość trybu RCN_DATA_SOURCE. Pięć repozytoriów źródłowych jest tylko do odczytu.
+[FAKT: decyzja właściciela z 2026-10-26] Repozytorium jest publiczne. Nie zapisujemy w nim wartości sekretów, konfiguracji, tokenów, kluczy, danych osobowych ani identyfikatorów kont lub usług. Wyjątkiem jest niesekretna wartość trybu źródło danych RCN. Pięć repozytoriów źródłowych jest tylko do odczytu.
 
 ## Źródła do potwierdzenia w M1
 
