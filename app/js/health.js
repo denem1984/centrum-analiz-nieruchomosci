@@ -5,17 +5,26 @@ export const WAKE_MESSAGE = "Usługa się budzi, pierwsze uruchomienie może pot
 
 const completed = new Map();
 const pending = new Map();
+const statusSubscribers = new Map();
 
 function freezeStatus(status) {
   return Object.freeze(status);
 }
 
 function publish(listener, status) {
-  if (typeof listener !== "function") return;
-  try {
-    listener(status);
-  } catch {
-    // Błąd widoku nie powinien zmieniać wyniku żądania.
+  if (typeof listener === "function") {
+    try {
+      listener(status);
+    } catch {
+      // Błąd widoku nie powinien zmieniać wyniku żądania.
+    }
+  }
+  for (const subscriber of statusSubscribers.get(status.id) ?? []) {
+    try {
+      subscriber(status);
+    } catch {
+      // Błąd pojedynczego widoku nie powinien zatrzymać aktualizacji stanu.
+    }
   }
 }
 
@@ -28,6 +37,19 @@ export function getBackendStatus(id) {
     message: "Kontrola jeszcze się nie rozpoczęła.",
     errorCode: null,
   });
+}
+
+export function subscribeBackendStatus(id, listener) {
+  if (!BACKENDS[id]) throw new Error("Nieznany backend.");
+  if (typeof listener !== "function") throw new TypeError("Subskrybent musi być funkcją.");
+  const listeners = statusSubscribers.get(id) ?? new Set();
+  listeners.add(listener);
+  statusSubscribers.set(id, listeners);
+  listener(getBackendStatus(id));
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0) statusSubscribers.delete(id);
+  };
 }
 
 export function resetHealthCache() {

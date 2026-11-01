@@ -39,7 +39,7 @@
 - **Status:** przyjęta przez właściciela przez przekazanie zadania.
 - **Decyzja:** aplikacja jest statyczna: czysty HTML, moduły ES i CSS, bez kroku budowania i bez zależności npm. Testy uruchamiają się przez `node --test`.
 - **Powód:** uproszczone wdrożenie jako Render Static Site z katalogiem publikacji `app/` i bez build command, ograniczona dostępność sieci w środowisku wykonawcy oraz spójność ze starymi aplikacjami opartymi na czystym HTML/JS.
-- **Biblioteki zewnętrzne:** w M2 nie ładujemy CDN ani innych zasobów zewnętrznych. Wybór dostawy dla M4 pozostaje otwarty do decyzji właściciela przed M4b. **Rekomendacja z M4a [HIP]:** dołączyć potrzebne, przypięte pliki bibliotek do statycznego repozytorium wraz z licencjami; nie używać npm ani kroku budowania. Obecny frontend używa Leaflet 1.9.4, proj4 2.9.0, jsPDF 2.5.1, AutoTable 3.5.31 i html2canvas 1.4.1 [FAKT z kodu: index.html:1,21].
+- **Biblioteki zewnętrzne:** w M2 nie ładujemy CDN ani innych zasobów zewnętrznych. Właściciel rozstrzygnął w D15, że potrzebne biblioteki będą lokalnymi, przypiętymi plikami z licencjami, bez CDN i npm. Moduł M4b używa Leaflet 1.9.4. Poprzedni frontend używał też proj4 2.9.0, jsPDF 2.5.1, AutoTable 3.5.31 i html2canvas 1.4.1 [FAKT z kodu: index.html:1,21].
 - **Wpływ architektury:** brak build command; testy nie wysyłają żądań do backendów. Jedynymi połączeniami aplikacji M2 są lekkie GET-y zdrowia z konfiguracji.
 
 ## D7 — Łączenie backendów źródłowych (2026-10-26)
@@ -105,6 +105,13 @@
 
 - **Status:** przyjęte przez właściciela przez przekazanie zadania.
 - **Decyzja:** baseline zapisuje się bezpośrednio przed każdym podetapem, osobno dla przypisanych przypadków: M4b→D2; M4c→D1; M4d→D4, D5, D6; M4e→D3; M4f→D7. [FAKT: decyzja właściciela 2026-11-01]
+
+## D17 — Mapa modułu Działki M4b (2026-11-01)
+
+- **Status:** zakres M4b realizowany zgodnie z zadaniem; dostawa biblioteki lokalna na mocy D15.
+- **Decyzja implementacyjna:** w M4b zakładka Działki pokazuje trzy podkłady: OpenStreetMap, Esri World Imagery i archiwalną ortofotomapę GUGiK, z pojedynczym aktywnym podkładem, widoczną atrybucją, suwakiem roku 1995–2025, krokiem zoomu 0,1 i skalą metryczną. Poprzedni front definiuje środek początkowy [52.07, 19.48], zoom 6 i limit 22. [FAKT z kodu: index.html:177,211]
+- **Polityka błędów kafelków:** do dwóch ponowień dla kafelka, z opóźnieniami około 1,5 s i 4 s, jitterem i limitem sześciu równoczesnych prób na warstwę. Zmiana warstwy/roku, odłączenie kafelka i odmontowanie anulują oczekujące próby. [FAKT: zakres implementacji M4b]
+- **Ograniczenie M4b:** nie dodawać wyszukiwania działek ani warstw tematycznych; pozostają oznaczone jako planowane na kolejne etapy. Moduł korzysta z istniejącego stanu sondy zdrowia, nie inicjuje własnych wywołań API Działek.
 
 ## Zasady repozytorium
 
