@@ -18,7 +18,7 @@
 
 ## 2. Trasy API używane przez front
 
-Front wywołuje poniższe trasy przez fetch bez jawnego ustawienia metody, czyli GET. [FAKT z kodu: index.html:324,332,345,536–537,772,863–878]
+Front wywołuje sześć poniższych tras przez fetch bez jawnego ustawienia metody, czyli GET. [FAKT z kodu: index.html:320–345,412,451,772]
 
 | Trasa | Metoda i parametry wysyłane przez front | Rodzaj odpowiedzi |
 |---|---|---|
@@ -28,13 +28,14 @@ Front wywołuje poniższe trasy przez fetch bez jawnego ustawienia metody, czyli
 | /api/mpzp-gmina-info | GET; teryt, lat, lon | JSON z informacjami o planach. [FAKT z przeglądu prywatnego repo] |
 | /api/dzinfo | GET; id | JSON z informacją planistyczną dla działki. [FAKT z przeglądu prywatnego repo] |
 | /api/rwdz-feature-info | GET; parametry zapytania mapowego: warstwa, CRS, bbox, rozmiar obrazu i pozycja kliknięcia | Odpowiedź informacyjna usługi mapowej, zwykle XML. [FAKT z przeglądu prywatnego repo] |
-| /api/report-snapshot | GET; bbox, width, height, layers | JSON z obrazami warstw do raportu. [FAKT z przeglądu prywatnego repo] |
 
-Tabela zawiera tylko trasy wywoływane przez front. Nie opisuje innych tras.
+Tabela zawiera wyłącznie sześć tras wywoływanych przez front. PDF front generuje po stronie klienta, używając html2canvas i jsPDF. [FAKT z kodu: index.html:901,941,996–997,1049]
 
 ## 3. Biblioteki, usługi i formaty
 
-**Biblioteki frontu:** Leaflet 1.9.4, proj4 2.9.0, jsPDF 2.5.1, jspdf-autotable 3.5.31, html2canvas 1.4.1, Tailwind bez wersji wskazanej w adresie CDN, Supabase JS @2 oraz arkusze Google Fonts. [FAKT z kodu: index.html:1,21,169,1287]
+**Biblioteki frontu:** Leaflet 1.9.4, proj4 2.9.0, jsPDF 2.5.1, jspdf-autotable 3.5.31, html2canvas 1.4.1, Tailwind z CDN bez przypiętej wersji, Supabase JS @2 oraz arkusze Google Fonts. [FAKT z kodu: index.html:1,21,169,1287]
+
+Tailwind jest ładowany z CDN bez wersji w adresie. Przy D6 bez kroku budowania nie należy polegać na generowaniu stylów przez ten CDN. [FAKT z kodu: index.html:1] [HIP] Heurystyczna inwentaryzacja całego pliku wskazuje około 10 różnych klas użytkowych Tailwind: układ — 1, odstępy i wymiary — 3, kolory i obramowania — 4, typografia — 2. Pozostałe nazwy klas to selektory komponentów lub klasy dynamiczne, a nie rozpoznane klasy utility. [FAKT z kodu: index.html:1–1295; heurystyczne zliczenie]
 
 **Biblioteki backendu:** proj4 ^2.15.0 i pngjs ^7.0.0. [FAKT z przeglądu prywatnego repo]
 
@@ -46,11 +47,11 @@ Warunki korzystania, dostępność warstw i limity usług publicznych należy po
 
 ## 4. Stan i dane
 
-- Widok mapy, przełączniki warstw, zaznaczenie działek i robocza lista PDF działają w obrębie otwartej strony. [FAKT z kodu: index.html:211,456–458,862–965]
-- W przejrzanym froncie nie znaleziono funkcji zapisu analiz użytkownika jako trwałego wyniku. Stan roboczy PDF należy traktować jako tymczasowy. [FAKT z kodu: index.html:862–965]
-- DenemContext v1 przewiduje pola parcel, point, gmina i place. Przeniesienie identyfikatora działki i punktu wymaga zachowania kodów jako tekstu. [HIP]
-- Proponowany kontekst po wyborze działki: kind=dzialka, source=dzialki, match=exact, parcel.id jako niezmieniony identyfikator zwrócony dla działki; point jako współrzędne wybranego punktu lub geometrii. Gmina i miejscowość tylko wtedy, gdy ich kody są potwierdzone. [HIP]
-- Aktualny interfejs pokazuje logowanie i odnośnik do panelu; zgodność tego zachowania z D5 nowej aplikacji wymaga decyzji właściciela. [FAKT z kodu: index.html:68–74] [HIP]
+- Widok mapy, przełączniki warstw, zaznaczenie działek i robocza lista PDF działają w obrębie strony. [FAKT z kodu: index.html:211,456–458,862–965]
+- W nowej aplikacji robocza lista PDF jest przechowywana w pamięci między przełączeniami zakładek i czyszczona po odświeżeniu strony. [FAKT: decyzja właściciela 2026-11-01]
+- DenemContext v1 przewiduje pola parcel, point, gmina i place. Kody pozostają tekstem. [FAKT: kontrakt DenemContext v1]
+- Po wyborze działki `parcel.id` przekazywany jest bez zmian; `obrebTeryt` ustawia się tylko po niezależnym potwierdzeniu kodu obrębu. [FAKT: decyzja właściciela 2026-11-01]
+- Stary front pokazuje ekran logowania z odnośnikiem do panelu; nowa zakładka nie będzie odtwarzać tego ekranu ani przenosić biblioteki logowania. [FAKT z kodu: index.html:68–74] [FAKT: decyzja właściciela 2026-11-01]
 
 ## 5. Projekt integracji z powłoką
 
@@ -63,9 +64,9 @@ Warunki korzystania, dostępność warstw i limity usług publicznych należy po
 
 ## 6. Dostawa bibliotek i CSP
 
-**Rekomendacja [HIP]:** dodać potrzebne, przypięte biblioteki jako statyczne pliki w app/vendor/dzialki/ wraz z licencjami. Pozwala to zachować D6: bez npm i bez builda. Wersje odpowiadają obecnie używanym publicznym bibliotekom wymienionym w sekcji 3. [FAKT z kodu: index.html:1,21] Nie przenosić biblioteki logowania bez decyzji D5. [HIP]
+Biblioteki będą przechowywane jako lokalne, przypięte pliki w app/vendor/dzialki/ wraz z licencjami; wersje odpowiadają obecnemu frontowi, bez CDN. [FAKT: decyzja właściciela 2026-11-01]
 
-Wariant CDN z przypiętą wersją i SRI wymaga dozwolenia CDN w CSP oraz integrity/crossorigin dla skryptów i arkuszy. Pliki lokalne pozwalają ograniczyć skrypty i style do własnego origin; connect-src i img-src nadal muszą dopuszczać zatwierdzone usługi map i API. Style inline i kafelki Leaflet wymagają osobnej weryfikacji CSP. [HIP]
+[HIP] Po inwentaryzacji klas frontu napisać ręczny CSS modułu w app/css/modules/dzialki.css i ograniczyć selektory do prefiksu [data-module="dzialki"]. Nie opierać działania modułu na Tailwind ładowanym z niezwersjonowanego CDN. Skrypty i style lokalne pozwalają ograniczyć CSP do własnego origin; connect-src i img-src nadal muszą dopuszczać zatwierdzone usługi map i API. Style inline i kafelki Leaflet wymagają osobnej weryfikacji CSP. [HIP]
 
 ## 7. Przypadki baseline dla właściciela
 
@@ -85,16 +86,12 @@ Szacunki są orientacyjne [HIP]. Każdy interfejsowy podetap zaczyna się testem
 
 | Podetap | Zakres i kryteria | Ryzyko | Test startowy | Rozmiar |
 |---|---|---|---|---|
-| M4b — mapa w powłoce | Widoczna natywna zakładka z mapą, podkładem i stanem usługi; mount i cleanup działają. To najmniejszy podetap dający działający rezultat. | D6 i cykl życia Leaflet. | Atrapa DOM: mount tworzy mapę, odmontowanie ją usuwa; fetch atrapiony. | M, 1–2 dni [HIP] |
+| M4b — mapa w powłoce | Widoczna natywna zakładka z mapą, podkładem i stanem usługi; mount i cleanup działają. To najmniejszy podetap dający działający rezultat. | D6, cykl życia Leaflet i migracja stylów z niezwersjonowanego Tailwind do CSS modułu. | Atrapa DOM: mount tworzy mapę, odmontowanie ją usuwa; fetch atrapiony. | M, 1–2 dni [HIP] |
 | M4c — wyszukiwanie i kontekst | Wybór powiat/gmina/obręb/numer; geometria, zaznaczenie i przekazanie parcel/point. | Mapowanie identyfikatora działki oraz kodu gminy. | Atrapy DOM/fetch; błędna odpowiedź nie nadpisuje kontekstu. | L, 3–5 dni [HIP] |
-| M4d — warstwy i popupy | EGiB, plany, własność, infrastruktura, ryzyka i informacje mapowe. | Różne układy współrzędnych i dostępność usług. | Przełączniki i popupy działają na atrapach; bez sieci. | L, 3–5 dni [HIP] |
+| M4d — warstwy i popupy | EGiB, plany, własność, infrastruktura, ryzyka i informacje mapowe. | Różne układy współrzędnych i dostępność usług; przypisanie stylów użytkowych do ręcznego CSS modułu. | Przełączniki i popupy działają na atrapach; bez sieci. | L, 3–5 dni [HIP] |
 | M4e — narzędzia mapy | Selekcja, kolory, rodzina działek, pomiary i menu kontekstowe. | Czyszczenie zdarzeń przy odmontowaniu. | Atrapa DOM testuje kliknięcia, Escape, anulowanie i cleanup. | M, 2–3 dni [HIP] |
 | M4f — raport i regresja | Lista działek/warstw, PDF oraz porównanie z zapisanym baseline przez właściciela. | Zależność zrzutów od usług mapowych i ręczny odbiór PDF. | Atrapy DOM/canvas/PDF; bez sieci; właściciel wykonuje 7 przypadków. | L, 3–5 dni [HIP] |
 
 ## 9. Otwarte pytania do właściciela
 
-1. Czy nowa zakładka ma działać bez bramki do czasu decyzji D5 przed M8, czy decyzję o dostępie należy rozstrzygnąć przed M4b?
-2. Czy dla trasy /api/mpzp-gmina-info wolno wyprowadzić 6-cyfrowy teryt z 7-cyfrowego gmina.terc7 przez pominięcie ostatniej cyfry? Wymaga to potwierdzenia przed implementacją.
-3. Czy parcel.id ma przejmować identyfikator działki bez zmian, a obrebTeryt pozostawać pusty, jeśli front nie dostarczy potwierdzonego kodu?
-4. Czy zaakceptować lokalne pliki bibliotek, czy wybrać CDN z przypiętymi wersjami i SRI?
-5. Czy robocza lista PDF ma przetrwać przełączenie zakładki w pamięci sesji, czy może być czyszczona po opuszczeniu Działek?
+Brak otwartych pytań z poprzedniej listy. Decyzje właściciela 1–5 z 2026-11-01 zapisano w DECISIONS.md, D15.
