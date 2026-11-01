@@ -105,7 +105,7 @@ Właściciel zapisuje baseline przed rozpoczęciem M4. Wypełnij osobny blok dla
 
 ## Działki — rozszerzone przypadki baseline M4a
 
-Wykonaj przed M4b w obecnej aplikacji Działki. Dla każdego przypadku wybierz te same obszary/usługi także po porcie; wpisuj tylko wyniki zagregowane, bez danych osobowych. Zrzuty ekranu zanonimizuj. Wyników poniżej nie wypełniać w PR.
+Wykonuj tylko przypadki przypisane do najbliższego podetapu i zapisuj baseline bezpośrednio przed jego rozpoczęciem: M4b → D2; M4c → D1; M4d → D4, D5, D6; M4e → D3; M4f → D7. Dla każdego przypadku wybierz te same obszary/usługi także po porcie; wpisuj wyłącznie wyniki zagregowane, bez danych osobowych. Zrzuty ekranu zanonimizuj. Wyników poniżej nie wypełniać w PR.
 
 ### D1 — wyszukiwanie i zaznaczenie działki
 
