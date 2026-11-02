@@ -42,9 +42,24 @@ Wszystkie cztery wywołania są bezpośrednimi żądaniami przeglądarki do publ
 
 Stary front buduje parametr `teryt` dla informacji o gminie z części identyfikatora przed `_`; ta część ma sześć cyfr. [FAKT z kodu: `index.html:237,321-324`] Funkcja `terc7ToTeryt()` jest czysta i testowana. Kontekst `gmina.terc7` w M4c powstaje wyłącznie z pełnego kodu siedmiocyfrowego. `parcel.id` jest zachowywany bez zmian, a `obrebTeryt` pomijany bez niezależnego potwierdzenia.
 
-Zapytanie ULDK zwraca identyfikator, numer, nazwy jednostek i geometrię; nie zawiera pola powierzchni ewidencyjnej. Popup pokazuje dane dostępne z list administracyjnych i odpowiedzi. Obrys jest wyróżniony, widok dopasowany do granic, a numer działki widoczny jako etykieta. Stan formularza i wybrany wynik pozostają w pamięci modułu przy przełączaniu zakładek.
+Zapytanie ULDK zwraca identyfikator, numer, nazwy jednostek i geometrię; nie zawiera pola powierzchni ewidencyjnej. Obrys jest wyróżniony, widok dopasowany do granic, a numer działki widoczny jako etykieta. Stan formularza i wybrany wynik pozostają w pamięci modułu przy przełączaniu zakładek.
 
-Pozostałe funkcje, w tym EGiB, planowanie przestrzenne, inwestycje i zagrożenia, infrastruktura i własność, pozostają oznaczone jako „w kolejnych etapach”.
+### Raport o działce i dane EGiB — M4c.1
+
+Stary front nie pobiera pól raportu o działce z trasy backendu Działek. Po wyszukaniu wykonuje jeszcze dwa bezpośrednie żądania przeglądarki metodą GET:
+
+| Kolejność | Cel | Stary front | Nowa aplikacja | Metoda i parametry | CRS i odpowiedź |
+|---:|---|---|---|---|---|
+| 1 | Geometria działki do zapytania EGiB | ULDK `/?request=GetParcelById` [FAKT z kodu: `index.html:560`] | `buildEgibGeometryUrl()` w `app/js/modules/dzialki/egib.js` | GET; `id=<identyfikator działki>`, `result=id,geom_wkt`, `srid=2180` | WKT tekstowy w EPSG:2180 |
+| 2 | Powierzchnia ewidencyjna, grupa rejestrowa i klasoużytki | KIEG `/cgi-bin/KrajowaIntegracjaEwidencjiGruntow` [FAKT z kodu: `index.html:560`] | `buildKiegFeatureInfoUrl()` w `app/js/modules/dzialki/egib.js` | GET WMS `GetFeatureInfo`; `VERSION=1.1.1`, `SRS=EPSG:2180`, `LAYERS=dzialki`, `QUERY_LAYERS=dzialki`, bbox 200×200 m wokół punktu wewnątrz działki, `WIDTH/HEIGHT=1000`, `X/Y=500`, `INFO_FORMAT=text/xml`, `FORMAT=image/png`, `TRANSPARENT=TRUE` | XML z atrybutami EGiB; kolejność: po geometrii ULDK w EPSG:2180 |
+
+Porównanie i testy adresów pochodzą z odczytu starego frontu `index.html` w rewizji `a1aa39d`. Nowy klient akceptuje wyłącznie te dwa dodatkowe kształty GET. Automatyczne testy używają syntetycznych odpowiedzi i nie potwierdzają zachowania usługi produkcyjnej.
+
+Raport pokazuje identyfikator, nazwy jednostek i numer z wybranych list/odpowiedzi oraz powierzchnię, grupę rejestrową i klasoużytki z KIEG. Komunikat po sukcesie brzmi: „Działka została znaleziona. Powierzchnia i klasoużytki pobrane z EGiB.”. Popup prezentuje te same pola EGiB i przełącza zaznaczenie kliknięciem. M4c.1 przełącza tylko wynik wyszukiwania; zaznaczanie wielu działek przez warstwę EGiB należy do M4d.
+
+Kod jednostki na początku identyfikatora parceli służy do wyprowadzenia kodów województwa/powiatu. Dla rodzaju 1/2/3 wyprowadzany jest odpowiadający kod TERC7; dla rodzajów 4/5 budowany jest kod rodzaju 3 [HIP do walidacji na pełnym TERC w M3b]. Nazwy pochodzą z list PRG. Pozostałe rodzaje nie ustawiają `gmina`, a `obrebTeryt` pozostaje pominięte bez niezależnego potwierdzenia.
+
+Tematyczne warstwy EGiB (numery, granice i kontury budynków), planowanie przestrzenne, inwestycje i zagrożenia, infrastruktura i własność pozostają oznaczone jako „w kolejnych etapach”. Dane EGiB do raportu wyszukanej działki są zakresem M4c.1 i nie oznaczają wdrożenia tematycznych warstw EGiB.
 
 ## Diagnostyka M4b.1
 

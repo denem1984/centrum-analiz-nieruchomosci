@@ -15,11 +15,86 @@ function option(document, value, label) {
   return item;
 }
 
-function setOptions(select, items, placeholder, selectedValue = "") {
+function setOptions(select, items, placeholder, selectedValue = "", labelFor = (item) => item.name) {
   const document = select.ownerDocument;
   select.replaceChildren(option(document, "", placeholder));
-  for (const item of items) select.append(option(document, item.code, item.name));
+  for (const item of items) select.append(option(document, item.code, labelFor(item)));
   select.value = selectedValue;
+}
+
+const VOIVODESHIP_NAMES = Object.freeze({
+  "02": "dolnośląskie", "04": "kujawsko-pomorskie", "06": "lubelskie", "08": "lubuskie",
+  "10": "łódzkie", "12": "małopolskie", "14": "mazowieckie", "16": "opolskie",
+  "18": "podkarpackie", "20": "podlaskie", "22": "pomorskie", "24": "śląskie",
+  "26": "świętokrzyskie", "28": "warmińsko-mazurskie", "30": "wielkopolskie", "32": "zachodniopomorskie",
+});
+
+function reportElement(document, tag, text, className) {
+  const node = makeElement(document, tag, text, className);
+  return node;
+}
+
+function createParcelReport(document) {
+  const section = reportElement(document, "section", undefined, "dzialki-parcel-report");
+  section.id = "dzialki-parcel-report";
+  section.setAttribute("aria-labelledby", "dzialki-parcel-report-heading");
+  section.dataset.egibState = "idle";
+  const heading = reportElement(document, "h3", "2. Raport o działce");
+  heading.id = "dzialki-parcel-report-heading";
+  const body = reportElement(document, "div", undefined, "dzialki-parcel-report-body");
+  section.append(heading, body);
+  return { section, body };
+}
+
+function renderParcelReport(report, selection) {
+  const { section, body } = report;
+  body.replaceChildren();
+  if (!selection) {
+    section.dataset.egibState = "idle";
+    body.append(reportElement(body.ownerDocument, "p", "Nie wybrano działki."));
+    return;
+  }
+  const state = selection.egibState ?? (selection.egib ? "ready" : "loading");
+  section.dataset.egibState = state;
+  const rows = [
+    ["Identyfikator działki", selection.parcel?.id],
+    ["Województwo", selection.voivodeshipName],
+    ["Powiat", selection.countyName || selection.powiat?.name],
+    ["Gmina", selection.communeName || selection.gmina?.name],
+    ["Obręb", selection.region?.name],
+    ["Numer", selection.parcel?.number],
+    ["Powierzchnia ewidencyjna", selection.egib?.area],
+  ];
+  const grid = reportElement(body.ownerDocument, "dl", undefined, "dzialki-report-rows");
+  for (const [label, value] of rows) {
+    grid.append(reportElement(body.ownerDocument, "dt", label));
+    grid.append(reportElement(body.ownerDocument, "dd", typeof value === "string" && value ? value : "—"));
+  }
+  body.append(grid);
+  if (selection.egib?.group) {
+    const group = reportElement(body.ownerDocument, "div", undefined, "dzialki-registration-group");
+    group.append(reportElement(body.ownerDocument, "span", "Grupa rejestrowa"));
+    group.append(reportElement(body.ownerDocument, "strong", "Grupa " + selection.egib.group));
+    if (selection.egib.groupDescription) group.append(reportElement(body.ownerDocument, "span", selection.egib.groupDescription));
+    body.append(group);
+  }
+  const uses = reportElement(body.ownerDocument, "section", undefined, "dzialki-land-uses");
+  uses.append(reportElement(body.ownerDocument, "h4", "Klasoużytki"));
+  if (selection.egib?.classUse?.length) {
+    for (const item of selection.egib.classUse) {
+      const row = reportElement(body.ownerDocument, "p", undefined, "dzialki-land-use");
+      row.append(reportElement(body.ownerDocument, "strong", item.code));
+      row.append(reportElement(body.ownerDocument, "span", item.description || "Brak opisu w słowniku aplikacji"));
+      uses.append(row);
+    }
+  } else {
+    const message = state === "ready"
+      ? "Brak danych o użytkach w ewidencji powiatu (KIEG)."
+      : state === "error" ? "Nie udało się pobrać danych ewidencyjnych. Możesz spróbować ponownie."
+        : "Oczekiwanie na dane ewidencyjne…";
+    uses.append(reportElement(body.ownerDocument, "p", message));
+  }
+  body.append(uses);
 }
 
 function writeSearchState(patch) {
@@ -41,7 +116,7 @@ export function mountParcelSearch(container, options = {}) {
   root.append(makeElement(
     document,
     "p",
-    "Dane administracyjne: GUGiK PRG. Działka: ULDK GUGiK.",
+    "Dane administracyjne: GUGiK PRG. Działka: ULDK GUGiK. Powierzchnia i klasoużytki: EGiB/KIEG.",
     "dzialki-search-source",
   ));
 
@@ -94,6 +169,10 @@ export function mountParcelSearch(container, options = {}) {
   root.append(countyLabel, communeLabel, precinctLabel, numberLabel, searchButton, status, retryButton);
   container.append(root);
 
+  const report = createParcelReport(document);
+  container.append(report.section);
+  renderParcelReport(report, getDzialkiState().selectedParcel);
+
   const api = options.api ?? createSearchApi(options.apiOptions);
   const savedState = getDzialkiState();
   const searchState = savedState.search;
@@ -105,12 +184,35 @@ export function mountParcelSearch(container, options = {}) {
   let precinctItems = Array.isArray(searchState.obreby) ? searchState.obreby : [];
   const controllers = new Set();
 
-  setOptions(county, countyItems, "Wybierz powiat", searchState.powiatCode);
+  const countyLabelFor = (item) => item.name + " (" + (VOIVODESHIP_NAMES[item.code.slice(0, 2)] ?? "województwo nieznane") + ")";
+  const precinctLabelFor = (item) => item.name + " (" + item.code.split(".").at(-1) + ")";
+  setOptions(county, countyItems, "Wybierz powiat", searchState.powiatCode, countyLabelFor);
   setOptions(commune, communeItems, "Najpierw wybierz powiat", searchState.gminaCode);
   setOptions(precinct, precinctItems, "Najpierw wybierz gminę", searchState.obrebCode);
 
   function setStatus(message) {
     if (!disposed) status.textContent = message;
+  }
+
+  function storeSelection(selection) {
+    updateDzialkiState({ selectedParcel: selection });
+    renderParcelReport(report, selection);
+  }
+
+  async function loadEgib(selection) {
+    const result = await runOperation("Pobieranie danych EGiB", ({ onWait, signal }) =>
+      api.egib(selection.parcel.id, { onWait, signal }), () => loadEgib(selection));
+    if (disposed) return;
+    if (!result) {
+      const failed = { ...selection, egib: null, egibState: "error" };
+      storeSelection(failed);
+      options.onEgib?.(failed);
+      return;
+    }
+    const completed = { ...selection, egib: result, egibState: "ready" };
+    storeSelection(completed);
+    options.onEgib?.(completed);
+    setStatus("Działka została znaleziona. Powierzchnia i klasoużytki pobrane z EGiB.");
   }
 
   function setBusy(value) {
@@ -144,7 +246,8 @@ export function mountParcelSearch(container, options = {}) {
     const controller = new AbortController();
     controllers.add(controller);
     const onWait = (seconds) => {
-      if (!disposed) setStatus(label + " · oczekiwanie: " + seconds + " s. Pierwsze pobranie może potrwać do około minuty.");
+      if (!disposed) setStatus(label + " · Usługa się budzi… Oczekiwanie: " + seconds
+        + " s. Pierwsze pobranie może potrwać do około minuty.");
     };
     try {
       const result = await operation({ onWait, signal: controller.signal });
@@ -168,7 +271,7 @@ export function mountParcelSearch(container, options = {}) {
       api.counties({ onWait, signal }), () => loadCounties());
     if (!rows || disposed) return;
     countyItems = rows;
-    setOptions(county, countyItems, "Wybierz powiat", county.value);
+    setOptions(county, countyItems, "Wybierz powiat", county.value, countyLabelFor);
     county.disabled = false;
     persistSearch();
     setStatus("Gotowe. Wybierz powiat.");
@@ -190,7 +293,7 @@ export function mountParcelSearch(container, options = {}) {
       api.regions(selectedCommune.code, { onWait, signal }), () => loadPrecincts(selectedCommune));
     if (!rows || disposed) return;
     precinctItems = rows;
-    setOptions(precinct, precinctItems, "Wybierz obręb");
+    setOptions(precinct, precinctItems, "Wybierz obręb", "", precinctLabelFor);
     precinct.disabled = false;
     persistSearch({ obrebCode: "", obreby: precinctItems });
     setStatus("Wybierz obręb.");
@@ -224,14 +327,17 @@ export function mountParcelSearch(container, options = {}) {
       parcel: { id: result.id, number: result.number || parcelNumber },
       powiat: selectedCounty,
       gmina: selectedCommune,
+      communes: communeItems,
       region: selectedPrecinct,
       countyName: result.county || selectedCounty.name,
       communeName: result.commune || selectedCommune.name,
       voivodeshipName: result.region || "",
       geometry: result.geometry,
       extent: result.extent,
+      egib: null,
+      egibState: "loading",
     };
-    updateDzialkiState({ selectedParcel: selection });
+    storeSelection(selection);
     options.onSelect?.(selection);
     const context = createSearchContext(selection);
     if (context) {
@@ -243,7 +349,8 @@ export function mountParcelSearch(container, options = {}) {
         return;
       }
     }
-    setStatus("Znaleziono działkę. Obrys i szczegóły są widoczne na mapie.");
+    setStatus("Działkę znaleziono. Pobieranie danych ewidencyjnych…");
+    await loadEgib(selection);
   }
 
   county.addEventListener("change", () => {
@@ -313,6 +420,7 @@ export function mountParcelSearch(container, options = {}) {
     for (const controller of controllers) controller.abort();
     controllers.clear();
     persistSearch();
+    report.section.remove?.();
     root.replaceChildren();
   };
 }

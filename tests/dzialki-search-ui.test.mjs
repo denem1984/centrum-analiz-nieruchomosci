@@ -44,8 +44,18 @@ test("formularz szuka działki, rysuje obrys, ustawia kontekst i zachowuje wybó
         return { ok: true, status: 200, text: async () => "0\n998877_6.0001|9988776|Fikcyjny obręb|Fikcyjna gmina|Fikcyjny powiat" };
       }
       if (url.searchParams.get("request") === "GetParcelById") {
+        if (url.searchParams.get("srid") === "2180") {
+          return { ok: true, status: 200, text: async () => "0\n998877_6.0001.12/3|POLYGON ((300000 500000, 300100 500000, 300100 500100, 300000 500100, 300000 500000))" };
+        }
         return { ok: true, status: 200, text: async () => "0\n" + parcelRow };
       }
+    }
+    if (url.hostname === "integracja.gugik.gov.pl") {
+      return { ok: true, status: 200, text: async () => "<Feature>"
+        + "<Attribute Name=\"Identyfikator działki\">998877_6.0001.12/3</Attribute>"
+        + "<Attribute Name=\"Pole pow. w ewidencji gruntów\">0.4449</Attribute>"
+        + "<Attribute Name=\"Grupa rejestrowa\">7</Attribute>"
+        + "<Attribute Name=\"Oznaczenie użytku\">RVI, B</Attribute></Feature>" };
     }
     throw new Error("Unexpected synthetic request");
   };
@@ -74,6 +84,7 @@ test("formularz szuka działki, rysuje obrys, ustawia kontekst i zachowuje wybó
   fake.document.body.append(mountTarget);
   let cleanup = mountDzialki(mountTarget, ctx);
   await flush();
+  assert.match(fake.document.getElementById("dzialki-parcel-report").textContent, /Nie wybrano działki/);
 
   const county = fake.document.getElementById("dzialki-search-powiat");
   const commune = fake.document.getElementById("dzialki-search-gmina");
@@ -93,26 +104,41 @@ test("formularz szuka działki, rysuje obrys, ustawia kontekst i zachowuje wybó
   fake.document.getElementById("dzialki-search-submit").click();
   await flush();
 
-  assert.equal(requests.length, 4);
+  assert.equal(requests.length, 6);
   assert.ok(requests.every((request) => request.method === "GET"));
   assert.ok(requests[0].url.includes("/FeatureServer/1/query"));
   assert.ok(requests[1].url.includes("/FeatureServer/0/query"));
   assert.equal(new URL(requests[2].url).searchParams.get("request"), "GetRegionByNameOrId");
   assert.equal(new URL(requests[3].url).searchParams.get("request"), "GetParcelById");
+  assert.equal(new URL(requests[4].url).searchParams.get("srid"), "2180");
+  assert.equal(new URL(requests[5].url).hostname, "integracja.gugik.gov.pl");
   assert.equal(leaflet.geoJsonLayers.length, 1);
   assert.equal(leaflet.geoJsonLayers[0].options.style.className, "dzialki-selected-parcel");
-  assert.match(leaflet.geoJsonLayers[0].popup.textContent, /Identyfikator działki/);
-  assert.match(leaflet.geoJsonLayers[0].popup.textContent, /Fikcyjny powiat/);
+  assert.match(leaflet.geoJsonLayers[0].popup.textContent, /Działka 998877_6\.0001\.12\/3/);
+  assert.match(leaflet.geoJsonLayers[0].popup.textContent, /Grupa rejestrowa: 7 – osoby fizyczne/);
+  assert.match(leaflet.geoJsonLayers[0].popup.textContent, /Klasoużytki: RVI, B/);
+  leaflet.geoJsonLayers[0].fire("click");
+  assert.match(leaflet.geoJsonLayers[0].popup.textContent, /Zaznaczono tę działkę/);
+  assert.equal(leaflet.geoJsonLayers[0].options.style.fillOpacity, 0.42);
+  assert.equal(leaflet.geoJsonLayers[0].options.style.weight, 5);
+  leaflet.geoJsonLayers[0].fire("click");
+  assert.match(leaflet.geoJsonLayers[0].popup.textContent, /Odznaczono tę działkę/);
+  assert.equal(leaflet.geoJsonLayers[0].options.style.fillOpacity, 0.18);
+  assert.equal(leaflet.geoJsonLayers[0].options.style.weight, 4);
   assert.match(leaflet.geoJsonLayers[0].tooltip.textContent, /12\/3/);
   assert.equal(contexts.length, 1);
   assert.equal(contexts[0].source, "dzialki");
   assert.equal(contexts[0].parcel.id, "998877_6.0001.12/3");
   assert.equal(contexts[0].parcel.obrebTeryt, undefined);
-  assert.equal(contexts[0].gmina.terc7, "9988776");
+  assert.equal(contexts[0].gmina, undefined, "rodzaj jednostki 6 nie mapuje się do kontekstu gminy");
   assert.ok(Math.abs(contexts[0].point.lat - 52.05) < 1e-8);
   assert.ok(Math.abs(contexts[0].point.lon - 20.05) < 1e-8);
   assert.equal(contexts[0].point.crs, "EPSG:4326");
   assert.equal(getDzialkiState().selectedParcel.parcel.id, contexts[0].parcel.id);
+  assert.equal(getDzialkiState().selectedParcel.egib.area, "0,4449 ha");
+  assert.equal(fake.document.getElementById("dzialki-parcel-report").dataset.egibState, "ready");
+  assert.match(fake.document.getElementById("dzialki-parcel-report").textContent, /0,4449 ha/);
+  assert.match(fake.document.getElementById("dzialki-search-status").textContent, /Powierzchnia i klasoużytki pobrane z EGiB/);
   assert.deepEqual(getDzialkiState().center, [52.05, 20.05]);
 
   cleanup();
@@ -122,7 +148,7 @@ test("formularz szuka działki, rysuje obrys, ustawia kontekst i zachowuje wybó
   assert.equal(leaflet.geoJsonLayers.length, 2);
   assert.equal(fake.document.getElementById("dzialki-search-powiat").value, "9988");
   assert.equal(fake.document.getElementById("dzialki-search-numer").value, "12/3");
-  assert.equal(requests.length, 4, "zapamiętane listy nie są pobierane ponownie po zmianie zakładki");
+  assert.equal(requests.length, 6, "zapamiętane listy i raport nie są pobierane ponownie po zmianie zakładki");
   cleanup();
 });
 
@@ -147,6 +173,7 @@ test("formularz komunikuje błędny numer, błąd sieci i brak wyniku oraz pozwa
       if (parcelCalls === 1) throw new Error("Nie udało się połączyć z usługą danych.");
       return null;
     },
+    async egib() { throw new Error("EGiB nie jest wywoływane bez działki."); },
   };
   const target = fake.document.createElement("main");
   fake.document.body.append(target);
@@ -182,4 +209,62 @@ test("formularz komunikuje błędny numer, błąd sieci i brak wyniku oraz pozwa
   assert.equal(parcelCalls, 2);
   assert.match(fake.document.getElementById("dzialki-search-status").textContent, /Nie znaleziono działki/);
   assert.equal(retry.hidden, true);
+});
+
+test("raport EGiB po błędzie pozostawia formularz aktywny i pozwala ponowić pobranie", async (t) => {
+  resetDzialkiState();
+  contextStore.clear();
+  const fake = createFakeDom();
+  const previousDocument = globalThis.document;
+  globalThis.document = fake.document;
+  t.after(() => {
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+    resetDzialkiState();
+    contextStore.clear();
+  });
+  let egibCalls = 0;
+  const api = {
+    async counties() { return [{ code: "9988", name: "Fikcyjny powiat" }]; },
+    async communes() { return [{ code: "9988771", name: "Fikcyjna gmina" }]; },
+    async regions() { return [{ code: "998877_1.0001", name: "Fikcyjny obręb" }]; },
+    async parcel() {
+      return {
+        id: "998877_1.0001.12/3", number: "12/3", county: "Fikcyjny powiat",
+        commune: "Fikcyjna gmina", region: "Fikcyjne województwo",
+        geometry: { type: "Polygon", coordinates: [[[20, 52], [20.1, 52], [20.1, 52.1], [20, 52.1], [20, 52]]] },
+        extent: { center: { lat: 52.05, lon: 20.05 } },
+      };
+    },
+    async egib() {
+      egibCalls += 1;
+      if (egibCalls === 1) throw new Error("Nie udało się połączyć z usługą danych.");
+      return { area: "0,1000 ha", group: "7", groupDescription: "osoby fizyczne", classUse: [] };
+    },
+  };
+  const target = fake.document.createElement("main");
+  fake.document.body.append(target);
+  const unmount = mountParcelSearch(target, { api });
+  t.after(unmount);
+  await flush();
+  fake.document.getElementById("dzialki-search-powiat").value = "9988";
+  fake.document.getElementById("dzialki-search-powiat").dispatch("change");
+  await flush();
+  fake.document.getElementById("dzialki-search-gmina").value = "9988771";
+  fake.document.getElementById("dzialki-search-gmina").dispatch("change");
+  await flush();
+  fake.document.getElementById("dzialki-search-obreb").value = "998877_1.0001";
+  fake.document.getElementById("dzialki-search-obreb").dispatch("change");
+  fake.document.getElementById("dzialki-search-numer").value = "12/3";
+  fake.document.getElementById("dzialki-search-submit").click();
+  await flush();
+  assert.equal(fake.document.getElementById("dzialki-parcel-report").dataset.egibState, "error");
+  assert.match(fake.document.getElementById("dzialki-search-status").textContent, /Nie udało się połączyć/);
+  assert.match(fake.document.getElementById("dzialki-parcel-report").textContent, /Nie udało się pobrać danych ewidencyjnych/);
+  assert.equal(fake.document.getElementById("dzialki-search-retry").hidden, false);
+  fake.document.getElementById("dzialki-search-retry").click();
+  await flush();
+  assert.equal(egibCalls, 2);
+  assert.equal(fake.document.getElementById("dzialki-parcel-report").dataset.egibState, "ready");
+  assert.match(fake.document.getElementById("dzialki-search-status").textContent, /Powierzchnia i klasoużytki pobrane z EGiB/);
 });

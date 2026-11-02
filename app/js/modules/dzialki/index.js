@@ -48,6 +48,7 @@ export function mountDzialki(container, ctx = {}) {
   let leaflet = null;
   let activeLayer = null;
   let selectedParcelLayer = null;
+  let updateSelectedParcelDetails = () => {};
   let retryController = null;
   let unmountSearch = () => {};
   let unsubscribeHealth = () => {};
@@ -69,20 +70,19 @@ export function mountDzialki(container, ctx = {}) {
   const controls = element("aside", undefined, "dzialki-controls");
   controls.setAttribute("aria-label", "Ustawienia mapy Działki");
 
-  function popupForSelection(selection) {
-    const popup = element("dl", undefined, "dzialki-parcel-popup");
-    const fields = [
-      ["Identyfikator działki", selection.parcel?.id],
-      ["Województwo", selection.voivodeshipName],
-      ["Powiat", selection.countyName || selection.powiat?.name],
-      ["Gmina", selection.communeName || selection.gmina?.name],
-      ["Obręb", selection.region?.name],
-      ["Numer", selection.parcel?.number],
-    ];
-    for (const [label, value] of fields) {
-      if (typeof value !== "string" || !value.trim()) continue;
-      popup.append(element("dt", label), element("dd", value));
-    }
+  function popupForSelection(selection, toggled = false, hasInteracted = false) {
+    const popup = element("div", undefined, "dzialki-parcel-popup");
+    popup.append(element("strong", "Działka " + selection.parcel?.id));
+    popup.append(element("p", "Powierzchnia: " + (selection.egib?.area || "brak danych")));
+    const group = selection.egib?.group;
+    const groupDescription = selection.egib?.groupDescription;
+    popup.append(element("p", "Grupa rejestrowa: "
+      + (group ? group + (groupDescription ? " – " + groupDescription : "") : "brak danych")));
+    const classes = selection.egib?.classUse?.map((item) => item.code).join(", ") || "brak danych o użytkach w ewidencji powiatu (KIEG)";
+    popup.append(element("p", "Klasoużytki: " + classes));
+    popup.append(element("small", toggled
+      ? "✓ Zaznaczono tę działkę (klik ponownie, aby odznaczyć)."
+      : hasInteracted ? "Odznaczono tę działkę." : "Kliknij działkę, aby ją zaznaczyć."));
     return popup;
   }
 
@@ -106,7 +106,36 @@ export function mountDzialki(container, ctx = {}) {
       },
     });
     selectedParcelLayer.addTo(map);
-    selectedParcelLayer.bindPopup(popupForSelection(selection));
+    let toggled = false;
+    let hasInteracted = false;
+    let currentSelection = selection;
+    const baseSelectionStyle = {
+      color: color || "#b42355",
+      fillColor: fill || "#f04472",
+      weight: 4,
+      fillOpacity: 0.18,
+    };
+    function updatePopup() {
+      const content = popupForSelection(currentSelection, toggled, hasInteracted);
+      const popup = selectedParcelLayer.getPopup?.();
+      if (popup?.setContent) popup.setContent(content);
+      else selectedParcelLayer.bindPopup(content);
+    }
+    selectedParcelLayer.bindPopup(popupForSelection(currentSelection, toggled, hasInteracted));
+    selectedParcelLayer.on("click", () => {
+      toggled = !toggled;
+      hasInteracted = true;
+      selectedParcelLayer.setStyle({
+        ...baseSelectionStyle,
+        weight: toggled ? 5 : baseSelectionStyle.weight,
+        fillOpacity: toggled ? 0.42 : baseSelectionStyle.fillOpacity,
+      });
+      updatePopup();
+    });
+    updateSelectedParcelDetails = (nextSelection) => {
+      currentSelection = nextSelection;
+      updatePopup();
+    };
     const label = element("span", selection.parcel?.number || selection.parcel?.id, "dzialki-parcel-label");
     selectedParcelLayer.bindTooltip(label, {
       permanent: true,
@@ -129,6 +158,7 @@ export function mountDzialki(container, ctx = {}) {
   unmountSearch = mountParcelSearch(controls, {
     setContext: ctx.setContext,
     onSelect: showSelectedParcel,
+    onEgib: (selection) => updateSelectedParcelDetails(selection),
   });
 
   const baseHeading = element("h3", "Podkład mapy");

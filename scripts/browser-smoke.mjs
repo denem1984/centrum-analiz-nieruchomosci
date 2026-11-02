@@ -28,6 +28,7 @@ const SEARCH_SERVICE_RULES = Object.freeze([
     kind: "communes",
   },
   { host: "uldk.gugik.gov.pl", path: "/", kind: "uldk" },
+  { host: "integracja.gugik.gov.pl", path: "/cgi-bin/KrajowaIntegracjaEwidencjiGruntow", kind: "kieg" },
 ]);
 const TILE_HOST_RULES = Object.freeze([
   { host: "tile.openstreetmap.org", subdomains: true, tilePath: true },
@@ -235,11 +236,25 @@ export function isAllowedSearchServiceRequest(url) {
         && params.get("result") === "id,teryt,region,commune,county";
     }
     if (request === "GetParcelById") {
-      return exactQueryKeys(params, ["request", "id", "result", "srid"])
-        && /^\d{6}_\d\.\d{4}\.[0-9A-Za-z./-]{1,32}$/.test(params.get("id") ?? "")
-        && params.get("result") === "id,teryt,parcel,county,commune,region,geom_wkt"
-        && params.get("srid") === "4326";
+      if (!exactQueryKeys(params, ["request", "id", "result", "srid"])
+          || !/^\d{6}_\d\.\d{4}\.[0-9A-Za-z./-]{1,32}$/.test(params.get("id") ?? "")) return false;
+      return (params.get("result") === "id,teryt,parcel,county,commune,region,geom_wkt" && params.get("srid") === "4326")
+        || (params.get("result") === "id,geom_wkt" && params.get("srid") === "2180");
     }
+  }
+  if (rule.kind === "kieg") {
+    const keys = ["SERVICE", "VERSION", "REQUEST", "SRS", "BBOX", "WIDTH", "HEIGHT", "X", "Y", "LAYERS", "QUERY_LAYERS", "INFO_FORMAT", "FORMAT", "TRANSPARENT"];
+    if (!exactQueryKeys(params, keys)) return false;
+    const bbox = (params.get("BBOX") ?? "").split(",").map(Number);
+    return params.get("SERVICE") === "WMS" && params.get("VERSION") === "1.1.1"
+      && params.get("REQUEST") === "GetFeatureInfo" && params.get("SRS") === "EPSG:2180"
+      && bbox.length === 4 && bbox.every(Number.isFinite)
+      && Math.abs((bbox[2] - bbox[0]) - 200) < 0.001 && Math.abs((bbox[3] - bbox[1]) - 200) < 0.001
+      && params.get("WIDTH") === "1000" && params.get("HEIGHT") === "1000"
+      && params.get("X") === "500" && params.get("Y") === "500"
+      && params.get("LAYERS") === "dzialki" && params.get("QUERY_LAYERS") === "dzialki"
+      && params.get("INFO_FORMAT") === "text/xml" && params.get("FORMAT") === "image/png"
+      && params.get("TRANSPARENT") === "TRUE";
   }
   return false;
 }
@@ -462,7 +477,10 @@ export function buildStateExpression() {
     "const zoom = document.querySelector('input[aria-label=\"Przybliżenie mapy\"]')?.value || '';",
     "const selectedParcelCount = document.querySelectorAll('.dzialki-selected-parcel').length;",
     "const searchStatus = document.querySelector('#dzialki-search-status')?.textContent || '';",
-    "return { mapVisible: Boolean(document.querySelector('.leaflet-container')), tileCount: tiles.length, loadedCount: loaded.length, failedCount: match ? Number(match[1]) : 0, selectedParcelCount, searchStatus, base, year, zoom };",
+    "const report = document.querySelector('#dzialki-parcel-report');",
+    "const reportText = report?.textContent || '';",
+    "const egibState = report?.dataset.egibState || 'idle';",
+    "return { mapVisible: Boolean(document.querySelector('.leaflet-container')), tileCount: tiles.length, loadedCount: loaded.length, failedCount: match ? Number(match[1]) : 0, selectedParcelCount, searchStatus, reportText, egibState, base, year, zoom };",
     "})()",
   ].join("\n");
 }
@@ -772,13 +790,23 @@ async function runBrowserSmoke() {
     }
 
     async function waitForSearchResult(deadline) {
-      const expression = "(() => { const text = document.querySelector('#dzialki-search-status')?.textContent || '';"
-        + " return /Znaleziono działkę|Nie znaleziono działki|Nie udało się|Upłynął limit czasu/.test(text); })()";
+      const expression = "(() => { const paths = document.querySelectorAll('.dzialki-selected-parcel').length;"
+        + " const text = document.querySelector('#dzialki-search-status')?.textContent || '';"
+        + " return paths > 0 || /Nie znaleziono działki|Nie udało się|Upłynął limit czasu/.test(text); })()";
       while (Date.now() < deadline) {
         if (await evaluate(expression).catch(() => false)) return;
         await sleep(150);
       }
       throw new Error("Wyszukiwanie nie zakończyło się przed limitem scenariusza.");
+    }
+
+    async function waitForEgib(deadline) {
+      while (Date.now() < deadline) {
+        const state = await evaluateState().catch(() => null);
+        if (state?.egibState === "ready" || state?.egibState === "error") return state;
+        await sleep(150);
+      }
+      throw new Error("Dane EGiB nie zakończyły ładowania przed limitem scenariusza.");
     }
 
     async function runParcelSearchScenario(origin) {
@@ -803,7 +831,10 @@ async function runBrowserSmoke() {
       if (!await evaluate(fillExpression)) throw new Error("Nie znaleziono pola numeru działki.");
       await waitForSearchResult(deadline);
       const resultTimeMs = Math.max(0, Math.round((await evaluate("performance.now()")) - startedAt));
-      const state = await evaluateState();
+      const resultState = await evaluateState();
+      const state = resultState.selectedParcelCount > 0 ? await waitForEgib(deadline) : resultState;
+      const egibTimeMs = state.selectedParcelCount > 0
+        ? Math.max(0, Math.round((await evaluate("performance.now()")) - startedAt)) : null;
       const requestDetails = externalRequests.filter((request) => request.scenario === name)
         .map((request) => ({
           url: request.url,
@@ -814,12 +845,35 @@ async function runBrowserSmoke() {
           elapsedMs: request.elapsedMs,
           errorText: request.errorText,
         }));
-      const screenshot = await captureScenario(name);
+      const egibRequests = requestDetails.filter((request) =>
+        request.host === "integracja.gugik.gov.pl"
+        || (request.host === "uldk.gugik.gov.pl" && new URL(request.url).searchParams.get("srid") === "2180"));
+      const sourceRequests = requestDetails.filter((request) => [
+        "mapy.geoportal.gov.pl", "uldk.gugik.gov.pl", "integracja.gugik.gov.pl",
+      ].includes(new URL(request.url).hostname));
+      const dzialkiBackendSearchRequests = requestDetails.filter((request) => {
+        const url = new URL(request.url);
+        return url.hostname === "analizator-nieruchomosci.onrender.com" && url.pathname !== "/health";
+      });
+      const screenshot = await captureScenario(name, state);
       screenshot.search = {
         resultTimeMs,
+        egibTimeMs,
         statusText: state.searchStatus,
         selectedParcelElements: state.selectedParcelCount,
         outlineElements: state.selectedParcelCount,
+        egibState: state.egibState,
+        reportTextPresent: {
+          heading: state.reportText.includes("2. Raport o działce"),
+          parcelId: state.reportText.includes("Identyfikator działki"),
+          area: state.reportText.includes("Powierzchnia ewidencyjna"),
+          registrationGroup: state.reportText.includes("Grupa rejestrowa"),
+          landUse: state.reportText.includes("Klasoużytki"),
+          successStatus: state.searchStatus.includes("Działka została znaleziona. Powierzchnia i klasoużytki pobrane z EGiB."),
+        },
+        egibRequests,
+        sourceRequests,
+        dzialkiBackendSearchRequests,
         requests: requestDetails,
       };
       return screenshot;
@@ -872,9 +926,9 @@ async function runBrowserSmoke() {
       return { ...(await evaluateState()), durationMs: Date.now() - start };
     }
 
-    async function captureScenario(name) {
+    async function captureScenario(name, knownState = null) {
       currentScenario = name;
-      const state = await waitForTiles(name);
+      const state = knownState ?? await waitForTiles(name);
       const screenshot = await pageCdp.command("Page.captureScreenshot", {
         format: "png",
         captureBeyondViewport: true,
@@ -1000,6 +1054,14 @@ async function runBrowserSmoke() {
     lines.push("Zgodność zbiorów pustych/błędnych dla trzech odświeżeń 2025: " + stability.consistency.status);
     lines.push("Elementy obrysu w wyszukiwaniu M4c: "
       + (parcelSearch ? parcelSearch.search.outlineElements : "scenariusz pominięty — brak argumentów"));
+    if (parcelSearch?.search) {
+      lines.push("M4c: czas do obrysu " + parcelSearch.search.resultTimeMs + " ms; czas do EGiB "
+        + (parcelSearch.search.egibTimeMs ?? "brak") + " ms; stan EGiB " + parcelSearch.search.egibState
+        + "; żądania EGiB " + parcelSearch.search.egibRequests.length
+        + "; żądania backendu Działek poza /health " + parcelSearch.search.dzialkiBackendSearchRequests.length
+        + "; teksty raportu/statusu "
+        + Object.values(parcelSearch.search.reportTextPresent).every(Boolean));
+    }
     lines.push("Żądania zarejestrowane: " + externalRequests.length + " (szczegóły adresów w report.json)");
     const summary = lines.join("\n") + "\n";
     await writeFile(join(resultDir, "summary.txt"), summary, "utf8");

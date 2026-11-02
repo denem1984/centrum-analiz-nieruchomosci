@@ -1,4 +1,5 @@
-import { terc7ToTeryt } from "./teryt.js";
+import { deriveCommuneFromUnitId, terc7ToTeryt } from "./teryt.js";
+import { buildEgibGeometryUrl, buildKiegFeatureInfoUrl, parseEgibGeometryText, parseKiegFeatureInfo } from "./egib.js";
 
 export const PRG_FEATURE_SERVICE =
   "https://mapy.geoportal.gov.pl/wss/ims/maps/PRG_gugik_wyszukiwarka/FeatureServer/";
@@ -303,8 +304,10 @@ export function createSearchContext(selection) {
     parcel: { id: parcel.id },
     point: { ...selection.extent.center, crs: "EPSG:4326" },
   };
-  const powiatCode = selection.powiat?.code;
-  if (typeof powiatCode === "string" && /^\d{4}$/.test(powiatCode)) {
+  const unitPrefix = typeof parcel.id === "string" ? parcel.id.match(/^(\d{6})_/)?.[1] : null;
+  const powiatCode = unitPrefix?.slice(0, 4);
+  if (typeof powiatCode === "string" && /^\d{4}$/.test(powiatCode)
+      && selection.powiat?.code === powiatCode) {
     if (typeof selection.powiat.name === "string" && selection.powiat.name.trim()) {
       context.powiat = { code: powiatCode, name: selection.powiat.name };
     }
@@ -316,9 +319,9 @@ export function createSearchContext(selection) {
       };
     }
   }
-  const gmina = selection.gmina;
-  if (typeof gmina?.code === "string" && /^\d{7}$/.test(gmina.code)) {
-    context.gmina = { terc7: gmina.code, name: gmina.name, kind: null };
+  const gmina = deriveCommuneFromUnitId(parcel.id, selection.communes ?? (selection.gmina ? [selection.gmina] : []));
+  if (gmina) {
+    context.gmina = { terc7: gmina.code, name: gmina.name, kind: gmina.kind };
   }
   return context;
 }
@@ -333,9 +336,9 @@ export function createSearchApi(options = {}) {
   const setIntervalFn = options.setIntervalFn ?? globalThis.setInterval;
   const clearIntervalFn = options.clearIntervalFn ?? globalThis.clearInterval;
 
-  async function request(url, responseKind, { onWait = () => {}, signal } = {}) {
+  async function request(url, responseKind, { onWait = () => {}, signal, startedAt: sharedStartedAt } = {}) {
     if (typeof fetchImpl !== "function") throw new Error("Brak obsługi żądań HTTP w przeglądarce.");
-    const startedAt = now();
+    const startedAt = Number.isFinite(sharedStartedAt) ? sharedStartedAt : now();
     let attempt = 0;
     while (attempt <= retries) {
       const remaining = timeoutMs - (now() - startedAt);
@@ -380,6 +383,14 @@ export function createSearchApi(options = {}) {
       const id = buildParcelId(regionId, parcelNumber);
       const response = await request(buildParcelUrl(regionId, parcelNumber), "text", options);
       return parseParcelText(response, id);
+    },
+    async egib(parcelId, options) {
+      const startedAt = now();
+      const scopedOptions = { ...options, startedAt };
+      const geometryText = await request(buildEgibGeometryUrl(parcelId), "text", scopedOptions);
+      const geometry = parseEgibGeometryText(geometryText, parseWktGeometry);
+      const infoText = await request(buildKiegFeatureInfoUrl(geometry), "text", scopedOptions);
+      return parseKiegFeatureInfo(infoText, parcelId, geometry);
     },
   });
 }

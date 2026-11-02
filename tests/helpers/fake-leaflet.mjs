@@ -85,8 +85,14 @@ export class FakeGeoJsonLayer extends FakeEventTarget {
     return { getCenter: () => center };
   }
 
-  bindPopup(content) { this.popup = content; return this; }
+  bindPopup(content) {
+    this.popup = content;
+    this.popupLayer = { setContent: (next) => { this.popup = next; } };
+    return this;
+  }
+  getPopup() { return this.popupLayer; }
   bindTooltip(content, options) { this.tooltip = content; this.tooltipOptions = options; return this; }
+  setStyle(style) { this.options.style = { ...this.options.style, ...style }; return this; }
 }
 
 export class FakeMap extends FakeEventTarget {

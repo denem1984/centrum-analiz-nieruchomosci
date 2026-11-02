@@ -19,6 +19,8 @@ import {
   terc7ToTeryt,
 } from "../app/js/modules/dzialki/search.js";
 import { resetDzialkiState, getDzialkiState, updateDzialkiState } from "../app/js/modules/dzialki/state.js";
+import { deriveCommuneFromUnitId } from "../app/js/modules/dzialki/teryt.js";
+import { buildEgibGeometryUrl, buildKiegFeatureInfoUrl, parseEgibGeometryText, parseKiegFeatureInfo } from "../app/js/modules/dzialki/egib.js";
 
 const fakeGeometry = "POLYGON ((20.00 52.00, 20.10 52.00, 20.10 52.10, 20.00 52.10, 20.00 52.00))";
 const syntheticParcelRow = "998877_6.0001.12/3|9988776|12/3|Fikcyjny powiat|Fikcyjna gmina|Fikcyjne województwo|" + fakeGeometry;
@@ -44,6 +46,75 @@ test("adresy wyszukiwania są zgodne z parametrami publicznego frontu", () => {
   assert.throws(() => buildCommunesUrl("bad"), /powiatu/);
   assert.throws(() => buildRegionsUrl("998877"), /TERC7/);
   assert.throws(() => buildParcelUrl("998877_6.0001", "12&admin=true"), /Nieprawidłowy numer działki/);
+});
+
+test("buduje stare adresy ULDK i KIEG dla danych EGiB", () => {
+  assert.equal(
+    buildEgibGeometryUrl("998877_6.0001.12/3"),
+    "https://uldk.gugik.gov.pl/?request=GetParcelById&id=998877_6.0001.12%2F3&result=id%2Cgeom_wkt&srid=2180",
+  );
+  const geometry = { type: "Polygon", coordinates: [[
+    [300000, 500000], [300100, 500000], [300100, 500100], [300000, 500100], [300000, 500000],
+  ]] };
+  const url = new URL(buildKiegFeatureInfoUrl(geometry));
+  assert.equal(url.origin + url.pathname, "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow");
+  assert.deepEqual([...url.searchParams.keys()], [
+    "SERVICE", "VERSION", "REQUEST", "SRS", "BBOX", "WIDTH", "HEIGHT", "X", "Y",
+    "LAYERS", "QUERY_LAYERS", "INFO_FORMAT", "FORMAT", "TRANSPARENT",
+  ]);
+  assert.deepEqual(Object.fromEntries(url.searchParams), {
+    SERVICE: "WMS", VERSION: "1.1.1", REQUEST: "GetFeatureInfo", SRS: "EPSG:2180",
+    BBOX: "299950,499950,300150,500150", WIDTH: "1000", HEIGHT: "1000", X: "500", Y: "500",
+    LAYERS: "dzialki", QUERY_LAYERS: "dzialki", INFO_FORMAT: "text/xml", FORMAT: "image/png", TRANSPARENT: "TRUE",
+  });
+  assert.throws(() => buildEgibGeometryUrl("bad"), /identyfikator działki/);
+  assert.throws(() => buildKiegFeatureInfoUrl(null), /geometrii działki/);
+});
+
+test("parsuje odpowiedź EGiB/KIEG z syntetycznej atrapy", () => {
+  const geometry = parseEgibGeometryText(
+    "0\n998877_6.0001.12/3|POLYGON ((300000 500000, 300100 500000, 300100 500100, 300000 500100, 300000 500000))",
+    parseWktGeometry,
+  );
+  const result = parseKiegFeatureInfo(
+    "<Feature><Attribute Name=\"Identyfikator działki\">998877_6.0001.12/3</Attribute>"
+      + "<Attribute Name=\"Pole pow. w ewidencji gruntów\">0.4449</Attribute>"
+      + "<Attribute Name=\"Grupa rejestrowa\">7</Attribute>"
+      + "<Attribute Name=\"Oznaczenie użytku\">RVI, B</Attribute></Feature>",
+    "998877_6.0001.12/3", geometry,
+  );
+  assert.deepEqual(result, {
+    area: "0,4449 ha", group: "7", groupDescription: "osoby fizyczne",
+    classUse: [
+      { code: "RVI", description: "grunty orne, klasa VI" },
+      { code: "B", description: "tereny mieszkaniowe" },
+    ],
+  });
+  assert.throws(() => parseKiegFeatureInfo('<Attribute Name="Identyfikator działki">other</Attribute>', "expected", geometry), /inną działkę/);
+  assert.throws(() => parseEgibGeometryText("1\nno data", parseWktGeometry), /nie zwróciła geometrii/);
+});
+
+test("API raportu EGiB wykonuje tylko dwa dozwolone GET-y w kolejności starego frontu", async () => {
+  const calls = [];
+  const responses = [
+    "0\n998877_6.0001.12/3|POLYGON ((300000 500000, 300100 500000, 300100 500100, 300000 500100, 300000 500000))",
+    "<Feature><Attribute Name=\"Pole pow. w ewidencji gruntów\">0.4449</Attribute>"
+      + "<Attribute Name=\"Grupa rejestrowa\">7</Attribute><Attribute Name=\"Oznaczenie użytku\">RVI</Attribute></Feature>",
+  ];
+  const api = createSearchApi({
+    async fetchImpl(url, options) {
+      calls.push({ url: String(url), method: options.method });
+      return { ok: true, status: 200, text: async () => responses.shift() };
+    },
+  });
+  const result = await api.egib("998877_6.0001.12/3");
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls.map((call) => call.method), ["GET", "GET"]);
+  assert.equal(new URL(calls[0].url).hostname, "uldk.gugik.gov.pl");
+  assert.equal(new URL(calls[0].url).searchParams.get("srid"), "2180");
+  assert.equal(new URL(calls[1].url).hostname, "integracja.gugik.gov.pl");
+  assert.equal(new URL(calls[1].url).searchParams.get("REQUEST"), "GetFeatureInfo");
+  assert.equal(result.area, "0,4449 ha");
 });
 
 test("TERC7 pozostaje tekstem, a funkcja wyprowadza sześciocyfrowy TERYT", () => {
@@ -87,7 +158,7 @@ test("parsuje WKT działki i odrzuca błędną lub poza-polską geometrię", () 
   assert.equal(isValidParcelNumber("12&debug"), false);
 });
 
-test("kontekst działki nie dopisuje obrębTeryt i nie zgaduje kodu gminy", () => {
+test("kontekst działki wyprowadza kody z identyfikatora jednostki i nazw PRG", () => {
   const selection = {
     parcel: { id: "998877_6.0001.12/3", number: "12/3" },
     powiat: { code: "9988", name: "Fikcyjny powiat" },
@@ -103,8 +174,29 @@ test("kontekst działki nie dopisuje obrębTeryt i nie zgaduje kodu gminy", () =
   assert.equal(validateContext(context).context.source, "dzialki");
 
   context = createSearchContext({ ...selection, gmina: { code: "9988776", name: "Fikcyjna gmina" } });
-  assert.deepEqual(context.gmina, { terc7: "9988776", name: "Fikcyjna gmina", kind: null });
-  assert.equal(validateContext(context).context.gmina.terc7, "9988776");
+  assert.equal(context.gmina, undefined, "kod z listy nie pasuje do rodzaju jednostki zakodowanego w ID");
+
+  const communes = [
+    { code: "9988771", name: "Fikcyjna gmina miejska" },
+    { code: "9988772", name: "Fikcyjna gmina wiejska" },
+    { code: "9988773", name: "Fikcyjna gmina miejsko-wiejska" },
+  ];
+  for (const kind of [1, 2, 3]) {
+    const mapped = deriveCommuneFromUnitId(`998877_${kind}.0001.12/3`, communes);
+    assert.deepEqual(mapped, { code: `998877${kind}`, name: communes[kind - 1].name, kind, inferred: false });
+    const result = createSearchContext({ ...selection, parcel: { id: `998877_${kind}.0001.12/3` }, communes });
+    assert.deepEqual(result.gmina, { terc7: `998877${kind}`, name: communes[kind - 1].name, kind });
+    assert.equal(validateContext(result).context.gmina.terc7, `998877${kind}`);
+  }
+  for (const kind of [4, 5]) {
+    const mapped = deriveCommuneFromUnitId(`998877_${kind}.0001.12/3`, communes);
+    assert.deepEqual(mapped, { code: "9988773", name: "Fikcyjna gmina miejsko-wiejska", kind: 3, inferred: true });
+    const result = createSearchContext({ ...selection, parcel: { id: `998877_${kind}.0001.12/3` }, communes });
+    assert.deepEqual(result.gmina, { terc7: "9988773", name: "Fikcyjna gmina miejsko-wiejska", kind: 3 });
+    assert.equal(validateContext(result).context.gmina.terc7, "9988773");
+  }
+  assert.equal(deriveCommuneFromUnitId("998877_6.0001.12/3", communes), null);
+  assert.equal(deriveCommuneFromUnitId("invalid", communes), null);
 });
 
 test("API używa tylko GET i pokazuje atrapowy czas oczekiwania zimnego startu", async () => {
@@ -149,7 +241,7 @@ test("pojedynczy błąd sieci ma jedną automatyczną próbę ponowną", async (
       return { ok: true, status: 200, text: async () => "0" };
     },
   });
-  assert.deepEqual(Object.keys(api).sort(), ["communes", "counties", "parcel", "regions"]);
+  assert.deepEqual(Object.keys(api).sort(), ["communes", "counties", "egib", "parcel", "regions"]);
   assert.equal(api.request, undefined, "API nie udostępnia ogólnego klienta z arbitralnym adresem");
   assert.deepEqual(await api.regions("9988776"), []);
   assert.equal(calls, 2);

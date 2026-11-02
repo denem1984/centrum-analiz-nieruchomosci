@@ -20,6 +20,7 @@ import {
   buildParcelUrl,
   buildRegionsUrl,
 } from "../app/js/modules/dzialki/search.js";
+import { buildEgibGeometryUrl, buildKiegFeatureInfoUrl } from "../app/js/modules/dzialki/egib.js";
 
 const healthRoutes = [
   { origin: "https://rcn-web-app.onrender.com", path: "/", method: "GET" },
@@ -124,6 +125,10 @@ test("allowlista M4c dopuszcza tylko dokładne trasy wyszukiwania przez GET", ()
     buildCommunesUrl("9988"),
     buildRegionsUrl("9988776"),
     buildParcelUrl("998877_6.0001", "12/3"),
+    buildEgibGeometryUrl("998877_6.0001.12/3"),
+    buildKiegFeatureInfoUrl({ type: "Polygon", coordinates: [[
+      [300000, 500000], [300100, 500000], [300100, 500100], [300000, 500100], [300000, 500000],
+    ]] }),
   ]) {
     assert.equal(isAllowedBrowserRequest(url, "GET", options), true, url);
     assert.equal(isAllowedBrowserRequest(url, "POST", options), false, url);
@@ -142,6 +147,14 @@ test("allowlista M4c dopuszcza tylko dokładne trasy wyszukiwania przez GET", ()
     "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow?service=WMS&request=GetMap&layers=Raster",
     "GET",
     options,
+  ), false);
+  assert.equal(isAllowedBrowserRequest(
+    "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&SRS=EPSG%3A2180&BBOX=1%2C1%2C201%2C201&WIDTH=1000&HEIGHT=1000&X=500&Y=500&LAYERS=dzialki&QUERY_LAYERS=dzialki&INFO_FORMAT=text%2Fxml&FORMAT=image%2Fpng&TRANSPARENT=TRUE",
+    "POST", options,
+  ), false);
+  assert.equal(isAllowedBrowserRequest(
+    "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&SRS=EPSG%3A2180&BBOX=1%2C1%2C201%2C201&WIDTH=1000&HEIGHT=1000&X=500&Y=500&LAYERS=dzialki&QUERY_LAYERS=dzialki&INFO_FORMAT=text%2Fxml&FORMAT=image%2Fpng&TRANSPARENT=TRUE&EXTRA=1",
+    "GET", options,
   ), false);
 });
 

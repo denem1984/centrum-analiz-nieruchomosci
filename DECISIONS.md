@@ -116,10 +116,18 @@
 
 ## D18 — Wyszukiwanie działki M4c
 
-- **Status:** implementacja M4c; baseline D1 pozostaje do odczytu i porównania przez właściciela.
+- **Status:** implementacja M4c/M4c.1 w toku; właściciel przekazał baseline D1 poza repozytorium 2026-11-02, a porównanie po zmianach wykonuje właściciel.
 - **Decyzja implementacyjna:** zależne listy administracyjne korzystają z publicznego PRG, a wybór obrębu i działki z publicznego ULDK. Żądania są GET, a ich pełne adresy są sprawdzane testami jednostkowymi.
-- **Kontekst:** `parcel.id` zachowuje identyfikator z odpowiedzi; `point` jest centroidem geometrii WKT w EPSG:4326; `gmina.terc7` powstaje wyłącznie z pełnego kodu siedmiocyfrowego; `obrebTeryt` jest pomijane bez niezależnego potwierdzenia. [FAKT: testy M4c]
-- **Zakres:** wybory formularza i znaleziony wynik są przechowywane w pamięci aplikacji przy przełączaniu zakładek; stan nie jest utrwalany po odświeżeniu strony.
+- **Kontekst:** `parcel.id` zachowuje identyfikator z odpowiedzi; `point` jest punktem wewnątrz geometrii WKT w EPSG:4326; kody województwa/powiatu pochodzą z prefiksu identyfikatora jednostki i nazw wybranych list PRG. Rodzaj 1/2/3 daje odpowiadający kod TERC7; rodzaj 4/5 mapuje się na rodzaj 3 [HIP z definicji TERYT do weryfikacji na pełnym TERC w M3b]; pozostałe rodzaje nie ustawiają gminy. `obrebTeryt` jest pomijane bez niezależnego potwierdzenia.
+- **Dane EGiB:** stary front pobiera geometrię do EGiB z ULDK, a następnie odpytuje KIEG WMS GetFeatureInfo bezpośrednio z przeglądarki; nie jest to trasa backendu Działek. Nowe adresy i parametry są porównane z `index.html` rewizji `a1aa39d` i testowane na atrapach. [FAKT z kodu: `reports/m4a-dzialki-analysis.md`, `docs/dzialki-module.md`]
+- **Zakres:** wybory formularza, wynik i dane EGiB są przechowywane w pamięci aplikacji przy przełączaniu zakładek; stan nie jest utrwalany po odświeżeniu strony.
+
+## D19 — Pełny parytet funkcji modułu Działki (2026-11-02)
+
+- **Status:** wymaganie właściciela przekazane w zadaniu M4c.1.
+- **Decyzja:** nowa aplikacja ma zachować każdą opcję obecnej aplikacji Działki. Zmiany funkcjonalne względem starej aplikacji wymagają zgody właściciela.
+- **Wykonanie:** `docs/parity-dzialki.md` jest macierzą wszystkich elementów z inwentarza M4a i baseline D1–D7. Macierz aktualizuje się w każdym podetapie M4. Status „zrobione” nie zastępuje porównania właściciela w przeglądarce.
+- **Baseline:** właściciel dostarczył D1 przed M4c.1. Wartości testowe i zrzuty pozostają poza publicznym repozytorium; do repo trafia opis funkcji i status parytetu, bez wyników konkretnej nieruchomości.
 
 ## Zasady repozytorium
 
