@@ -49,7 +49,8 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
   assert.deepEqual(firstMap.getCenter(), { lat: 52.07, lng: 19.48 });
   assert.equal(firstMap.getZoom(), 6);
   assert.equal(firstMap.layers.size, 1);
-  assert.equal([...firstMap.layers][0].options.attribution, "© OpenStreetMap");
+  assert.equal([...firstMap.layers][0].options.attribution,
+    '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>');
   assert.equal(firstMap.controls[0].type, "scale");
 
   const view = fake.document.getElementById("module-view");

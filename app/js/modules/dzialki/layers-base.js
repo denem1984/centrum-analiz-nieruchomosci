@@ -1,10 +1,10 @@
 export const ARCHIVE_WMS_URL =
-  "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow";
+  "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime";
 
 export const BASE_LAYER_OPTIONS = Object.freeze({
   osm: Object.freeze({
     label: "OpenStreetMap",
-    attribution: "© OpenStreetMap",
+    attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>',
   }),
   esri: Object.freeze({
     label: "Satelita – Esri World Imagery",
@@ -24,6 +24,18 @@ export function archiveTimeForYear(value) {
   return year === 2025 ? "2025-11-01" : String(year) + "-12-01";
 }
 
+export function archiveWmsOptionsForYear(year) {
+  return {
+    layers: "Raster",
+    styles: "default",
+    version: "1.3.0",
+    format: "image/png",
+    transparent: true,
+    time: archiveTimeForYear(year),
+    maxZoom: 22,
+  };
+}
+
 export function createBaseLayers(L) {
   if (!L?.tileLayer || typeof L.tileLayer.wms !== "function") {
     throw new Error("Leaflet nie udostępnia obsługi warstw kafelkowych.");
@@ -40,14 +52,8 @@ export function createBaseLayers(L) {
     ),
     archive: (year) => L.tileLayer.wms(ARCHIVE_WMS_URL, {
       pane: "tilePane",
-      layers: "Raster",
-      styles: "default",
-      version: "1.3.0",
-      format: "image/png",
-      transparent: false,
+      ...archiveWmsOptionsForYear(year),
       crs: L.CRS?.EPSG3857,
-      maxZoom: 22,
-      time: archiveTimeForYear(year),
       attribution: BASE_LAYER_OPTIONS.archive.attribution,
     }),
   };

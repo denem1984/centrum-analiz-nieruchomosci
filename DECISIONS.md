@@ -112,6 +112,7 @@
 - **Decyzja implementacyjna:** w M4b zakładka Działki pokazuje trzy podkłady: OpenStreetMap, Esri World Imagery i archiwalną ortofotomapę GUGiK, z pojedynczym aktywnym podkładem, widoczną atrybucją, suwakiem roku 1995–2025, krokiem zoomu 0,1 i skalą metryczną. Poprzedni front definiuje środek początkowy [52.07, 19.48], zoom 6 i limit 22. [FAKT z kodu: index.html:177,211]
 - **Polityka błędów kafelków:** do dwóch ponowień dla kafelka, z opóźnieniami około 1,5 s i 4 s, jitterem i limitem sześciu równoczesnych prób na warstwę. Zmiana warstwy/roku, odłączenie kafelka i odmontowanie anulują oczekujące próby. [FAKT: zakres implementacji M4b]
 - **Ograniczenie M4b:** nie dodawać wyszukiwania działek ani warstw tematycznych; pozostają oznaczone jako planowane na kolejne etapy. Moduł korzysta z istniejącego stanu sondy zdrowia, nie inicjuje własnych wywołań API Działek.
+- **Adnotacja implementacyjna M4b.1 (2026-11-02):** porównanie kodu frontu z rewizji `a1aa39d` potwierdza adres WMS `/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime`, warstwę `Raster`, WMS 1.3.0, EPSG:3857, `image/png`, `transparent: true` i format parametru czasu `<rok>-12-01` z wyjątkiem 2025 (`2025-11-01`). [FAKT z kodu: index.html:211] Nowy moduł został dopasowany do tych parametrów; wyników WMS z prawdziwej przeglądarki nie uzyskano w tym przebiegu.
 
 ## Zasady repozytorium
 
