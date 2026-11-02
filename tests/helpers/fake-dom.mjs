@@ -4,7 +4,12 @@ function datasetKey(attribute) {
 
 function matches(element, selector) {
   const dataMatch = selector.match(/^\[data-([a-z-]+)\]$/);
-  if (dataMatch) return Object.hasOwn(element.dataset, datasetKey(dataMatch[1]));
+  if (dataMatch) return Object.hasOwn(element.dataset, dataMatch[1].replace(/-([a-z])/g, (_match, letter) => letter.toUpperCase()));
+  const dataValueMatch = selector.match(/^\[data-([a-z-]+)="([^"]+)"\]$/);
+  if (dataValueMatch) {
+    const key = dataValueMatch[1].replace(/-([a-z])/g, (_match, letter) => letter.toUpperCase());
+    return element.dataset[key] === dataValueMatch[2];
+  }
   const attrMatch = selector.match(/^\[([a-z-]+)="([^"]+)"\]$/);
   if (attrMatch) return element.attributes.get(attrMatch[1]) === attrMatch[2];
   const tagClassMatch = selector.match(/^([a-z]+)\.([a-z-]+)$/i);
@@ -12,6 +17,7 @@ function matches(element, selector) {
     return element.tagName === tagClassMatch[1].toLowerCase()
       && element.className.split(/\s+/).includes(tagClassMatch[2]);
   }
+  if (/^[a-z]+$/i.test(selector)) return element.tagName === selector.toLowerCase();
   return selector === "*" || (selector.startsWith("#") && element.id === selector.slice(1));
 }
 
@@ -146,6 +152,7 @@ export function createFakeDom() {
 
   const body = new FakeElement("body", document);
   document.body = body;
+  document.head = new FakeElement("head", document);
   const locationSummary = document.createElement("p");
   locationSummary.id = "location-summary";
   const clearLocation = document.createElement("button");

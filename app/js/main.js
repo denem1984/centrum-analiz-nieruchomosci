@@ -1,7 +1,9 @@
 import { BACKENDS, BACKEND_IDS } from "./config.js";
-import { checkBackend, getBackendStatus } from "./health.js";
+import { checkBackend, getBackendStatus, subscribeBackendStatus } from "./health.js";
 import { decodeContext, encodeContext, contextStore } from "./context.js";
 import { MODULES, MODULE_BY_ID } from "./modules/registry.js";
+
+let activeModuleCleanup = null;
 
 export const MODULE_IDS = Object.freeze(MODULES.map((module) => module.id));
 
@@ -210,6 +212,10 @@ function renderBackendCards(container) {
 }
 
 function renderCurrentView() {
+  if (typeof activeModuleCleanup === "function") {
+    activeModuleCleanup();
+    activeModuleCleanup = null;
+  }
   const rawHash = window.location.hash;
   loadContextFromHash(rawHash);
   const route = resolveRoute(rawHash);
@@ -226,10 +232,12 @@ function renderCurrentView() {
     createBackendStatusPanel,
     renderBackendCards,
     getBackendStatus,
+    subscribeBackendStatus,
     setContext: setAppContext,
     providerConfig: { provider: "fixture" },
   };
-  MODULE_BY_ID[route].mount(view, ctx);
+  const cleanup = MODULE_BY_ID[route].mount(view, ctx);
+  if (typeof cleanup === "function") activeModuleCleanup = cleanup;
 }
 
 function startHealthChecks() {

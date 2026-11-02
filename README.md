@@ -4,7 +4,7 @@ Samodzielna aplikacja do pracy z modułami analiz nieruchomości: Działki, RCN,
 
 ## Status
 
-**M3a — wykonane. M4a — analiza i plan portu Działek w trakcie.** M2 dostarczył statyczną powłokę i makiety. M3a dodaje DenemContext v1, pasek lokalizacji oraz wyszukiwanie na jawnie fikcyjnych danych. Nadal nie ma logowania, zapisu trwałego ani logiki analitycznej modułów. Na stronie Start aplikacja sprawdza lekkie trasy zdrowia czterech usług metodą GET.
+**M3a — wykonane. M4b — mapa Działek w powłoce w trakcie.** M2 dostarczył statyczną powłokę; M3a dodaje DenemContext v1 i wyszukiwanie na jawnie fikcyjnych danych. M4b dodaje lokalny Leaflet, podkłady mapowe i kontrolki mapy. Pozostałe funkcje Działek są planowane na kolejne etapy. Na stronie Start aplikacja sprawdza lekkie trasy zdrowia czterech usług metodą GET.
 
 [FAKT: ustalenie właściciela 2026-10-27] Moduł Gminy ma korzystać z pliku danych, bez zależności od Supabase ani logowania modułu. Logowanie całej aplikacji pozostaje osobną decyzją D5 przed M8.
 

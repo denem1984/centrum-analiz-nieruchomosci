@@ -1,4 +1,5 @@
 import { mountLocationSearch } from "../location/search-ui.js";
+import { dzialkiModule } from "./dzialki/index.js";
 
 function appendText(parent, tagName, text, className) {
   const element = document.createElement(tagName);
@@ -55,7 +56,7 @@ export const MODULES = Object.freeze([
     backend: null,
     mount: mountStart,
   }),
-  moduleDefinition("dzialki", "Działki", "W przyszłości moduł połączy analizę działek i warstw przestrzennych.", "Dzialki"),
+  dzialkiModule,
   moduleDefinition("rcn", "RCN", "W przyszłości moduł pokaże transakcje i analizy rynku RCN.", "RCN"),
   moduleDefinition("oferty", "Oferty", "W przyszłości moduł wyszuka i porówna ceny ofertowe.", "Oferty"),
   moduleDefinition("podobne", "Podobne", "W przyszłości moduł pomoże porównać nieruchomości podobne.", "Podobne"),
