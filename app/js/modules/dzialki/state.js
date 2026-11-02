@@ -4,12 +4,35 @@ const initialState = Object.freeze({
   center: Object.freeze([52.07, 19.48]),
   zoom: 6,
   appliedPoint: null,
+  search: Object.freeze({
+    powiatCode: "",
+    gminaCode: "",
+    obrebCode: "",
+    parcelNumber: "",
+    powiaty: Object.freeze([]),
+    gminy: Object.freeze([]),
+    obreby: Object.freeze([]),
+  }),
+  selectedParcel: null,
 });
 
-let current = { ...initialState, center: [...initialState.center] };
+function copyPlain(value) {
+  return value === null || value === undefined ? value : JSON.parse(JSON.stringify(value));
+}
+
+let current = {
+  ...initialState,
+  center: [...initialState.center],
+  search: copyPlain(initialState.search),
+};
 
 export function getDzialkiState() {
-  return { ...current, center: [...current.center] };
+  return {
+    ...current,
+    center: [...current.center],
+    search: copyPlain(current.search),
+    selectedParcel: copyPlain(current.selectedParcel),
+  };
 }
 
 export function updateDzialkiState(patch) {
@@ -27,9 +50,19 @@ export function updateDzialkiState(patch) {
   if (patch.appliedPoint === null || typeof patch.appliedPoint === "string") {
     current.appliedPoint = patch.appliedPoint;
   }
+  if (patch.search && typeof patch.search === "object" && !Array.isArray(patch.search)) {
+    current.search = { ...current.search, ...copyPlain(patch.search) };
+  }
+  if (patch.selectedParcel === null || (patch.selectedParcel && typeof patch.selectedParcel === "object")) {
+    current.selectedParcel = copyPlain(patch.selectedParcel);
+  }
   return getDzialkiState();
 }
 
 export function resetDzialkiState() {
-  current = { ...initialState, center: [...initialState.center] };
+  current = {
+    ...initialState,
+    center: [...initialState.center],
+    search: copyPlain(initialState.search),
+  };
 }

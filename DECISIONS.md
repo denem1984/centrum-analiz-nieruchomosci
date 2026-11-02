@@ -114,6 +114,13 @@
 - **Ograniczenie M4b:** nie dodawać wyszukiwania działek ani warstw tematycznych; pozostają oznaczone jako planowane na kolejne etapy. Moduł korzysta z istniejącego stanu sondy zdrowia, nie inicjuje własnych wywołań API Działek.
 - **Adnotacja implementacyjna M4b.1 (2026-11-02):** porównanie kodu frontu z rewizji `a1aa39d` potwierdza adres WMS `/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime`, warstwę `Raster`, WMS 1.3.0, EPSG:3857, `image/png`, `transparent: true` i format parametru czasu `<rok>-12-01` z wyjątkiem 2025 (`2025-11-01`). [FAKT z kodu: index.html:211] Nowy moduł został dopasowany do tych parametrów; wyników WMS z prawdziwej przeglądarki nie uzyskano w tym przebiegu.
 
+## D18 — Wyszukiwanie działki M4c
+
+- **Status:** implementacja M4c; baseline D1 pozostaje do odczytu i porównania przez właściciela.
+- **Decyzja implementacyjna:** zależne listy administracyjne korzystają z publicznego PRG, a wybór obrębu i działki z publicznego ULDK. Żądania są GET, a ich pełne adresy są sprawdzane testami jednostkowymi.
+- **Kontekst:** `parcel.id` zachowuje identyfikator z odpowiedzi; `point` jest centroidem geometrii WKT w EPSG:4326; `gmina.terc7` powstaje wyłącznie z pełnego kodu siedmiocyfrowego; `obrebTeryt` jest pomijane bez niezależnego potwierdzenia. [FAKT: testy M4c]
+- **Zakres:** wybory formularza i znaleziony wynik są przechowywane w pamięci aplikacji przy przełączaniu zakładek; stan nie jest utrwalany po odświeżeniu strony.
+
 ## Zasady repozytorium
 
 [FAKT: decyzja właściciela z 2026-10-26] Repozytorium jest publiczne. Nie zapisujemy w nim wartości sekretów, konfiguracji, tokenów, kluczy, danych osobowych ani identyfikatorów kont lub usług. Wyjątkiem jest niesekretna wartość trybu źródło danych RCN. Pięć repozytoriów źródłowych jest tylko do odczytu.

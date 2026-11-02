@@ -5,10 +5,21 @@ import {
   aggregateRequests,
   buildStateExpression,
   chooseBrowserPath,
+  compareProblemCoordinateSets,
+  EMPTY_TILE_BYTE_THRESHOLD,
   isAllowedBrowserRequest,
+  normalizeSearchLabel,
+  parseSearchArguments,
   parseCdpLoadingFailed,
   parseCdpMessage,
+  tileCoordinateKey,
 } from "./browser-smoke.mjs";
+import {
+  buildCommunesUrl,
+  buildCountiesUrl,
+  buildParcelUrl,
+  buildRegionsUrl,
+} from "../app/js/modules/dzialki/search.js";
 
 const healthRoutes = [
   { origin: "https://rcn-web-app.onrender.com", path: "/", method: "GET" },
@@ -44,18 +55,37 @@ test("wyrażenie odczytu stanu kafelków ma poprawną składnię JavaScript", ()
 
 test("agreguje kafelki załadowane, błędne, anulowane i statusy", () => {
   const summary = aggregateRequests([
-    { url: "https://tile.openstreetmap.org/17/1/2.png", status: 200, mimeType: "image/png" },
+    { url: "https://tile.openstreetmap.org/17/1/2.png", status: 200, mimeType: "image/png", encodedDataLength: 500 },
     { url: "https://mapy.geoportal.gov.pl/wms?request=GetMap", status: 200, mimeType: "text/xml" },
     { url: "https://server.arcgisonline.com/tile", status: 503, mimeType: "text/plain" },
     { url: "https://tile.openstreetmap.org/17/3/4.png", status: null, errorText: "net::ERR_FAILED" },
     { url: "https://tile.openstreetmap.org/17/5/6.png", canceled: true },
+    { url: "https://tile.openstreetmap.org/17/7/8.png", status: 200, mimeType: "image/png", encodedDataLength: 68 },
   ]);
-  assert.equal(summary.total, 5);
+  assert.equal(summary.total, 6);
   assert.equal(summary.loaded, 1);
+  assert.equal(summary.empty, 1);
   assert.equal(summary.failed, 3);
   assert.equal(summary.canceled, 1);
   assert.deepEqual(summary.statuses, [200, 503]);
   assert.equal(summary.examples.length, 3);
+  assert.deepEqual(summary.emptyCoordinates, ["z=17/x=7/y=8"]);
+  assert.deepEqual(summary.failedCoordinates, ["/tile", "/wms", "z=17/x=3/y=4"]);
+  assert.equal(EMPTY_TILE_BYTE_THRESHOLD, 128);
+});
+
+test("stabilność porównuje zbiory współrzędnych pustych i błędnych", () => {
+  const runs = [
+    { aggregate: { emptyCoordinates: ["bbox=a"], failedCoordinates: [] } },
+    { aggregate: { emptyCoordinates: ["bbox=a"], failedCoordinates: [] } },
+    { aggregate: { emptyCoordinates: [], failedCoordinates: ["bbox=b"] } },
+  ];
+  const result = compareProblemCoordinateSets(runs);
+  assert.equal(result.same, false);
+  assert.equal(result.status, "różne");
+  assert.deepEqual(result.sets, [["bbox=a"], ["bbox=a"], ["bbox=b"]]);
+  assert.equal(tileCoordinateKey("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/17/8/7"),
+    "z=17/x=7/y=8");
 });
 
 test("wybiera ścieżkę przeglądarki według jawnego argumentu, EDGE_PATH, następnie kandydatów", () => {
@@ -85,4 +115,46 @@ test("allowlista przeglądarki ogranicza metody, health-checki i ścieżki kafel
   assert.equal(isAllowedBrowserRequest("https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime?service=WMS&request=GetCapabilities&layers=Raster", "GET", options), false);
   assert.equal(isAllowedBrowserRequest("https://mapy.geoportal.gov.pl/wss/service/other?service=WMS&request=GetMap&layers=Raster", "GET", options), false);
   assert.equal(isAllowedBrowserRequest("https://example.org/", "GET", options), false);
+});
+
+test("allowlista M4c dopuszcza tylko dokładne trasy wyszukiwania przez GET", () => {
+  const options = { appOrigin: "http://127.0.0.1:8080", healthRoutes };
+  for (const url of [
+    buildCountiesUrl(),
+    buildCommunesUrl("9988"),
+    buildRegionsUrl("9988776"),
+    buildParcelUrl("998877_6.0001", "12/3"),
+  ]) {
+    assert.equal(isAllowedBrowserRequest(url, "GET", options), true, url);
+    assert.equal(isAllowedBrowserRequest(url, "POST", options), false, url);
+  }
+  assert.equal(isAllowedBrowserRequest(
+    "https://mapy.geoportal.gov.pl/wss/ims/maps/PRG_gugik_wyszukiwarka/FeatureServer/2/query?f=json",
+    "GET",
+    options,
+  ), false);
+  assert.equal(isAllowedBrowserRequest(
+    "https://uldk.gugik.gov.pl/?request=GetCapabilities",
+    "GET",
+    options,
+  ), false);
+  assert.equal(isAllowedBrowserRequest(
+    "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow?service=WMS&request=GetMap&layers=Raster",
+    "GET",
+    options,
+  ), false);
+});
+
+test("parsuje argumenty scenariusza i normalizuje polskie nazwy", () => {
+  assert.equal(normalizeSearchLabel("  Łódź  "), "lodz");
+  assert.deepEqual(parseSearchArguments([
+    "--powiat", "Fikcyjny powiat", "--gmina", "Testowo", "--obreb", "Przykładowy obręb", "--numer", "12/3",
+  ]), {
+    powiat: "Fikcyjny powiat",
+    gmina: "Testowo",
+    obreb: "Przykładowy obręb",
+    numer: "12/3",
+  });
+  assert.equal(parseSearchArguments([]), null);
+  assert.throws(() => parseSearchArguments(["--powiat", "Fikcyjny powiat"]), /wymaga argumentów/);
 });

@@ -1,4 +1,4 @@
-# Moduł Działki — M4b
+# Moduł Działki — M4b/M4c
 
 ## Zakres
 
@@ -27,7 +27,24 @@ Stan usługi Działki jest odczytywany z pamięci istniejącej sondy powłoki i 
 
 Na warstwie bazowej moduł wykonuje najwyżej dwie ponowne próby danego kafelka po początkowym błędzie, po około 1,5 s i 4 s, z niewielkim jitterem. Maksymalnie sześć prób może być zaplanowanych lub aktywnych jednocześnie dla warstwy. Odejście kafelka z widoku, przełączenie podkładu albo roku oraz odmontowanie anuluje oczekujące próby. Po wyczerpaniu prób licznik „Niezaładowane kafelki: N” i przycisk „Spróbuj ponownie” informują o stanie.
 
-Wyszukiwanie działki, EGiB, planowanie przestrzenne, inwestycje i zagrożenia, infrastruktura i własność pozostają oznaczone jako „w kolejnych etapach”.
+## Wyszukiwanie działki — M4c
+
+Panel prowadzi użytkownika przez powiat, gminę i obręb, a następnie numer działki. Listy administracyjne pochodzą z publicznego PRG FeatureServer; nazwy obrębów i geometria są pobierane z ULDK. Wyszukiwanie wykonuje wyłącznie GET. Aplikacja zachowuje wybory formularza i wynik w pamięci przy przełączaniu zakładek.
+
+| Kolejność | Cel | Stary publiczny front | Nowa aplikacja | Metoda i parametry | CRS i format odpowiedzi |
+|---:|---|---|---|---|---|
+| 1 | Lista powiatów | `https://mapy.geoportal.gov.pl/wss/ims/maps/PRG_gugik_wyszukiwarka/FeatureServer/1/query` [FAKT z kodu: `index.html:560`] | `buildCountiesUrl()` w `app/js/modules/dzialki/search.js` | GET; `where=1=1`, `outFields=teryt,nazwa`, `returnGeometry=false`, `orderByFields=nazwa`, `f=json` | JSON, bez geometrii i CRS |
+| 2 | Lista gmin powiatu | `https://mapy.geoportal.gov.pl/wss/ims/maps/PRG_gugik_wyszukiwarka/FeatureServer/0/query` [FAKT z kodu: `index.html:560`] | `buildCommunesUrl()` w `app/js/modules/dzialki/search.js` | GET; `where=teryt LIKE '<kod powiatu>%'`, `outFields=teryt,nazwa`, `returnGeometry=true`, `outSR=4326`, `orderByFields=nazwa`, `f=json` | JSON, geometria EPSG:4326 |
+| 3 | Lista obrębów gminy | `https://uldk.gugik.gov.pl/?request=GetRegionByNameOrId` [FAKT z kodu: `index.html:560`] | `buildRegionsUrl()` w `app/js/modules/dzialki/search.js` | GET; `id=<gmina ULDK>`, `result=id,teryt,region,commune,county` | Tekst pól `|`, bez geometrii |
+| 4 | Geometria działki | `https://uldk.gugik.gov.pl/?request=GetParcelById` [FAKT z kodu: `index.html:560`] | `buildParcelUrl()` w `app/js/modules/dzialki/search.js` | GET; `id=<obręb>.<numer>`, `result=id,teryt,parcel,county,commune,region,geom_wkt`, `srid=4326` | Tekst pól `|`; geometria WKT EPSG:4326 |
+
+Wszystkie cztery wywołania są bezpośrednimi żądaniami przeglądarki do publicznych usług. Testy jednostkowe porównują pełne adresy z parametrami wynikającymi ze starego frontu. [FAKT z kodu: `index.html:560`]
+
+Stary front buduje parametr `teryt` dla informacji o gminie z części identyfikatora przed `_`; ta część ma sześć cyfr. [FAKT z kodu: `index.html:237,321-324`] Funkcja `terc7ToTeryt()` jest czysta i testowana. Kontekst `gmina.terc7` w M4c powstaje wyłącznie z pełnego kodu siedmiocyfrowego. `parcel.id` jest zachowywany bez zmian, a `obrebTeryt` pomijany bez niezależnego potwierdzenia.
+
+Zapytanie ULDK zwraca identyfikator, numer, nazwy jednostek i geometrię; nie zawiera pola powierzchni ewidencyjnej. Popup pokazuje dane dostępne z list administracyjnych i odpowiedzi. Obrys jest wyróżniony, widok dopasowany do granic, a numer działki widoczny jako etykieta. Stan formularza i wybrany wynik pozostają w pamięci modułu przy przełączaniu zakładek.
+
+Pozostałe funkcje, w tym EGiB, planowanie przestrzenne, inwestycje i zagrożenia, infrastruktura i własność, pozostają oznaczone jako „w kolejnych etapach”.
 
 ## Diagnostyka M4b.1
 

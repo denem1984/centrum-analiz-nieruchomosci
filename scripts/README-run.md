@@ -32,3 +32,15 @@ Skrypt `scripts/browser-smoke.mjs` uruchamia lokalny serwer, Edge w trybie headl
 Do porównania parametrów warstwy archiwalnej przed i po zmianie możesz wskazać wcześniejszy commit, np. `node scripts/browser-smoke.mjs --before-ref 9aee6e776697f1b067da05593bd8db374a9afd4f`. Skrypt uruchomi w tej samej przeglądarce lokalną kopię z `layers-base.js` z podanego ref, następnie bieżącą aplikację; zapisze oba zestawy wyników. `--compare-before` bez wartości używa bieżącego `HEAD` i nadaje się do porównania przed commitem.
 
 Skrypt używa wyłącznie lokalnego adresu aplikacji, czterech tras zdrowia GET z `app/js/config.js`, kafelków OpenStreetMap, Esri World Imagery oraz żądań WMS GetMap dla warstwy archiwalnej GUGiK. Pozostałe adresy i metody blokuje przed wysłaniem. Scenariusze używają testowego punktu w Pile, zoom 17,6, gdy współrzędne baseline nie zostały podane. Każdy scenariusz czeka maksymalnie 25 sekund. Narzędzie nie jest uruchamiane w CI.
+
+### Wyszukanie działki w scenariuszu właściciela M4c
+
+Scenariusz wyszukiwania jest opcjonalny i wymaga wartości z przygotowanego przez właściciela przypadku testowego. Wpisz je tylko do polecenia w swoim terminalu; nie dopisuj ich do plików repozytorium ani do dokumentacji. Dla wartości zawierających spacje użyj cudzysłowów:
+
+```powershell
+node scripts/browser-smoke.mjs --powiat "<powiat z przypadku testowego>" --gmina "<gmina z przypadku testowego>" --obreb "<obręb z przypadku testowego>" --numer "<numer z przypadku testowego>"
+```
+
+Możesz dopisać `--browser "C:\Program Files\Microsoft\Edge\Application\msedge.exe"` lub `--port 8090`. Skrypt sam uruchomi lokalną aplikację i przejdzie do formularza, wybierze podane jednostki, wykona wyszukiwanie oraz zapisze czas, adresy i statusy odpowiedzi, liczbę obrysów i zrzut ekranu. Dozwolone są wyłącznie GET-y do list PRG i dwóch zapytań ULDK wyszukiwania oraz adresy lokalne, skonfigurowane trasy zdrowia i kafelki mapy. Inne hosty, ścieżki i metody są blokowane przed wysłaniem.
+
+Wynik terminala pokazuje liczbę obrysów i lokalizację raportu. Szczegóły i zrzut są w `.local-results/browser-smoke-<czas>/report.json` oraz plikach PNG. Katalog jest ignorowany przez Git; nie commituj go. Baseline D1 nie jest jeszcze gotowy — porównanie wyniku z obecną aplikacją pozostaje do uzupełnienia przez właściciela.

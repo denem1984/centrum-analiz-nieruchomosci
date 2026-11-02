@@ -53,6 +53,42 @@ export class FakeTileLayer extends FakeEventTarget {
   }
 }
 
+export class FakeGeoJsonLayer extends FakeEventTarget {
+  constructor(data, options = {}) {
+    super();
+    this.data = data;
+    this.options = { ...options };
+  }
+
+  addTo(map) {
+    map.addLayer(this);
+    return this;
+  }
+
+  getBounds() {
+    const points = [];
+    const visit = (value) => {
+      if (!Array.isArray(value)) return;
+      if (value.length >= 2 && Number.isFinite(value[0]) && Number.isFinite(value[1])) {
+        points.push(value);
+        return;
+      }
+      for (const child of value) visit(child);
+    };
+    visit(this.data?.coordinates);
+    const longitudes = points.map(([longitude]) => longitude);
+    const latitudes = points.map(([, latitude]) => latitude);
+    const center = {
+      lat: (Math.min(...latitudes) + Math.max(...latitudes)) / 2,
+      lng: (Math.min(...longitudes) + Math.max(...longitudes)) / 2,
+    };
+    return { getCenter: () => center };
+  }
+
+  bindPopup(content) { this.popup = content; return this; }
+  bindTooltip(content, options) { this.tooltip = content; this.tooltipOptions = options; return this; }
+}
+
 export class FakeMap extends FakeEventTarget {
   constructor(container, options) {
     super();
@@ -81,6 +117,13 @@ export class FakeMap extends FakeEventTarget {
   setZoom(zoom) {
     this.zoom = Number(zoom);
     this.fire("zoomend");
+    return this;
+  }
+
+  fitBounds(bounds, options = {}) {
+    this.fitBoundsOptions = options;
+    const center = bounds?.getCenter?.();
+    if (center) this.setView(center, options.maxZoom ?? this.zoom, { animate: false });
     return this;
   }
 
@@ -114,6 +157,7 @@ export class FakeMap extends FakeEventTarget {
 export function createFakeLeaflet() {
   const maps = [];
   const layers = [];
+  const geoJsonLayers = [];
   const fake = {
     CRS: { EPSG3857: "EPSG:3857" },
     map(container, options) {
@@ -124,6 +168,11 @@ export function createFakeLeaflet() {
     tileLayer(url, options) {
       const layer = new FakeTileLayer(url, options);
       layers.push(layer);
+      return layer;
+    },
+    geoJSON(data, options) {
+      const layer = new FakeGeoJsonLayer(data, options);
+      geoJsonLayers.push(layer);
       return layer;
     },
     control: {
@@ -144,5 +193,5 @@ export function createFakeLeaflet() {
     layers.push(layer);
     return layer;
   };
-  return { L: fake, maps, layers };
+  return { L: fake, maps, layers, geoJsonLayers };
 }

@@ -4,6 +4,7 @@ import { attachTileRetry, TILE_RETRY_CONFIG } from "./tile-retry.js";
 import { archiveTimeForYear, createBaseLayers, createMap, BASE_LAYER_OPTIONS } from "./layers-base.js";
 import { loadLeaflet } from "./leaflet-loader.js";
 import { getDzialkiState, updateDzialkiState } from "./state.js";
+import { mountParcelSearch } from "./search-ui.js";
 
 const STATUS_LABELS = Object.freeze({
   idle: "Nie sprawdzono",
@@ -44,8 +45,11 @@ function retryIsVisible(event, layer, map) {
 export function mountDzialki(container, ctx = {}) {
   let disposed = false;
   let map = null;
+  let leaflet = null;
   let activeLayer = null;
+  let selectedParcelLayer = null;
   let retryController = null;
+  let unmountSearch = () => {};
   let unsubscribeHealth = () => {};
   const root = element("section", undefined, "dzialki-module");
   root.dataset.module = "dzialki";
@@ -64,6 +68,68 @@ export function mountDzialki(container, ctx = {}) {
   const layout = element("div", undefined, "dzialki-layout");
   const controls = element("aside", undefined, "dzialki-controls");
   controls.setAttribute("aria-label", "Ustawienia mapy Działki");
+
+  function popupForSelection(selection) {
+    const popup = element("dl", undefined, "dzialki-parcel-popup");
+    const fields = [
+      ["Identyfikator działki", selection.parcel?.id],
+      ["Województwo", selection.voivodeshipName],
+      ["Powiat", selection.countyName || selection.powiat?.name],
+      ["Gmina", selection.communeName || selection.gmina?.name],
+      ["Obręb", selection.region?.name],
+      ["Numer", selection.parcel?.number],
+    ];
+    for (const [label, value] of fields) {
+      if (typeof value !== "string" || !value.trim()) continue;
+      popup.append(element("dt", label), element("dd", value));
+    }
+    return popup;
+  }
+
+  function showSelectedParcel(selection) {
+    if (!selection || !map || !leaflet?.geoJSON) return;
+    if (selectedParcelLayer) map.removeLayer(selectedParcelLayer);
+    const color = typeof getComputedStyle === "function"
+      ? getComputedStyle(root).getPropertyValue("--dzialki-selection-stroke").trim()
+      : "";
+    const fill = typeof getComputedStyle === "function"
+      ? getComputedStyle(root).getPropertyValue("--dzialki-selection-fill").trim()
+      : "";
+    selectedParcelLayer = leaflet.geoJSON(selection.geometry, {
+      pane: "overlayPane",
+      style: {
+        color: color || "#b42355",
+        fillColor: fill || "#f04472",
+        weight: 4,
+        fillOpacity: 0.18,
+        className: "dzialki-selected-parcel",
+      },
+    });
+    selectedParcelLayer.addTo(map);
+    selectedParcelLayer.bindPopup(popupForSelection(selection));
+    const label = element("span", selection.parcel?.number || selection.parcel?.id, "dzialki-parcel-label");
+    selectedParcelLayer.bindTooltip(label, {
+      permanent: true,
+      direction: "center",
+      className: "dzialki-parcel-label-tooltip",
+    });
+    map.fitBounds(selectedParcelLayer.getBounds(), { padding: [28, 28], maxZoom: 20 });
+    const center = map.getCenter();
+    if (center && Number.isFinite(center.lat) && Number.isFinite(center.lng)) {
+      updateDzialkiState({
+        selectedParcel: selection,
+        center: [center.lat, center.lng],
+        zoom: Math.max(16, map.getZoom()),
+      });
+    } else {
+      updateDzialkiState({ selectedParcel: selection });
+    }
+  }
+
+  unmountSearch = mountParcelSearch(controls, {
+    setContext: ctx.setContext,
+    onSelect: showSelectedParcel,
+  });
 
   const baseHeading = element("h3", "Podkład mapy");
   controls.append(baseHeading);
@@ -145,7 +211,6 @@ export function mountDzialki(container, ctx = {}) {
   const futureHeading = element("h3", "Dostępne w kolejnych etapach");
   controls.append(futureHeading);
   const futureFeatures = [
-    "Wyszukiwanie działek",
     "EGiB",
     "Planowanie przestrzenne",
     "Inwestycje i zagrożenia",
@@ -272,6 +337,7 @@ export function mountDzialki(container, ctx = {}) {
   void loadLeaflet().then((L) => {
     if (disposed) return;
     try {
+      leaflet = L;
       map = createMap(L, mapContainer, view);
       baseLayers = createBaseLayers(L);
       activeLayer = buildLayer(selectedBase);
@@ -289,6 +355,8 @@ export function mountDzialki(container, ctx = {}) {
       mapStatus.textContent = "";
       mapStatus.hidden = true;
       syncZoom();
+      const savedParcel = getDzialkiState().selectedParcel;
+      if (savedParcel) showSelectedParcel(savedParcel);
     } catch {
       mapStatus.textContent = "Nie udało się uruchomić mapy. Odśwież stronę i spróbuj ponownie.";
     }
@@ -300,6 +368,7 @@ export function mountDzialki(container, ctx = {}) {
     if (disposed) return;
     disposed = true;
     unsubscribeHealth();
+    unmountSearch();
     detachRetry();
     if (map) {
       map.off("zoomend", syncZoom);

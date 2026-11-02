@@ -12,11 +12,26 @@ import { createStaticServer } from "./serve.mjs";
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, "..");
 export const SCENARIO_TIMEOUT_MS = 25000;
+// 1x1 transparent PNG fixture: 68 B; 128 B allows up to 60 B of PNG framing/chunks.
+// Only an HTTP 200 image response below this size is classified as an empty tile.
+export const EMPTY_TILE_BYTE_THRESHOLD = 128;
 const MIN_SETTLE_MS = 6000;
+const SEARCH_SERVICE_RULES = Object.freeze([
+  {
+    host: "mapy.geoportal.gov.pl",
+    path: "/wss/ims/maps/PRG_gugik_wyszukiwarka/FeatureServer/1/query",
+    kind: "counties",
+  },
+  {
+    host: "mapy.geoportal.gov.pl",
+    path: "/wss/ims/maps/PRG_gugik_wyszukiwarka/FeatureServer/0/query",
+    kind: "communes",
+  },
+  { host: "uldk.gugik.gov.pl", path: "/", kind: "uldk" },
+]);
 const TILE_HOST_RULES = Object.freeze([
   { host: "tile.openstreetmap.org", subdomains: true, tilePath: true },
   { host: "server.arcgisonline.com", tilePath: true },
-  { host: "integracja.gugik.gov.pl", path: "/cgi-bin/KrajowaIntegracjaEwidencjiGruntow", wmsGetMap: true },
   { host: "mapy.geoportal.gov.pl", path: "/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime", wmsGetMap: true },
 ]);
 
@@ -32,6 +47,26 @@ function getArg(argv, key) {
     if (value.startsWith(prefix)) return value.slice(prefix.length);
   }
   return "";
+}
+
+export function normalizeSearchLabel(value) {
+  return String(value ?? "").replace(/[Łł]/g, "l").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pl-PL").trim().replace(/\s+/g, " ");
+}
+
+export function parseSearchArguments(argv = []) {
+  const names = ["--powiat", "--gmina", "--obreb", "--numer"];
+  const values = Object.fromEntries(names.map((name) => [name, getArg(argv, name).trim()]));
+  const present = Object.values(values).filter(Boolean).length;
+  if (present !== 0 && present !== names.length) {
+    throw new Error("Scenariusz wyszukiwania wymaga argumentów --powiat, --gmina, --obreb i --numer.");
+  }
+  return present === names.length ? {
+    powiat: values["--powiat"],
+    gmina: values["--gmina"],
+    obreb: values["--obreb"],
+    numer: values["--numer"],
+  } : null;
 }
 
 export function parseCdpMessage(message) {
@@ -60,21 +95,54 @@ function isImageMime(value) {
 export function aggregateRequests(requests = []) {
   const statuses = [...new Set(requests.map((request) => request.status)
     .filter((status) => Number.isFinite(status)))].sort((a, b) => a - b);
-  const loaded = requests.filter((request) =>
-    !request.canceled && request.status >= 200 && request.status < 300 && isImageMime(request.mimeType));
   const canceled = requests.filter((request) => request.canceled);
-  const failed = requests.filter((request) => !request.canceled && (
+  const empty = requests.filter((request) => !request.canceled
+    && request.status === 200 && isImageMime(request.mimeType)
+    && Number.isFinite(request.encodedDataLength)
+    && request.encodedDataLength < EMPTY_TILE_BYTE_THRESHOLD);
+  const loaded = requests.filter((request) => !request.canceled && !empty.includes(request)
+    && request.status >= 200 && request.status < 300 && isImageMime(request.mimeType));
+  const failed = requests.filter((request) => !request.canceled && !empty.includes(request) && (
     request.errorText || !Number.isFinite(request.status) || request.status < 200
     || request.status >= 400 || !isImageMime(request.mimeType)
   ));
+  const coordinatesFor = (items) => [...new Set(items.map((request) => tileCoordinateKey(request.url)).filter(Boolean))].sort();
   return {
     total: requests.length,
     loaded: loaded.length,
+    empty: empty.length,
     failed: failed.length,
     canceled: canceled.length,
     statuses,
     examples: failed.slice(0, 3).map((request) => request.url),
+    emptyCoordinates: coordinatesFor(empty),
+    failedCoordinates: coordinatesFor(failed),
   };
+}
+
+export function tileCoordinateKey(rawUrl) {
+  let url;
+  try { url = new URL(rawUrl); } catch { return ""; }
+  let match = url.pathname.match(/^\/(\d+)\/(\d+)\/(\d+)\.png$/);
+  if (match && (url.hostname === "tile.openstreetmap.org" || url.hostname.endsWith(".tile.openstreetmap.org"))) {
+    return `z=${match[1]}/x=${match[2]}/y=${match[3]}`;
+  }
+  match = url.pathname.match(/\/MapServer\/tile\/(\d+)\/(\d+)\/(\d+)$/);
+  if (match && url.hostname === "server.arcgisonline.com") {
+    return `z=${match[1]}/x=${match[3]}/y=${match[2]}`;
+  }
+  const bbox = url.searchParams.get("BBOX") ?? url.searchParams.get("bbox");
+  return bbox ? "bbox=" + bbox : url.pathname;
+}
+
+export function compareProblemCoordinateSets(runs = []) {
+  const sets = runs.map((run) => [...new Set([
+    ...(run.aggregate?.emptyCoordinates ?? []),
+    ...(run.aggregate?.failedCoordinates ?? []),
+  ])].sort());
+  const first = JSON.stringify(sets[0] ?? []);
+  const same = sets.every((set) => JSON.stringify(set) === first);
+  return { same, status: same ? "te same" : "różne", sets };
 }
 
 export function chooseBrowserPath(options = {}) {
@@ -129,6 +197,64 @@ function isTileHostAllowed(url) {
   });
 }
 
+function exactQueryKeys(params, keys) {
+  const entries = [...params.keys()];
+  return entries.length === keys.length
+    && keys.every((key) => params.getAll(key).length === 1)
+    && keys.every((key) => params.has(key));
+}
+
+export function isAllowedSearchServiceRequest(url) {
+  if (url.protocol !== "https:" || url.port || url.username || url.password || url.hash) return false;
+  const rule = SEARCH_SERVICE_RULES.find((item) => item.host === url.hostname && item.path === url.pathname);
+  if (!rule) return false;
+  const params = new URLSearchParams(url.search);
+  if (rule.kind === "counties") {
+    return exactQueryKeys(params, ["where", "outFields", "returnGeometry", "orderByFields", "f"])
+      && params.get("where") === "1=1"
+      && params.get("outFields") === "teryt,nazwa"
+      && params.get("returnGeometry") === "false"
+      && params.get("orderByFields") === "nazwa"
+      && params.get("f") === "json";
+  }
+  if (rule.kind === "communes") {
+    return exactQueryKeys(params, ["where", "outFields", "returnGeometry", "outSR", "orderByFields", "f"])
+      && /^teryt LIKE '\d{4}%'$/.test(params.get("where") ?? "")
+      && params.get("outFields") === "teryt,nazwa"
+      && params.get("returnGeometry") === "true"
+      && params.get("outSR") === "4326"
+      && params.get("orderByFields") === "nazwa"
+      && params.get("f") === "json";
+  }
+  if (rule.kind === "uldk") {
+    if (url.pathname !== "/") return false;
+    const request = params.get("request");
+    if (request === "GetRegionByNameOrId") {
+      return exactQueryKeys(params, ["request", "id", "result"])
+        && /^\d{6}_\d$/.test(params.get("id") ?? "")
+        && params.get("result") === "id,teryt,region,commune,county";
+    }
+    if (request === "GetParcelById") {
+      return exactQueryKeys(params, ["request", "id", "result", "srid"])
+        && /^\d{6}_\d\.\d{4}\.[0-9A-Za-z./-]{1,32}$/.test(params.get("id") ?? "")
+        && params.get("result") === "id,teryt,parcel,county,commune,region,geom_wkt"
+        && params.get("srid") === "4326";
+    }
+  }
+  return false;
+}
+
+function isHealthRequest(url, method, healthRoutes = []) {
+  return healthRoutes.some((item) => item.origin === url.origin
+    && item.path === url.pathname && item.method === method && !url.search && !url.hash);
+}
+
+function isObservedExternalRequest(url, method, healthRoutes = []) {
+  return method === "GET" && (isHealthRequest(url, method, healthRoutes)
+    || isTileHostAllowed(url)
+    || isAllowedSearchServiceRequest(url));
+}
+
 export function isAllowedBrowserRequest(rawUrl, method, options = {}) {
   let url;
   try {
@@ -141,27 +267,24 @@ export function isAllowedBrowserRequest(rawUrl, method, options = {}) {
   if (isLocalOrigin(url, options.appOrigins ?? options.appOrigin)) return true;
   if (url.protocol !== "https:" || url.port || url.username || url.password) return false;
 
-  const route = (options.healthRoutes ?? []).find((item) =>
-    item.origin === url.origin && item.path === url.pathname && item.method === requestMethod);
-  if (route && !url.search && !url.hash) return true;
-  if (!isTileHostAllowed(url)) return false;
-  const matchingRule = TILE_HOST_RULES.find((rule) => {
-    const hostMatches = rule.subdomains
-      ? url.hostname === rule.host || url.hostname.endsWith("." + rule.host)
-      : url.hostname === rule.host;
-    return hostMatches && isTileHostAllowed(url);
-  });
-  if (matchingRule?.tilePath) {
-    return !url.search && !url.hash;
+  if (isHealthRequest(url, requestMethod, options.healthRoutes ?? [])) return true;
+  if (isTileHostAllowed(url)) {
+    const matchingRule = TILE_HOST_RULES.find((rule) => {
+      const hostMatches = rule.subdomains
+        ? url.hostname === rule.host || url.hostname.endsWith("." + rule.host)
+        : url.hostname === rule.host;
+      return hostMatches && isTileHostAllowed(url);
+    });
+    if (matchingRule?.tilePath) return !url.search && !url.hash;
+    if (matchingRule?.wmsGetMap) {
+      const params = new URLSearchParams(url.search);
+      return params.get("service")?.toUpperCase() === "WMS"
+        && params.get("request")?.toUpperCase() === "GETMAP"
+        && params.get("layers") === "Raster"
+        && !url.hash;
+    }
   }
-  if (matchingRule?.wmsGetMap) {
-    const params = new URLSearchParams(url.search);
-    return params.get("service")?.toUpperCase() === "WMS"
-      && params.get("request")?.toUpperCase() === "GETMAP"
-      && params.get("layers") === "Raster"
-      && !url.hash;
-  }
-  return true;
+  return isAllowedSearchServiceRequest(url);
 }
 
 function browserCandidates() {
@@ -337,7 +460,9 @@ export function buildStateExpression() {
     "const base = document.querySelector('[data-base-layer]:checked')?.value || '';",
     "const year = document.querySelector('#dzialki-year')?.value || '';",
     "const zoom = document.querySelector('input[aria-label=\"Przybliżenie mapy\"]')?.value || '';",
-    "return { mapVisible: Boolean(document.querySelector('.leaflet-container')), tileCount: tiles.length, loadedCount: loaded.length, failedCount: match ? Number(match[1]) : 0, base, year, zoom };",
+    "const selectedParcelCount = document.querySelectorAll('.dzialki-selected-parcel').length;",
+    "const searchStatus = document.querySelector('#dzialki-search-status')?.textContent || '';",
+    "return { mapVisible: Boolean(document.querySelector('.leaflet-container')), tileCount: tiles.length, loadedCount: loaded.length, failedCount: match ? Number(match[1]) : 0, selectedParcelCount, searchStatus, base, year, zoom };",
     "})()",
   ].join("\n");
 }
@@ -349,6 +474,7 @@ async function runBrowserSmoke() {
 
   const argv = process.argv.slice(2);
   const requestedPort = getArg(argv, "--port");
+  const searchArgs = parseSearchArguments(argv);
   const beforeRef = getArg(argv, "--before-ref") || (argv.includes("--compare-before") ? "HEAD" : "");
   if (beforeRef && !/^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}(?:\^[0-9]+)?$/.test(beforeRef)) {
     throw new Error("Nieprawidłowa wartość --before-ref.");
@@ -391,6 +517,7 @@ async function runBrowserSmoke() {
   let browserStderr = "";
   const requestsById = new Map();
   const tileRequests = [];
+  const externalRequests = [];
   const consoleErrors = [];
   const pageExceptions = [];
   const blockedRequests = [];
@@ -479,7 +606,9 @@ async function runBrowserSmoke() {
         const url = params.request?.url ?? "";
         let parsed;
         try { parsed = new URL(url); } catch { return; }
-        if (!isTileHostAllowed(parsed)) return;
+        const method = String(params.request?.method ?? "GET").toUpperCase();
+        const isTile = isTileHostAllowed(parsed);
+        if (!isObservedExternalRequest(parsed, method, healthRoutes)) return;
 
         if (params.redirectResponse) {
           const previous = requestsById.get(params.requestId);
@@ -495,7 +624,7 @@ async function runBrowserSmoke() {
           requestId: params.requestId,
           url,
           host: parsed.host,
-          method: String(params.request?.method ?? "GET").toUpperCase(),
+          method,
           resourceType: params.type ?? "Other",
           status: null,
           mimeType: "",
@@ -504,9 +633,11 @@ async function runBrowserSmoke() {
           startedAt: Number(params.timestamp ?? 0),
           elapsedMs: null,
           bodyHint: "",
+          encodedDataLength: null,
         };
         requestsById.set(params.requestId, record);
-        tileRequests.push(record);
+        externalRequests.push(record);
+        if (isTile) tileRequests.push(record);
       }
       if (event === "Network.responseReceived") {
         const record = requestsById.get(params.requestId);
@@ -530,10 +661,13 @@ async function runBrowserSmoke() {
       if (event === "Network.loadingFinished") {
         const record = requestsById.get(params.requestId);
         if (!record) return;
+        record.encodedDataLength = Number.isFinite(params.encodedDataLength)
+          ? params.encodedDataLength
+          : null;
         if (Number.isFinite(params.timestamp)) {
           record.elapsedMs = Math.max(0, Math.round((params.timestamp - record.startedAt) * 1000));
         }
-        if (["integracja.gugik.gov.pl", "mapy.geoportal.gov.pl"].includes(record.host)
+        if (record.url.includes("/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime")
             && !isImageMime(record.mimeType)) {
           void pageCdp.command("Network.getResponseBody", { requestId: record.requestId })
             .then((body) => { record.bodyHint = bodyHint(body); })
@@ -612,6 +746,100 @@ async function runBrowserSmoke() {
         + "; input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })); return true; })()";
       const result = await evaluate(expression);
       if (!result) throw new Error("Nie znaleziono suwaka roku.");
+    }
+
+    async function waitForOptions(selector, deadline) {
+      const expression = "(() => { const select = document.querySelector(" + JSON.stringify(selector)
+        + "); return Boolean(select && select.options.length > 1); })()";
+      while (Date.now() < deadline) {
+        if (await evaluate(expression).catch(() => false)) return;
+        await sleep(150);
+      }
+      throw new Error("Lista wyszukiwania nie załadowała wyników w czasie scenariusza.");
+    }
+
+    async function chooseOption(selector, label) {
+      const expression = "(() => { const select = document.querySelector(" + JSON.stringify(selector) + ");"
+        + " if (!select) return false; const normalize = (value) => String(value || '').replace(/[Łł]/g, 'l').normalize('NFD')"
+        + ".replace(/[\\u0300-\\u036f]/g, '').toLowerCase().trim().replace(/\\s+/g, ' ');"
+        + " const target = normalize(" + JSON.stringify(label) + ");"
+        + " const option = [...select.options].find((item) => normalize(item.textContent) === target || item.value === "
+        + JSON.stringify(label) + "); if (!option) return false; select.value = option.value;"
+        + " select.dispatchEvent(new Event('change', { bubbles: true })); return true; })()";
+      if (!await evaluate(expression)) {
+        throw new Error("Nie znaleziono pozycji listy dla podanego scenariusza wyszukiwania.");
+      }
+    }
+
+    async function waitForSearchResult(deadline) {
+      const expression = "(() => { const text = document.querySelector('#dzialki-search-status')?.textContent || '';"
+        + " return /Znaleziono działkę|Nie znaleziono działki|Nie udało się|Upłynął limit czasu/.test(text); })()";
+      while (Date.now() < deadline) {
+        if (await evaluate(expression).catch(() => false)) return;
+        await sleep(150);
+      }
+      throw new Error("Wyszukiwanie nie zakończyło się przed limitem scenariusza.");
+    }
+
+    async function runParcelSearchScenario(origin) {
+      const name = "m4c-search";
+      const deadline = Date.now() + SCENARIO_TIMEOUT_MS;
+      currentScenario = name;
+      await pageCdp.command("Page.navigate", {
+        url: origin + "/?browserSmoke=m4c#/dzialki?ctx=" + contextEncoded,
+      });
+      await waitForMap(origin);
+      await waitForOptions("#dzialki-search-powiat", deadline);
+      const startedAt = await evaluate("performance.now()");
+      await chooseOption("#dzialki-search-powiat", searchArgs.powiat);
+      await waitForOptions("#dzialki-search-gmina", deadline);
+      await chooseOption("#dzialki-search-gmina", searchArgs.gmina);
+      await waitForOptions("#dzialki-search-obreb", deadline);
+      await chooseOption("#dzialki-search-obreb", searchArgs.obreb);
+      const fillExpression = "(() => { const input = document.querySelector('#dzialki-search-numer');"
+        + " const button = document.querySelector('#dzialki-search-submit'); if (!input || !button) return false;"
+        + " input.value = " + JSON.stringify(searchArgs.numer) + ";"
+        + " input.dispatchEvent(new Event('input', { bubbles: true })); button.click(); return true; })()";
+      if (!await evaluate(fillExpression)) throw new Error("Nie znaleziono pola numeru działki.");
+      await waitForSearchResult(deadline);
+      const resultTimeMs = Math.max(0, Math.round((await evaluate("performance.now()")) - startedAt));
+      const state = await evaluateState();
+      const requestDetails = externalRequests.filter((request) => request.scenario === name)
+        .map((request) => ({
+          url: request.url,
+          host: request.host,
+          method: request.method,
+          status: request.status,
+          resourceType: request.resourceType,
+          elapsedMs: request.elapsedMs,
+          errorText: request.errorText,
+        }));
+      const screenshot = await captureScenario(name);
+      screenshot.search = {
+        resultTimeMs,
+        statusText: state.searchStatus,
+        selectedParcelElements: state.selectedParcelCount,
+        outlineElements: state.selectedParcelCount,
+        requests: requestDetails,
+      };
+      return screenshot;
+    }
+
+    async function runArchiveStability(origin) {
+      const runs = [];
+      for (let index = 1; index <= 3; index += 1) {
+        const name = "stability-2025-run-" + index;
+        currentScenario = name;
+        await pageCdp.command("Page.navigate", {
+          url: origin + "/?browserSmoke=stability-" + index + "#/dzialki?ctx=" + contextEncoded,
+        });
+        await waitForMap(origin);
+        await setZoomForTest();
+        await selectBase("archive");
+        await setYear(2025);
+        runs.push(await captureScenario(name));
+      }
+      return { runs, consistency: compareProblemCoordinateSets(runs) };
     }
 
     function tileRequestsFor(name) {
@@ -715,7 +943,14 @@ async function runBrowserSmoke() {
 
     const beforeRun = baselineOrigin ? await runScenarios("before", baselineOrigin) : null;
     const afterRun = await runScenarios("after", appOrigin);
-    const scenarios = [...(beforeRun?.scenarios ?? []), ...afterRun.scenarios];
+    const stability = await runArchiveStability(appOrigin);
+    const parcelSearch = searchArgs ? await runParcelSearchScenario(appOrigin) : null;
+    const scenarios = [
+      ...(beforeRun?.scenarios ?? []),
+      ...afterRun.scenarios,
+      ...stability.runs,
+      ...(parcelSearch ? [parcelSearch] : []),
+    ];
     const retryScenarios = [beforeRun?.retryScenario, afterRun.retryScenario].filter(Boolean);
     const statePreserved = (!beforeRun || beforeRun.statePreserved) && afterRun.statePreserved;
 
@@ -728,10 +963,15 @@ async function runBrowserSmoke() {
       baselineOrigin,
       baselineRef: beforeRef || null,
       comparisonMode: Boolean(baselineOrigin),
+      browserRunCount: 1,
       testLocation: { name: "Piła (fallback, ponieważ współrzędne baseline D2 nie są zapisane w repo)", lat: 53.1508, lon: 16.7385, zoom: 17.6 },
       allowedHealthRoutes: healthRoutes,
+      emptyTileByteThreshold: EMPTY_TILE_BYTE_THRESHOLD,
       scenarios,
       retryScenarios,
+      archive2025Stability: stability.consistency,
+      parcelSearch,
+      externalRequests,
       statePreserved,
       consoleErrors,
       pageExceptions,
@@ -740,22 +980,27 @@ async function runBrowserSmoke() {
       browserSignal: browser.signalCode,
       browserStderr: cdpSummaryText(browserStderr),
       requestCount: tileRequests.length,
+      externalRequestCount: externalRequests.length,
     };
     runReport = report;
     await writeFile(join(resultDir, "report.json"), JSON.stringify(report, null, 2), "utf8");
 
     const lines = [
-      "Scenariusz | kafelki OK/błąd/anulowane | kody HTTP | przykładowe błędne adresy",
-      "---------- | -------------------------- | ---------- | -------------------------",
+      "Scenariusz | kafelki załadowane/puste/błędne/anulowane | kody HTTP | przykładowe błędne adresy",
+      "---------- | ----------------------------------------- | ---------- | -------------------------",
     ];
     for (const scenario of [...scenarios, ...retryScenarios]) {
       lines.push(
-        scenario.name + " | " + scenario.aggregate.loaded + "/" + scenario.aggregate.failed
+        scenario.name + " | " + scenario.aggregate.loaded + "/" + scenario.aggregate.empty + "/" + scenario.aggregate.failed
           + "/" + scenario.aggregate.canceled + " | "
           + (scenario.aggregate.statuses.join(",") || "brak")
           + " | " + (scenario.aggregate.examples.join(" ; ") || "brak"),
       );
     }
+    lines.push("Zgodność zbiorów pustych/błędnych dla trzech odświeżeń 2025: " + stability.consistency.status);
+    lines.push("Elementy obrysu w wyszukiwaniu M4c: "
+      + (parcelSearch ? parcelSearch.search.outlineElements : "scenariusz pominięty — brak argumentów"));
+    lines.push("Żądania zarejestrowane: " + externalRequests.length + " (szczegóły adresów w report.json)");
     const summary = lines.join("\n") + "\n";
     await writeFile(join(resultDir, "summary.txt"), summary, "utf8");
     process.stdout.write("Wyniki zapisano w .local-results/browser-smoke-" + timestamp + "/\n");
@@ -778,6 +1023,7 @@ async function runBrowserSmoke() {
         pageExceptions,
         blockedRequests,
         requests: tileRequests,
+        externalRequests,
         baselineOrigin,
         baselineRef: beforeRef || null,
         comparisonMode: Boolean(baselineOrigin),

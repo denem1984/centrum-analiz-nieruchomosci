@@ -67,7 +67,7 @@ Wyniki o tej samej znormalizowanej nazwie mają `match: "ambiguous"` i etykietę
 |---|---|---|
 | RCN | gmina `terc7`; dla wyboru miejscowości `place.simc7` | Przekazanie tych identyfikatorów do API RCN wymaga potwierdzenia w M5 [HIP]. |
 | Oferty | nazwa i gmina | Mapowanie lokalizacji na portale i parametry endpointów wymaga potwierdzenia w M6 [HIP]. |
-| Działki | `parcel` lub `point` | Zgodność identyfikatora ULDiK i punktu z istniejącym API wymaga potwierdzenia w M4 [HIP]. |
+| Działki | `parcel` lub `point`; M4c ustawia `parcel.id` bez zmian i punkt EPSG:4326; gminę tylko z pełnego TERC7 | M4c nie ustawia `obrebTeryt` bez niezależnego potwierdzenia i nie wyprowadza TERC7 z sześciocyfrowego kodu. [FAKT: implementacja M4c; `app/js/modules/dzialki/search.js`] |
 | Podobne | `point` lub gmina | Kształt żądania API i preferencja punkt kontra gmina wymagają potwierdzenia w M7 [HIP]. |
 | Gminy | gmina `terc7`; po rozstrzygnięciu D9 także `bdlUnitId` | Mapowanie TERYT ↔ BDL pozostaje otwarte do M8 [HIP]. |
 
