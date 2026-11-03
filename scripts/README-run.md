@@ -40,10 +40,12 @@ Skrypt używa wyłącznie lokalnego adresu aplikacji, czterech tras zdrowia GET 
 Scenariusz wyszukiwania jest opcjonalny i wymaga wartości z przygotowanego przez właściciela przypadku testowego. Wpisz je tylko do polecenia w swoim terminalu; nie dopisuj ich do plików repozytorium ani do dokumentacji. Dla wartości zawierających spacje użyj cudzysłowów:
 
 ```powershell
-node scripts/browser-smoke.mjs --powiat "piski" --gmina "<gmina z przypadku testowego>" --obreb "<obręb z przypadku testowego>" --numer "<numer z przypadku testowego>"
+node scripts/browser-smoke.mjs --powiat "<powiat z przypadku testowego>" --gmina "<gmina z przypadku testowego>" --obreb "<obręb z przypadku testowego>" --numer "<numer z przypadku testowego>"
 ```
 
-Przykład `piski` pokazuje dopasowanie początku etykiety: zadziała, gdy lista wyświetla `piski (warmińsko-mazurskie)`. Skrypt porównuje etykiety po normalizacji polskich znaków, najpierw szuka jednego dokładnego dopasowania, potem jednego dopasowania początku, a na końcu jednego dopasowania zawierania. Jeśli na dowolnym etapie pasuje więcej niż jedna pozycja, skrypt przerywa wybór i podaje wyłącznie dostępne etykiety; nie wybiera pierwszej z brzegu.
+Aby dodatkowo automatycznie sprawdzić wartości w raporcie i pasku lokalizacji, podaj razem `--expect-voivodeship "<oczekiwane województwo>"` oraz `--expect-county "<oczekiwany powiat>"`. Oba argumenty są opcjonalne, ale muszą wystąpić łącznie i mieć niepuste wartości. Skrypt wypisze tabelę sześciu asercji PASS/FAIL. W lokalnym `report.json` zapisuje tylko wyniki oraz długości tekstów, bez jawnych wartości oczekiwanych. Wpisuj dane testowe wyłącznie w poleceniu; nie zapisuj ich w repozytorium, dokumentacji ani opisie PR.
+
+Wartość powiatu może być początkiem pełnej etykiety listy. Skrypt porównuje etykiety po normalizacji polskich znaków, najpierw szuka jednego dokładnego dopasowania, potem jednego dopasowania początku, a na końcu jednego dopasowania zawierania. Jeśli na dowolnym etapie pasuje więcej niż jedna pozycja, skrypt przerywa wybór i podaje wyłącznie dostępne etykiety; nie wybiera pierwszej z brzegu.
 
 Możesz dopisać `--browser "C:\Program Files\Microsoft\Edge\Application\msedge.exe"` lub `--port 8090`. Skrypt sam uruchomi lokalną aplikację i przejdzie do formularza, wybierze podane jednostki, wykona wyszukiwanie oraz zapisze czas do obrysu i danych EGiB, kody odpowiedzi, adresy żądań, obecność tekstów raportu/statusu, liczbę obrysów i zrzut ekranu. Dodatkowe GET-y raportu to geometria ULDK `result=id,geom_wkt&srid=2180` oraz dokładne zapytanie WMS GetFeatureInfo do KIEG opisane w `docs/dzialki-module.md`. Dozwolone są wyłącznie GET-y do list PRG, dwóch wariantów zapytań ULDK używanych w wyszukiwaniu/raporcie, tego jednego zapytania KIEG, adresy lokalne, skonfigurowane trasy zdrowia i kafelki mapy. Inne hosty, ścieżki i metody są blokowane przed wysłaniem.
 

@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { Script } from "node:vm";
 import {
   aggregateRequests,
+  buildParcelSearchAssertions,
+  buildSearchAssertionStateExpression,
   buildStateExpression,
   chooseBrowserPath,
   compareProblemCoordinateSets,
@@ -13,6 +15,7 @@ import {
   matchSearchOption,
   normalizeSearchLabel,
   parseSearchArguments,
+  parseExpectedAssertionArguments,
   parseCdpLoadingFailed,
   parseCdpMessage,
   selectRelevantResponseHeaders,
@@ -59,6 +62,59 @@ test("parsuje zdarzenia CDP i zwraca null dla niepoprawnego JSON", () => {
 
 test("wyrażenie odczytu stanu kafelków ma poprawną składnię JavaScript", () => {
   assert.doesNotThrow(() => new Script(buildStateExpression()));
+  assert.doesNotThrow(() => new Script(buildSearchAssertionStateExpression()));
+});
+
+test("argumenty oczekiwań są opcjonalną, wymaganą parą i nie są częścią wyniku", () => {
+  assert.equal(parseExpectedAssertionArguments([]), null);
+  assert.deepEqual(parseExpectedAssertionArguments([
+    "--expect-voivodeship", "Testowe województwo",
+    "--expect-county=Testowy powiat",
+  ]), {
+    voivodeship: "Testowe województwo",
+    county: "Testowy powiat",
+  });
+  assert.throws(() => parseExpectedAssertionArguments(["--expect-county", "Testowy powiat"]), /wymagają/);
+  assert.throws(() => parseExpectedAssertionArguments([
+    "--expect-voivodeship", "", "--expect-county", "Testowy powiat",
+  ]), /niepustych/);
+});
+
+test("asercje działki zwracają wyłącznie PASS/FAIL i długości", () => {
+  const expected = { voivodeship: "Testowe województwo", county: "Testowy powiat" };
+  const observed = {
+    voivodeship: "Testowe województwo",
+    county: "Testowy powiat",
+    locationSummary: "Wybrana lokalizacja · województwo: Testowe województwo",
+    identifierLength: 18,
+    identifierLineCount: 1,
+    footer: "Centrum Analiz Nieruchomości · wersja M4c",
+    reportText: "Województwo Powiat Identyfikator działki Powierzchnia ewidencyjna Grupa rejestrowa Klasoużytki",
+    searchStatus: "Działka została znaleziona. Powierzchnia i klasoużytki pobrane z EGiB.",
+  };
+  const results = buildParcelSearchAssertions(observed, expected);
+  assert.equal(results.length, 6);
+  assert.ok(results.every((result) => result.pass));
+  assert.ok(results.every((result) => Object.keys(result).every((key) =>
+    ["name", "pass", "observedLength", "expectedLength", "valueLength"].includes(key))));
+  assert.equal(JSON.stringify(results).includes(expected.voivodeship), false);
+  assert.equal(JSON.stringify(results).includes(expected.county), false);
+  assert.ok(Number.isInteger(results[0].observedLength));
+  assert.ok(Number.isInteger(results[3].valueLength));
+});
+
+test("asercje wykrywają błędne nazwy, prefiks powiatu, łamanie identyfikatora i brak pól", () => {
+  const results = buildParcelSearchAssertions({
+    voivodeship: "Inna nazwa",
+    county: "powiat Testowy powiat",
+    locationSummary: "brak województwa",
+    identifierLength: 18,
+    identifierLineCount: 2,
+    footer: "wersja M4b",
+    reportText: "Powierzchnia ewidencyjna",
+    searchStatus: "błąd",
+  }, { voivodeship: "Testowe województwo", county: "Testowy powiat" });
+  assert.deepEqual(results.map((result) => result.pass), [false, false, false, false, false, false]);
 });
 
 test("agreguje kafelki załadowane, błędne, anulowane i statusy", () => {
@@ -150,12 +206,12 @@ test("nagłówki diagnostyczne są ograniczone do dozwolonej listy", () => {
 
 test("dopasowuje etykiety opcji po exact, prefix i contains wyłącznie jednoznacznie", () => {
   const options = [
-    { value: "2816", label: "piski (warmińsko-mazurskie)" },
-    { value: "2817", label: "Fikcyjny powiat" },
+    { value: "9901", label: "Testowy powiat (Testowe województwo)" },
+    { value: "9902", label: "Fikcyjny powiat" },
   ];
-  assert.equal(matchSearchOption(options, "piski").match, "prefix");
-  assert.equal(matchSearchOption(options, "PISKI (WARMIŃSKO-MAZURSKIE)").match, "exact");
-  assert.equal(matchSearchOption(options, "cyjny pow").option.value, "2817");
+  assert.equal(matchSearchOption(options, "testowy powiat").match, "prefix");
+  assert.equal(matchSearchOption(options, "TESTOWY POWIAT (TESTOWE WOJEWÓDZTWO)").match, "exact");
+  assert.equal(matchSearchOption(options, "cyjny pow").option.value, "9902");
   const ambiguous = matchSearchOption([
     { value: "1", label: "Testowo północ" },
     { value: "2", label: "Testowo południe" },

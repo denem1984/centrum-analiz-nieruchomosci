@@ -125,6 +125,88 @@ export function parseSearchArguments(argv = []) {
   } : null;
 }
 
+function hasArgument(argv, name) {
+  return argv.some((value) => value === name || value.startsWith(name + "="));
+}
+
+export function parseExpectedAssertionArguments(argv = []) {
+  const hasVoivodeship = hasArgument(argv, "--expect-voivodeship");
+  const hasCounty = hasArgument(argv, "--expect-county");
+  if (!hasVoivodeship && !hasCounty) return null;
+  const voivodeship = getArg(argv, "--expect-voivodeship").trim();
+  const county = getArg(argv, "--expect-county").trim();
+  if (!hasVoivodeship || !hasCounty || !voivodeship || !county) {
+    throw new Error("Asercje wyszukiwania wymagają niepustych argumentów --expect-voivodeship i --expect-county razem.");
+  }
+  return { voivodeship, county };
+}
+
+export function buildParcelSearchAssertions(observed = {}, expected = {}) {
+  const province = String(observed.voivodeship ?? "").trim();
+  const county = String(observed.county ?? "").trim();
+  const locationSummary = String(observed.locationSummary ?? "");
+  const identifierLength = Number(observed.identifierLength ?? 0);
+  const identifierLineCount = Number(observed.identifierLineCount ?? 0);
+  const footer = String(observed.footer ?? "");
+  const reportText = String(observed.reportText ?? "");
+  const searchStatus = String(observed.searchStatus ?? "");
+  const expectedProvince = String(expected.voivodeship ?? "").trim();
+  const expectedCounty = String(expected.county ?? "").trim();
+  const expectedLocationFragment = "województwo: " + expectedProvince;
+  const expectedFooterFragment = "wersja M4c";
+  const requiredReportLabels = ["Powierzchnia ewidencyjna", "Grupa rejestrowa", "Klasoużytki"];
+  const expectedSuccessStatus = "Działka została znaleziona. Powierzchnia i klasoużytki pobrane z EGiB.";
+  const expectedReportLength = requiredReportLabels.reduce((sum, value) => sum + value.length, 0)
+    + expectedSuccessStatus.length;
+  const rows = [
+    {
+      name: "report-voivodeship",
+      pass: province === expectedProvince,
+      observedLength: province.length,
+      expectedLength: expectedProvince.length,
+    },
+    {
+      name: "report-county",
+      pass: county === expectedCounty && !/^powiat(?:\s|$)/i.test(county),
+      observedLength: county.length,
+      expectedLength: expectedCounty.length,
+    },
+    {
+      name: "location-toolbar-voivodeship",
+      pass: locationSummary.includes(expectedLocationFragment),
+      observedLength: locationSummary.length,
+      expectedLength: expectedLocationFragment.length,
+    },
+    {
+      name: "parcel-identifier-layout",
+      pass: identifierLength > 0 && identifierLineCount === 1,
+      observedLength: identifierLineCount,
+      expectedLength: 1,
+      valueLength: identifierLength,
+    },
+    {
+      name: "footer-stage",
+      pass: footer.includes(expectedFooterFragment),
+      observedLength: footer.length,
+      expectedLength: expectedFooterFragment.length,
+    },
+    {
+      name: "report-fields-and-success-status",
+      pass: requiredReportLabels.every((value) => reportText.includes(value))
+        && searchStatus === expectedSuccessStatus,
+      observedLength: reportText.length + searchStatus.length,
+      expectedLength: expectedReportLength,
+    },
+  ];
+  return rows.map(({ name, pass, observedLength, expectedLength, valueLength }) => ({
+    name,
+    pass,
+    observedLength,
+    expectedLength,
+    ...(Number.isFinite(valueLength) ? { valueLength } : {}),
+  }));
+}
+
 export function parseCdpMessage(message) {
   const raw = typeof message === "string" ? message : message?.data ?? message;
   try {
@@ -660,6 +742,19 @@ export function buildStateExpression() {
   ].join("\n");
 }
 
+export function buildSearchAssertionStateExpression() {
+  return [
+    "(() => {",
+    "const report = document.querySelector('#dzialki-parcel-report');",
+    "const valueFor = (label) => { const dt = [...(report?.querySelectorAll('dt') || [])].find((item) => item.textContent.trim() === label); return dt?.nextElementSibling?.textContent.trim() || ''; };",
+    "const identifier = report?.querySelector('.dzialki-report-identifier-value');",
+    "let identifierLineCount = 0;",
+    "if (identifier) { const range = document.createRange(); range.selectNodeContents(identifier); identifierLineCount = range.getClientRects().length; }",
+    "return { voivodeship: valueFor('Województwo'), county: valueFor('Powiat'), locationSummary: document.querySelector('#location-summary')?.textContent || '', identifierLength: identifier?.textContent.trim().length || 0, identifierLineCount, footer: document.querySelector('#app-version')?.textContent || '', reportText: report?.textContent || '', searchStatus: document.querySelector('#dzialki-search-status')?.textContent || '' };",
+    "})()",
+  ].join("\n");
+}
+
 async function runBrowserSmoke() {
   if (typeof globalThis.WebSocket !== "function") {
     throw new Error("Wymagany jest Node.js 22 lub nowszy z globalnym WebSocket.");
@@ -668,6 +763,10 @@ async function runBrowserSmoke() {
   const argv = process.argv.slice(2);
   const requestedPort = getArg(argv, "--port");
   const searchArgs = parseSearchArguments(argv);
+  const expectedAssertions = parseExpectedAssertionArguments(argv);
+  if (expectedAssertions && !searchArgs) {
+    throw new Error("Argumenty --expect-voivodeship i --expect-county wymagają kompletnego scenariusza wyszukiwania działki.");
+  }
   const beforeRef = getArg(argv, "--before-ref") || (argv.includes("--compare-before") ? "HEAD" : "");
   if (beforeRef && !/^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}(?:\^[0-9]+)?$/.test(beforeRef)) {
     throw new Error("Nieprawidłowa wartość --before-ref.");
@@ -1044,6 +1143,12 @@ async function runBrowserSmoke() {
       const state = resultState.selectedParcelCount > 0 ? await waitForEgib(deadline) : resultState;
       const egibTimeMs = state.selectedParcelCount > 0
         ? Math.max(0, Math.round((await evaluate("performance.now()")) - startedAt)) : null;
+      const assertionState = expectedAssertions
+        ? await evaluate(buildSearchAssertionStateExpression())
+        : null;
+      const assertions = assertionState
+        ? buildParcelSearchAssertions(assertionState, expectedAssertions)
+        : null;
       const requestDetails = externalRequests.filter((request) => request.scenario === name)
         .map((request) => ({
           url: request.url,
@@ -1080,6 +1185,7 @@ async function runBrowserSmoke() {
           landUse: state.reportText.includes("Klasoużytki"),
           successStatus: state.searchStatus.includes("Działka została znaleziona. Powierzchnia i klasoużytki pobrane z EGiB."),
         },
+        assertions,
         egibRequests,
         sourceRequests,
         dzialkiBackendSearchRequests,
@@ -1360,6 +1466,14 @@ async function runBrowserSmoke() {
         + "; żądania backendu Działek poza /health " + parcelSearch.search.dzialkiBackendSearchRequests.length
         + "; teksty raportu/statusu "
         + Object.values(parcelSearch.search.reportTextPresent).every(Boolean));
+      if (parcelSearch.search.assertions) {
+        lines.push("Asercje | wynik | długość obserwowana/oczekiwana");
+        for (const assertion of parcelSearch.search.assertions) {
+          lines.push(assertion.name + " | " + (assertion.pass ? "PASS" : "FAIL") + " | "
+            + assertion.observedLength + "/" + assertion.expectedLength
+            + (Number.isFinite(assertion.valueLength) ? " (wartość: " + assertion.valueLength + " znaków)" : ""));
+        }
+      }
     }
     lines.push("Żądania zarejestrowane: " + externalRequests.length + " (szczegóły adresów w report.json)");
     const summary = lines.join("\n") + "\n";
@@ -1369,8 +1483,9 @@ async function runBrowserSmoke() {
     process.stdout.write(summary);
     process.stdout.write("Zachowanie stanu po powrocie z RCN: " + (statePreserved ? "TAK" : "NIE") + "\n");
     process.stdout.write("Żądania zablokowane przez allowlistę: " + blockedRequests.length + "\n");
+    const assertionFailed = parcelSearch?.search?.assertions?.some((assertion) => !assertion.pass) ?? false;
     if (blockedRequests.length > 0) process.exitCode = 3;
-    if (!statePreserved) process.exitCode = 1;
+    else if (!statePreserved || assertionFailed) process.exitCode = 1;
   } catch (error) {
     runError = error;
     if (!runReport) {
