@@ -67,11 +67,17 @@ Wyniki o tej samej znormalizowanej nazwie mają `match: "ambiguous"` i etykietę
 |---|---|---|
 | RCN | gmina `terc7`; dla wyboru miejscowości `place.simc7` | Przekazanie tych identyfikatorów do API RCN wymaga potwierdzenia w M5 [HIP]. |
 | Oferty | nazwa i gmina | Mapowanie lokalizacji na portale i parametry endpointów wymaga potwierdzenia w M6 [HIP]. |
-| Działki | `parcel` lub `point` | Zgodność identyfikatora ULDiK i punktu z istniejącym API wymaga potwierdzenia w M4 [HIP]. |
+| Działki | `parcel` i `point`; M4c ustawia `parcel.id` bez zmian, punkt EPSG:4326 oraz poprawne kody województwa/powiatu; `gmina.terc7` pobiera nazwę z listy PRG | Rodzaj jednostki 1/2/3 pochodzi z identyfikatora jednostki ewidencyjnej; R=4/5 mapuje się na rodzaj 3 według definicji TERYT [HIP do weryfikacji na pełnym TERC w M3b]. Inne rodzaje nie ustawiają gminy. `obrebTeryt` pozostaje pominięte bez niezależnego potwierdzenia. |
 | Podobne | `point` lub gmina | Kształt żądania API i preferencja punkt kontra gmina wymagają potwierdzenia w M7 [HIP]. |
 | Gminy | gmina `terc7`; po rozstrzygnięciu D9 także `bdlUnitId` | Mapowanie TERYT ↔ BDL pozostaje otwarte do M8 [HIP]. |
 
 ## Etapy i ograniczenia
+
+### Wyprowadzenie kodów z identyfikatora jednostki ewidencyjnej — M4c.1
+
+Identyfikator parceli zaczynający się od `NNNNNN_R` może dostarczyć kod jednostki: pierwsze dwie cyfry są kodem województwa, pierwsze cztery kodem powiatu. Nazwy pozostają pobrane z wybranych list PRG. Dla `R` równego 1, 2 lub 3 kod TERC7 to `NNNNNN` plus `R`, a `gmina.kind` jest równy `R`. Dla `R` równego 4 lub 5 kod TERC7 jest budowany jako `NNNNNN3`, `kind: 3`; to [HIP z definicji TERYT do weryfikacji na pełnym TERC w M3b]. Dla innych wartości `R` gmina nie jest ustawiana. `parcel.id` pozostaje tekstem bez zmian, a `obrebTeryt` nie jest uzupełniane.
+
+Walidacja spójności nadal sprawdza prefiksy kodów województwa/powiatu/gminy. Zmiana nie uznaje mapowania R=4/5 za potwierdzone danymi źródłowymi; wymaga ponownej weryfikacji w M3b.
 
 M3a dostarcza kontrakt, walidację, magazyn pamięci, pasek lokalizacji, routing `?ctx=` oraz fikcyjne wyszukiwanie. Nie dodaje rzeczywistego słownika, plików GUS/TERYT ani logiki modułów merytorycznych. M3b zależy od plików TERC/SIMC od właściciela i ponownej walidacji D2/D9. Kontrakt może wymagać nowej wersji zamiast cichej zmiany formatu, jeżeli M3b ujawni niezgodność.
 

@@ -2,6 +2,8 @@
   --dzialki-border: #cbd7dd;
   --dzialki-muted: #4c606c;
   --dzialki-accent: #084b5b;
+  --dzialki-selection-stroke: #b42355;
+  --dzialki-selection-fill: #f04472;
 }
 
 [data-module="dzialki"] .dzialki-header {
@@ -59,6 +61,171 @@
 [data-module="dzialki"] .dzialki-controls h3 {
   margin: 0 0 0.6rem;
   font-size: 1rem;
+}
+
+[data-module="dzialki"] .dzialki-search-panel {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0 0 1rem;
+  padding: 0 0 1rem;
+  border-bottom: 1px solid var(--dzialki-border);
+}
+
+[data-module="dzialki"] .dzialki-search-panel h3 {
+  margin-bottom: 0;
+}
+
+[data-module="dzialki"] .dzialki-search-panel label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+[data-module="dzialki"] .dzialki-search-panel select,
+[data-module="dzialki"] .dzialki-search-panel input,
+[data-module="dzialki"] .dzialki-search-panel button {
+  width: 100%;
+  min-height: 2.5rem;
+}
+
+[data-module="dzialki"] .dzialki-search-panel select,
+[data-module="dzialki"] .dzialki-search-panel input {
+  box-sizing: border-box;
+  padding: 0.45rem;
+  border: 1px solid #8399a4;
+  border-radius: 0.35rem;
+  background: #fff;
+  color: #17313d;
+  font: inherit;
+}
+
+[data-module="dzialki"] .dzialki-search-panel :focus-visible {
+  outline: 3px solid #207f9a;
+  outline-offset: 2px;
+}
+
+[data-module="dzialki"] .dzialki-search-source,
+[data-module="dzialki"] .dzialki-search-status {
+  margin: 0;
+  color: var(--dzialki-muted);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+[data-module="dzialki"] .dzialki-search-status {
+  min-height: 1.2em;
+}
+
+[data-module="dzialki"] .dzialki-search-retry:not([hidden]) {
+  min-height: 2.5rem;
+}
+
+[data-module="dzialki"] .dzialki-parcel-report {
+  margin: 0 0 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--dzialki-border);
+  border-radius: 0.55rem;
+  background: #fff;
+}
+
+[data-module="dzialki"] .dzialki-parcel-report h3 {
+  margin-bottom: 0.55rem;
+}
+
+[data-module="dzialki"] .dzialki-report-rows {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) minmax(0, 1fr);
+  margin: 0;
+}
+
+[data-module="dzialki"] .dzialki-report-rows dt,
+[data-module="dzialki"] .dzialki-report-rows dd {
+  margin: 0;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid #edf1f5;
+  overflow-wrap: anywhere;
+}
+
+[data-module="dzialki"] .dzialki-report-rows dd {
+  text-align: right;
+  font-weight: 650;
+}
+
+[data-module="dzialki"] .dzialki-report-identifier-label,
+[data-module="dzialki"] .dzialki-report-identifier-value {
+  text-align: left;
+}
+
+[data-module="dzialki"] .dzialki-report-identifier-value {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+[data-module="dzialki"] .dzialki-registration-group {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0.65rem 0;
+  padding: 0.65rem;
+  border-radius: 0.4rem;
+  background: #ffda36;
+  color: #172033;
+}
+
+[data-module="dzialki"] .dzialki-registration-group span,
+[data-module="dzialki"] .dzialki-land-use span {
+  font-size: 0.85rem;
+}
+
+[data-module="dzialki"] .dzialki-land-uses {
+  margin-top: 0.65rem;
+  padding: 0.65rem;
+  border-radius: 0.4rem;
+  background: #fff9e9;
+}
+
+[data-module="dzialki"] .dzialki-land-uses h4 {
+  margin: 0 0 0.4rem;
+}
+
+[data-module="dzialki"] .dzialki-land-use {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0.3rem 0;
+  padding: 0.5rem;
+  border-radius: 0.35rem;
+  background: #f7f9fc;
+}
+
+[data-module="dzialki"] .dzialki-parcel-label {
+  display: inline-block;
+  padding: 0.15rem 0.35rem;
+  border: 1px solid #fff;
+  border-radius: 0.2rem;
+  background: #8f153e;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 45%);
+}
+
+[data-module="dzialki"] .dzialki-parcel-popup {
+  min-width: 16rem;
+  max-width: 24rem;
+}
+
+[data-module="dzialki"] .dzialki-parcel-popup p {
+  margin: 0.25rem 0;
+  overflow-wrap: anywhere;
+}
+
+[data-module="dzialki"] .dzialki-parcel-popup small {
+  color: var(--dzialki-muted);
 }
 
 [data-module="dzialki"] .dzialki-base-options {
@@ -199,5 +366,10 @@
 @media (max-width: 28rem) {
   [data-module="dzialki"] .dzialki-zoom-row {
     grid-template-columns: 2.5rem minmax(3rem, 1fr) 2.5rem 2.4rem;
+  }
+
+  [data-module="dzialki"] .dzialki-report-identifier-label,
+  [data-module="dzialki"] .dzialki-report-identifier-value {
+    grid-column: 1 / -1;
   }
 }

@@ -3,12 +3,34 @@ import assert from "node:assert/strict";
 import { Script } from "node:vm";
 import {
   aggregateRequests,
+  buildParcelSearchAssertions,
+  buildSearchAssertionStateExpression,
   buildStateExpression,
   chooseBrowserPath,
+  compareProblemCoordinateSets,
+  EMPTY_TILE_BYTE_THRESHOLD,
+  formatSearchOptionError,
+  isAllowedArchiveRepeatRequest,
   isAllowedBrowserRequest,
+  matchSearchOption,
+  normalizeSearchLabel,
+  parseSearchArguments,
+  parseExpectedAssertionArguments,
   parseCdpLoadingFailed,
   parseCdpMessage,
+  selectRelevantResponseHeaders,
+  selectRepeatableArchiveRequests,
+  summarizeArchiveRetry,
+  summarizeArchiveStability,
+  tileCoordinateKey,
 } from "./browser-smoke.mjs";
+import {
+  buildCommunesUrl,
+  buildCountiesUrl,
+  buildParcelUrl,
+  buildRegionsUrl,
+} from "../app/js/modules/dzialki/search.js";
+import { buildEgibGeometryUrl, buildKiegFeatureInfoUrl } from "../app/js/modules/dzialki/egib.js";
 
 const healthRoutes = [
   { origin: "https://rcn-web-app.onrender.com", path: "/", method: "GET" },
@@ -40,22 +62,230 @@ test("parsuje zdarzenia CDP i zwraca null dla niepoprawnego JSON", () => {
 
 test("wyrażenie odczytu stanu kafelków ma poprawną składnię JavaScript", () => {
   assert.doesNotThrow(() => new Script(buildStateExpression()));
+  assert.doesNotThrow(() => new Script(buildSearchAssertionStateExpression()));
+});
+
+test("argumenty oczekiwań są opcjonalną, wymaganą parą i nie są częścią wyniku", () => {
+  assert.equal(parseExpectedAssertionArguments([]), null);
+  assert.deepEqual(parseExpectedAssertionArguments([
+    "--expect-voivodeship", "Testowe województwo",
+    "--expect-county=Testowy powiat",
+  ]), {
+    voivodeship: "Testowe województwo",
+    county: "Testowy powiat",
+  });
+  assert.throws(() => parseExpectedAssertionArguments(["--expect-county", "Testowy powiat"]), /wymagają/);
+  assert.throws(() => parseExpectedAssertionArguments([
+    "--expect-voivodeship", "", "--expect-county", "Testowy powiat",
+  ]), /niepustych/);
+});
+
+test("asercje działki zwracają wyłącznie PASS/FAIL i długości", () => {
+  const expected = { voivodeship: "Testowe województwo", county: "Testowy powiat" };
+  const observed = {
+    voivodeship: "Testowe województwo",
+    county: "Testowy powiat",
+    locationSummary: "Wybrana lokalizacja · województwo: Testowe województwo",
+    identifierLength: 18,
+    identifierLineCount: 1,
+    footer: "Centrum Analiz Nieruchomości · wersja M4c",
+    reportText: "Województwo Powiat Identyfikator działki Powierzchnia ewidencyjna Grupa rejestrowa Klasoużytki",
+    searchStatus: "Działka została znaleziona. Powierzchnia i klasoużytki pobrane z EGiB.",
+  };
+  const results = buildParcelSearchAssertions(observed, expected);
+  assert.equal(results.length, 6);
+  assert.ok(results.every((result) => result.pass));
+  assert.ok(results.every((result) => Object.keys(result).every((key) =>
+    ["name", "pass", "observedLength", "expectedLength", "valueLength"].includes(key))));
+  assert.equal(JSON.stringify(results).includes(expected.voivodeship), false);
+  assert.equal(JSON.stringify(results).includes(expected.county), false);
+  assert.ok(Number.isInteger(results[0].observedLength));
+  assert.ok(Number.isInteger(results[3].valueLength));
+});
+
+test("asercje wykrywają błędne nazwy, prefiks powiatu, łamanie identyfikatora i brak pól", () => {
+  const results = buildParcelSearchAssertions({
+    voivodeship: "Inna nazwa",
+    county: "powiat Testowy powiat",
+    locationSummary: "brak województwa",
+    identifierLength: 18,
+    identifierLineCount: 2,
+    footer: "wersja M4b",
+    reportText: "Powierzchnia ewidencyjna",
+    searchStatus: "błąd",
+  }, { voivodeship: "Testowe województwo", county: "Testowy powiat" });
+  assert.deepEqual(results.map((result) => result.pass), [false, false, false, false, false, false]);
 });
 
 test("agreguje kafelki załadowane, błędne, anulowane i statusy", () => {
   const summary = aggregateRequests([
-    { url: "https://tile.openstreetmap.org/17/1/2.png", status: 200, mimeType: "image/png" },
+    { url: "https://tile.openstreetmap.org/17/1/2.png", status: 200, mimeType: "image/png", encodedDataLength: 500 },
     { url: "https://mapy.geoportal.gov.pl/wms?request=GetMap", status: 200, mimeType: "text/xml" },
     { url: "https://server.arcgisonline.com/tile", status: 503, mimeType: "text/plain" },
     { url: "https://tile.openstreetmap.org/17/3/4.png", status: null, errorText: "net::ERR_FAILED" },
     { url: "https://tile.openstreetmap.org/17/5/6.png", canceled: true },
+    { url: "https://tile.openstreetmap.org/17/7/8.png", status: 200, mimeType: "image/png", encodedDataLength: 68 },
   ]);
-  assert.equal(summary.total, 5);
+  assert.equal(summary.total, 6);
   assert.equal(summary.loaded, 1);
+  assert.equal(summary.empty, 1);
   assert.equal(summary.failed, 3);
   assert.equal(summary.canceled, 1);
   assert.deepEqual(summary.statuses, [200, 503]);
   assert.equal(summary.examples.length, 3);
+  assert.deepEqual(summary.emptyCoordinates, ["z=17/x=7/y=8"]);
+  assert.deepEqual(summary.failedCoordinates, ["/tile", "/wms", "z=17/x=3/y=4"]);
+  assert.equal(EMPTY_TILE_BYTE_THRESHOLD, 128);
+});
+
+test("rozmiar pustego obrazu używa długości ładunku, a nie transferu z narzutem nagłówków", () => {
+  const summary = aggregateRequests([{
+    url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime?BBOX=1,2,3,4",
+    method: "GET",
+    status: 200,
+    mimeType: "image/png",
+    encodedDataLength: 520,
+    encodedBodyLength: 68,
+    responseHeaders: { "Content-Type": "image/png", "Content-Length": "68" },
+  }]);
+  assert.equal(summary.empty, 1);
+  assert.equal(summary.loaded, 0);
+});
+
+test("stabilność porównuje zbiory współrzędnych pustych i błędnych", () => {
+  const runs = [
+    { aggregate: { emptyCoordinates: ["bbox=a"], failedCoordinates: [] } },
+    { aggregate: { emptyCoordinates: ["bbox=a"], failedCoordinates: [] } },
+    { aggregate: { emptyCoordinates: [], failedCoordinates: ["bbox=b"] } },
+  ];
+  const result = compareProblemCoordinateSets(runs);
+  assert.equal(result.same, false);
+  assert.equal(result.status, "różne");
+  assert.deepEqual(result.sets, [["bbox=a"], ["bbox=a"], ["bbox=b"]]);
+  assert.equal(tileCoordinateKey("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/17/8/7"),
+    "z=17/x=7/y=8");
+});
+
+test("metryki stabilności liczą przecięcie, sumę, zmienne współrzędne i wskaźnik", () => {
+  const result = summarizeArchiveStability([
+    { aggregate: { emptyCoordinates: ["bbox=A", "bbox=B"], loadedCoordinates: ["bbox=C"] } },
+    { aggregate: { emptyCoordinates: ["bbox=B", "bbox=C"], loadedCoordinates: ["bbox=A"] } },
+    { aggregate: { emptyCoordinates: ["bbox=A", "bbox=C"], loadedCoordinates: ["bbox=B"] } },
+  ]);
+  assert.deepEqual(result.emptyIntersection, []);
+  assert.deepEqual(result.emptyUnion, ["bbox=A", "bbox=B", "bbox=C"]);
+  assert.deepEqual(result.variableCoordinates, ["bbox=A", "bbox=B", "bbox=C"]);
+  assert.equal(result.variableCount, 3);
+  assert.equal(result.emptyCountSum, 6);
+  assert.equal(result.variableRatio, 0.5);
+});
+
+test("nagłówki diagnostyczne są ograniczone do dozwolonej listy", () => {
+  assert.deepEqual(selectRelevantResponseHeaders({
+    "access-control-allow-origin": "*",
+    "TIMING-ALLOW-ORIGIN": "https://example.org",
+    "content-type": "image/png",
+    "content-length": "68",
+    "cache-control": "public, max-age=60",
+    age: "3",
+    via: "edge",
+    "x-cache": "HIT",
+    "set-cookie": "must-not-be-recorded",
+    authorization: "must-not-be-recorded",
+  }), {
+    "Access-Control-Allow-Origin": "*",
+    "Timing-Allow-Origin": "https://example.org",
+    "Content-Type": "image/png",
+    "Content-Length": "68",
+    "Cache-Control": "public, max-age=60",
+    Age: "3",
+    Via: "edge",
+    "X-Cache": "HIT",
+  });
+});
+
+test("dopasowuje etykiety opcji po exact, prefix i contains wyłącznie jednoznacznie", () => {
+  const options = [
+    { value: "9901", label: "Testowy powiat (Testowe województwo)" },
+    { value: "9902", label: "Fikcyjny powiat" },
+  ];
+  assert.equal(matchSearchOption(options, "testowy powiat").match, "prefix");
+  assert.equal(matchSearchOption(options, "TESTOWY POWIAT (TESTOWE WOJEWÓDZTWO)").match, "exact");
+  assert.equal(matchSearchOption(options, "cyjny pow").option.value, "9902");
+  const ambiguous = matchSearchOption([
+    { value: "1", label: "Testowo północ" },
+    { value: "2", label: "Testowo południe" },
+  ], "testowo");
+  assert.equal(ambiguous.reason, "ambiguous");
+  assert.deepEqual(ambiguous.labels, ["Testowo północ", "Testowo południe"]);
+  assert.match(formatSearchOptionError(ambiguous), /Testowo północ \| Testowo południe/);
+  assert.equal(matchSearchOption(options, "brak").reason, "missing");
+  assert.match(formatSearchOptionError({ reason: "missing", labels: ["jeden"] }), /jeden/);
+});
+
+test("ponowne GET-y archiwalne wybierają do sześciu pustych adresów i odrzucają inne żądania", () => {
+  const emptyUrl = "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime"
+    + "?service=WMS&request=GetMap&layers=Raster&bbox=1%2C2%2C3%2C4";
+  const requests = Array.from({ length: 8 }, (_, index) => ({
+    url: emptyUrl.replace("bbox=1%2C2%2C3%2C4", `bbox=${index}%2C2%2C3%2C4`),
+    method: "GET",
+    status: 200,
+    mimeType: "image/png",
+    encodedDataLength: 68,
+  }));
+  requests.push({ ...requests[0] });
+  requests.push({ ...requests[0], url: "https://example.org/tile.png" });
+  requests.push({ ...requests[0], method: "POST" });
+  requests.push({ ...requests[0], status: 503 });
+  requests.push({ ...requests[0], encodedDataLength: EMPTY_TILE_BYTE_THRESHOLD });
+  const selected = selectRepeatableArchiveRequests(requests);
+  assert.equal(selected.length, 6);
+  const originalUrls = selected.map(({ url }) => url);
+  assert.equal(isAllowedArchiveRepeatRequest(originalUrls[0], "GET", originalUrls), true);
+  assert.equal(isAllowedArchiveRepeatRequest(originalUrls[0], "POST", originalUrls), false);
+  assert.equal(isAllowedArchiveRepeatRequest(originalUrls[0] + "&extra=1", "GET", originalUrls), false);
+  assert.equal(isAllowedArchiveRepeatRequest("https://example.org/tile.png", "GET", originalUrls), false);
+  assert.equal(isAllowedArchiveRepeatRequest(
+    "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime"
+      + "?service=WMS&request=GetMap&layers=Raster&bbox=8%2C2%2C3%2C4",
+    "GET", originalUrls,
+  ), false);
+});
+
+test("ocenia wynik dwóch powtórnych GET-ów na tych samych kafelkach", () => {
+  const selected = [
+    { url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime?service=WMS&request=GetMap&layers=Raster&bbox=A", coordinate: "bbox=A" },
+    { url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime?service=WMS&request=GetMap&layers=Raster&bbox=B", coordinate: "bbox=B" },
+  ];
+  const result = summarizeArchiveRetry(selected, [
+    { url: selected[0].url, status: 200, mimeType: "image/png", encodedDataLength: 400 },
+    { url: selected[0].url, status: 200, mimeType: "image/png", encodedDataLength: 400 },
+    { url: selected[1].url, status: 200, mimeType: "image/png", encodedDataLength: 68 },
+    { url: selected[1].url, status: 200, mimeType: "image/png", encodedDataLength: 68 },
+  ]);
+  assert.equal(result.selectedTiles, 2);
+  assert.equal(result.retryRequests, 4);
+  assert.equal(result.filledTiles, 1);
+  assert.equal(result.conclusion, "niejednoznaczne");
+  assert.deepEqual(result.perTile.map(({ filled, remainedEmpty }) => [filled, remainedEmpty]), [[true, false], [false, true]]);
+});
+
+test("wniosek o ponawianiu jest liczbowy i rozróżnia pomaga od nie pomaga", () => {
+  const tileUrl = "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime"
+    + "?service=WMS&request=GetMap&layers=Raster&bbox=A";
+  const tiles = [{ url: tileUrl, coordinate: "bbox=A" }];
+  const filled = summarizeArchiveRetry(tiles, [
+    { url: tileUrl, status: 200, mimeType: "image/png", encodedDataLength: 256 },
+    { url: tileUrl, status: 200, mimeType: "image/png", encodedDataLength: 256 },
+  ]);
+  assert.equal(filled.conclusion, "pomaga");
+  assert.match(filled.reason, /1\/1/);
+  const empty = summarizeArchiveRetry(tiles, [
+    { url: tileUrl, status: 200, mimeType: "image/png", encodedDataLength: 68 },
+    { url: tileUrl, status: 200, mimeType: "image/png", encodedDataLength: 68 },
+  ]);
+  assert.equal(empty.conclusion, "nie pomaga");
+  assert.match(empty.reason, /0\/1/);
 });
 
 test("wybiera ścieżkę przeglądarki według jawnego argumentu, EDGE_PATH, następnie kandydatów", () => {
@@ -85,4 +315,58 @@ test("allowlista przeglądarki ogranicza metody, health-checki i ścieżki kafel
   assert.equal(isAllowedBrowserRequest("https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime?service=WMS&request=GetCapabilities&layers=Raster", "GET", options), false);
   assert.equal(isAllowedBrowserRequest("https://mapy.geoportal.gov.pl/wss/service/other?service=WMS&request=GetMap&layers=Raster", "GET", options), false);
   assert.equal(isAllowedBrowserRequest("https://example.org/", "GET", options), false);
+});
+
+test("allowlista M4c dopuszcza tylko dokładne trasy wyszukiwania przez GET", () => {
+  const options = { appOrigin: "http://127.0.0.1:8080", healthRoutes };
+  for (const url of [
+    buildCountiesUrl(),
+    buildCommunesUrl("9988"),
+    buildRegionsUrl("9988776"),
+    buildParcelUrl("998877_6.0001", "12/3"),
+    buildEgibGeometryUrl("998877_6.0001.12/3"),
+    buildKiegFeatureInfoUrl({ type: "Polygon", coordinates: [[
+      [300000, 500000], [300100, 500000], [300100, 500100], [300000, 500100], [300000, 500000],
+    ]] }),
+  ]) {
+    assert.equal(isAllowedBrowserRequest(url, "GET", options), true, url);
+    assert.equal(isAllowedBrowserRequest(url, "POST", options), false, url);
+  }
+  assert.equal(isAllowedBrowserRequest(
+    "https://mapy.geoportal.gov.pl/wss/ims/maps/PRG_gugik_wyszukiwarka/FeatureServer/2/query?f=json",
+    "GET",
+    options,
+  ), false);
+  assert.equal(isAllowedBrowserRequest(
+    "https://uldk.gugik.gov.pl/?request=GetCapabilities",
+    "GET",
+    options,
+  ), false);
+  assert.equal(isAllowedBrowserRequest(
+    "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow?service=WMS&request=GetMap&layers=Raster",
+    "GET",
+    options,
+  ), false);
+  assert.equal(isAllowedBrowserRequest(
+    "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&SRS=EPSG%3A2180&BBOX=1%2C1%2C201%2C201&WIDTH=1000&HEIGHT=1000&X=500&Y=500&LAYERS=dzialki&QUERY_LAYERS=dzialki&INFO_FORMAT=text%2Fxml&FORMAT=image%2Fpng&TRANSPARENT=TRUE",
+    "POST", options,
+  ), false);
+  assert.equal(isAllowedBrowserRequest(
+    "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&SRS=EPSG%3A2180&BBOX=1%2C1%2C201%2C201&WIDTH=1000&HEIGHT=1000&X=500&Y=500&LAYERS=dzialki&QUERY_LAYERS=dzialki&INFO_FORMAT=text%2Fxml&FORMAT=image%2Fpng&TRANSPARENT=TRUE&EXTRA=1",
+    "GET", options,
+  ), false);
+});
+
+test("parsuje argumenty scenariusza i normalizuje polskie nazwy", () => {
+  assert.equal(normalizeSearchLabel("  Łódź  "), "lodz");
+  assert.deepEqual(parseSearchArguments([
+    "--powiat", "Fikcyjny powiat", "--gmina", "Testowo", "--obreb", "Przykładowy obręb", "--numer", "12/3",
+  ]), {
+    powiat: "Fikcyjny powiat",
+    gmina: "Testowo",
+    obreb: "Przykładowy obręb",
+    numer: "12/3",
+  });
+  assert.equal(parseSearchArguments([]), null);
+  assert.throws(() => parseSearchArguments(["--powiat", "Fikcyjny powiat"]), /wymaga argumentów/);
 });

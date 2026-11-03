@@ -24,6 +24,7 @@ Przed rozpoczęciem zadania przeczytaj README.md, AGENTS.md, CLAUDE.md, AUDIT.md
 - Raportuj tylko komendy faktycznie uruchomione i wyniki faktycznie sprawdzone.
 - Właściciel podejmuje decyzje, scala PR, autoryzuje wdrożenia i wykonuje testy ręczne.
 - Każde zadanie dotyczące interfejsu musi zawierać test startowy aplikacji (z atrapą DOM) oraz opis ręcznego sprawdzenia; zielone testy jednostkowe same nie dowodzą, że strona się uruchamia.
+- Zadania z mapą/zewnętrznymi usługami wymagają scenariusza browser-smoke uruchamianego przez właściciela; raport nie może twierdzić, że żądania odpowiadają starej aplikacji bez tabeli „stary front vs nowa aplikacja” i testu URL.
 
 ## Raport końcowy
 

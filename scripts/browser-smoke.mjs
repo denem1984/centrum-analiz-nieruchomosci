@@ -12,11 +12,41 @@ import { createStaticServer } from "./serve.mjs";
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, "..");
 export const SCENARIO_TIMEOUT_MS = 25000;
+// A 1x1 transparent PNG fixture is 68 B; 128 B allows up to 60 B of PNG framing/chunks.
+// Empty detection prefers body Content-Length / Network.dataReceived bytes; transfer length is retained too.
+export const EMPTY_TILE_BYTE_THRESHOLD = 128;
+export const MAX_ARCHIVE_REPEAT_TILES = 6;
+export const ARCHIVE_REPEAT_DELAYS_MS = Object.freeze([1500, 4000]);
 const MIN_SETTLE_MS = 6000;
+const ARCHIVE_WMS_HOST = "mapy.geoportal.gov.pl";
+const ARCHIVE_WMS_PATH = "/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime";
+const RELEVANT_ARCHIVE_HEADERS = Object.freeze({
+  "access-control-allow-origin": "Access-Control-Allow-Origin",
+  "timing-allow-origin": "Timing-Allow-Origin",
+  "content-type": "Content-Type",
+  "content-length": "Content-Length",
+  "cache-control": "Cache-Control",
+  age: "Age",
+  via: "Via",
+  "x-cache": "X-Cache",
+});
+const SEARCH_SERVICE_RULES = Object.freeze([
+  {
+    host: "mapy.geoportal.gov.pl",
+    path: "/wss/ims/maps/PRG_gugik_wyszukiwarka/FeatureServer/1/query",
+    kind: "counties",
+  },
+  {
+    host: "mapy.geoportal.gov.pl",
+    path: "/wss/ims/maps/PRG_gugik_wyszukiwarka/FeatureServer/0/query",
+    kind: "communes",
+  },
+  { host: "uldk.gugik.gov.pl", path: "/", kind: "uldk" },
+  { host: "integracja.gugik.gov.pl", path: "/cgi-bin/KrajowaIntegracjaEwidencjiGruntow", kind: "kieg" },
+]);
 const TILE_HOST_RULES = Object.freeze([
   { host: "tile.openstreetmap.org", subdomains: true, tilePath: true },
   { host: "server.arcgisonline.com", tilePath: true },
-  { host: "integracja.gugik.gov.pl", path: "/cgi-bin/KrajowaIntegracjaEwidencjiGruntow", wmsGetMap: true },
   { host: "mapy.geoportal.gov.pl", path: "/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime", wmsGetMap: true },
 ]);
 
@@ -32,6 +62,149 @@ function getArg(argv, key) {
     if (value.startsWith(prefix)) return value.slice(prefix.length);
   }
   return "";
+}
+
+export function normalizeSearchLabel(value) {
+  return String(value ?? "").replace(/[Łł]/g, "l").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pl-PL").trim().replace(/\s+/g, " ");
+}
+
+export function matchSearchOption(options, requestedLabel) {
+  const target = normalizeSearchLabel(requestedLabel);
+  const candidates = (Array.isArray(options) ? options : []).map((item) => ({
+    label: String(item?.label ?? item?.textContent ?? ""),
+    value: String(item?.value ?? ""),
+  }));
+  if (!target) return { option: null, match: null, reason: "missing", labels: candidates.map(({ label }) => label) };
+
+  const stages = [
+    ["exact", (label) => normalizeSearchLabel(label) === target],
+    ["prefix", (label) => normalizeSearchLabel(label).startsWith(target)],
+    ["contains", (label) => normalizeSearchLabel(label).includes(target)],
+  ];
+  for (const [match, predicate] of stages) {
+    const matched = candidates.filter((item) => predicate(item.label));
+    if (matched.length === 1) return { option: matched[0], match, reason: null, labels: candidates.map(({ label }) => label) };
+    if (matched.length > 1) return { option: null, match, reason: "ambiguous", labels: candidates.map(({ label }) => label) };
+  }
+  return { option: null, match: null, reason: "missing", labels: candidates.map(({ label }) => label) };
+}
+
+export function formatSearchOptionError(result) {
+  const labels = Array.isArray(result?.labels) ? result.labels : [];
+  return "Nie można jednoznacznie dopasować pozycji listy. Dostępne etykiety: "
+    + (labels.length ? labels.join(" | ") : "brak");
+}
+
+export function selectRelevantResponseHeaders(...sources) {
+  const selected = {};
+  for (const source of sources) {
+    if (!source || typeof source !== "object") continue;
+    for (const [name, rawValue] of Object.entries(source)) {
+      const canonicalName = RELEVANT_ARCHIVE_HEADERS[String(name).toLowerCase()];
+      if (!canonicalName || rawValue === undefined || rawValue === null) continue;
+      const value = Array.isArray(rawValue) ? rawValue.join(", ") : String(rawValue);
+      selected[canonicalName] = value;
+    }
+  }
+  return selected;
+}
+
+export function parseSearchArguments(argv = []) {
+  const names = ["--powiat", "--gmina", "--obreb", "--numer"];
+  const values = Object.fromEntries(names.map((name) => [name, getArg(argv, name).trim()]));
+  const present = Object.values(values).filter(Boolean).length;
+  if (present !== 0 && present !== names.length) {
+    throw new Error("Scenariusz wyszukiwania wymaga argumentów --powiat, --gmina, --obreb i --numer.");
+  }
+  return present === names.length ? {
+    powiat: values["--powiat"],
+    gmina: values["--gmina"],
+    obreb: values["--obreb"],
+    numer: values["--numer"],
+  } : null;
+}
+
+function hasArgument(argv, name) {
+  return argv.some((value) => value === name || value.startsWith(name + "="));
+}
+
+export function parseExpectedAssertionArguments(argv = []) {
+  const hasVoivodeship = hasArgument(argv, "--expect-voivodeship");
+  const hasCounty = hasArgument(argv, "--expect-county");
+  if (!hasVoivodeship && !hasCounty) return null;
+  const voivodeship = getArg(argv, "--expect-voivodeship").trim();
+  const county = getArg(argv, "--expect-county").trim();
+  if (!hasVoivodeship || !hasCounty || !voivodeship || !county) {
+    throw new Error("Asercje wyszukiwania wymagają niepustych argumentów --expect-voivodeship i --expect-county razem.");
+  }
+  return { voivodeship, county };
+}
+
+export function buildParcelSearchAssertions(observed = {}, expected = {}) {
+  const province = String(observed.voivodeship ?? "").trim();
+  const county = String(observed.county ?? "").trim();
+  const locationSummary = String(observed.locationSummary ?? "");
+  const identifierLength = Number(observed.identifierLength ?? 0);
+  const identifierLineCount = Number(observed.identifierLineCount ?? 0);
+  const footer = String(observed.footer ?? "");
+  const reportText = String(observed.reportText ?? "");
+  const searchStatus = String(observed.searchStatus ?? "");
+  const expectedProvince = String(expected.voivodeship ?? "").trim();
+  const expectedCounty = String(expected.county ?? "").trim();
+  const expectedLocationFragment = "województwo: " + expectedProvince;
+  const expectedFooterFragment = "wersja M4c";
+  const requiredReportLabels = ["Powierzchnia ewidencyjna", "Grupa rejestrowa", "Klasoużytki"];
+  const expectedSuccessStatus = "Działka została znaleziona. Powierzchnia i klasoużytki pobrane z EGiB.";
+  const expectedReportLength = requiredReportLabels.reduce((sum, value) => sum + value.length, 0)
+    + expectedSuccessStatus.length;
+  const rows = [
+    {
+      name: "report-voivodeship",
+      pass: province === expectedProvince,
+      observedLength: province.length,
+      expectedLength: expectedProvince.length,
+    },
+    {
+      name: "report-county",
+      pass: county === expectedCounty && !/^powiat(?:\s|$)/i.test(county),
+      observedLength: county.length,
+      expectedLength: expectedCounty.length,
+    },
+    {
+      name: "location-toolbar-voivodeship",
+      pass: locationSummary.includes(expectedLocationFragment),
+      observedLength: locationSummary.length,
+      expectedLength: expectedLocationFragment.length,
+    },
+    {
+      name: "parcel-identifier-layout",
+      pass: identifierLength > 0 && identifierLineCount === 1,
+      observedLength: identifierLineCount,
+      expectedLength: 1,
+      valueLength: identifierLength,
+    },
+    {
+      name: "footer-stage",
+      pass: footer.includes(expectedFooterFragment),
+      observedLength: footer.length,
+      expectedLength: expectedFooterFragment.length,
+    },
+    {
+      name: "report-fields-and-success-status",
+      pass: requiredReportLabels.every((value) => reportText.includes(value))
+        && searchStatus === expectedSuccessStatus,
+      observedLength: reportText.length + searchStatus.length,
+      expectedLength: expectedReportLength,
+    },
+  ];
+  return rows.map(({ name, pass, observedLength, expectedLength, valueLength }) => ({
+    name,
+    pass,
+    observedLength,
+    expectedLength,
+    ...(Number.isFinite(valueLength) ? { valueLength } : {}),
+  }));
 }
 
 export function parseCdpMessage(message) {
@@ -57,23 +230,176 @@ function isImageMime(value) {
   return typeof value === "string" && value.toLowerCase().startsWith("image/");
 }
 
+function responsePayloadBytes(request) {
+  const contentLength = request.responseHeaders?.["Content-Length"]
+    ?? request.responseHeaders?.["content-length"];
+  if (contentLength !== undefined && /^\d+$/.test(String(contentLength))) return Number(contentLength);
+  if (Number.isFinite(request.encodedBodyLength)) return request.encodedBodyLength;
+  return Number.isFinite(request.encodedDataLength) ? request.encodedDataLength : null;
+}
+
+function isArchiveGetMapUrl(value) {
+  let url;
+  try { url = value instanceof URL ? value : new URL(value); } catch { return false; }
+  const params = url.searchParams;
+  return url.protocol === "https:" && !url.port && !url.username && !url.password && !url.hash
+    && url.hostname === ARCHIVE_WMS_HOST && url.pathname === ARCHIVE_WMS_PATH
+    && params.get("service")?.toUpperCase() === "WMS"
+    && params.get("request")?.toUpperCase() === "GETMAP"
+    && params.get("layers") === "Raster";
+}
+
 export function aggregateRequests(requests = []) {
   const statuses = [...new Set(requests.map((request) => request.status)
     .filter((status) => Number.isFinite(status)))].sort((a, b) => a - b);
-  const loaded = requests.filter((request) =>
-    !request.canceled && request.status >= 200 && request.status < 300 && isImageMime(request.mimeType));
   const canceled = requests.filter((request) => request.canceled);
-  const failed = requests.filter((request) => !request.canceled && (
+  const empty = requests.filter((request) => !request.canceled
+    && request.status === 200 && isImageMime(request.mimeType)
+    && responsePayloadBytes(request) !== null
+    && responsePayloadBytes(request) < EMPTY_TILE_BYTE_THRESHOLD);
+  const loaded = requests.filter((request) => !request.canceled && !empty.includes(request)
+    && request.status >= 200 && request.status < 300 && isImageMime(request.mimeType));
+  const failed = requests.filter((request) => !request.canceled && !empty.includes(request) && (
     request.errorText || !Number.isFinite(request.status) || request.status < 200
-    || request.status >= 400 || !isImageMime(request.mimeType)
+    || request.status >= 300 || !isImageMime(request.mimeType)
   ));
+  const coordinatesFor = (items) => [...new Set(items.map((request) => tileCoordinateKey(request.url)).filter(Boolean))].sort();
   return {
     total: requests.length,
     loaded: loaded.length,
+    empty: empty.length,
     failed: failed.length,
     canceled: canceled.length,
     statuses,
     examples: failed.slice(0, 3).map((request) => request.url),
+    loadedCoordinates: coordinatesFor(loaded),
+    emptyCoordinates: coordinatesFor(empty),
+    failedCoordinates: coordinatesFor(failed),
+  };
+}
+
+export function tileCoordinateKey(rawUrl) {
+  let url;
+  try { url = new URL(rawUrl); } catch { return ""; }
+  let match = url.pathname.match(/^\/(\d+)\/(\d+)\/(\d+)\.png$/);
+  if (match && (url.hostname === "tile.openstreetmap.org" || url.hostname.endsWith(".tile.openstreetmap.org"))) {
+    return `z=${match[1]}/x=${match[2]}/y=${match[3]}`;
+  }
+  match = url.pathname.match(/\/MapServer\/tile\/(\d+)\/(\d+)\/(\d+)$/);
+  if (match && url.hostname === "server.arcgisonline.com") {
+    return `z=${match[1]}/x=${match[3]}/y=${match[2]}`;
+  }
+  const bbox = url.searchParams.get("BBOX") ?? url.searchParams.get("bbox");
+  return bbox ? "bbox=" + bbox : url.pathname;
+}
+
+export function compareProblemCoordinateSets(runs = []) {
+  const sets = runs.map((run) => [...new Set([
+    ...(run.aggregate?.emptyCoordinates ?? []),
+    ...(run.aggregate?.failedCoordinates ?? []),
+  ])].sort());
+  const first = JSON.stringify(sets[0] ?? []);
+  const same = sets.every((set) => JSON.stringify(set) === first);
+  return { same, status: same ? "te same" : "różne", sets };
+}
+
+export function summarizeArchiveStability(runs = []) {
+  const emptySets = runs.map((run) => new Set(run.aggregate?.emptyCoordinates ?? []));
+  const loadedSets = runs.map((run) => new Set(run.aggregate?.loadedCoordinates ?? []));
+  const emptyUnion = new Set(emptySets.flatMap((set) => [...set]));
+  const emptyIntersection = [...emptyUnion].filter((coordinate) => emptySets.length > 0
+    && emptySets.every((set) => set.has(coordinate))).sort();
+  const variableCoordinates = [...emptyUnion].filter((coordinate) =>
+    emptySets.some((set) => set.has(coordinate)) && loadedSets.some((set) => set.has(coordinate)))
+    .sort();
+  const emptyCountSum = emptySets.reduce((sum, set) => sum + set.size, 0);
+  return {
+    emptySets: emptySets.map((set) => [...set].sort()),
+    emptyIntersection,
+    emptyUnion: [...emptyUnion].sort(),
+    variableCoordinates,
+    variableCount: variableCoordinates.length,
+    emptyCountSum,
+    variableRatio: emptyCountSum ? variableCoordinates.length / emptyCountSum : null,
+    problemConsistency: compareProblemCoordinateSets(runs),
+  };
+}
+
+export function selectRepeatableArchiveRequests(requests = [], maxTiles = MAX_ARCHIVE_REPEAT_TILES) {
+  const limit = Math.max(0, Math.min(MAX_ARCHIVE_REPEAT_TILES, Number.isInteger(maxTiles) ? maxTiles : 0));
+  const seen = new Set();
+  const selected = [];
+  for (const request of requests) {
+    if (selected.length >= limit) break;
+    const payloadBytes = responsePayloadBytes(request);
+    if (!isArchiveGetMapUrl(request.url) || request.method && request.method !== "GET"
+        || request.canceled || request.errorText || request.status !== 200 || !isImageMime(request.mimeType)
+        || payloadBytes === null || payloadBytes >= EMPTY_TILE_BYTE_THRESHOLD) continue;
+    const key = new URL(request.url).href;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    selected.push({ url: key, coordinate: tileCoordinateKey(key), payloadBytes,
+      encodedDataLength: request.encodedDataLength, encodedBodyLength: request.encodedBodyLength ?? null });
+  }
+  return selected;
+}
+
+export function isAllowedArchiveRepeatRequest(rawUrl, method, originalUrls = []) {
+  let url;
+  try { url = new URL(rawUrl); } catch { return false; }
+  if (String(method ?? "").toUpperCase() !== "GET" || !isArchiveGetMapUrl(url)) return false;
+  const originals = new Set();
+  for (const original of originalUrls) {
+    try { originals.add(new URL(original).href); } catch {}
+  }
+  return originals.has(url.href) && isAllowedBrowserRequest(url.href, "GET");
+}
+
+export function summarizeArchiveRetry(selectedTiles = [], retryRequests = []) {
+  const perTile = selectedTiles.map((tile) => {
+    const requests = retryRequests.filter((request) => {
+      try { return new URL(request.url).href === new URL(tile.url).href; } catch { return false; }
+    });
+    const filled = requests.some((request) => !request.canceled && !request.errorText
+      && request.status >= 200 && request.status < 300 && isImageMime(request.mimeType)
+      && responsePayloadBytes(request) !== null
+      && responsePayloadBytes(request) >= EMPTY_TILE_BYTE_THRESHOLD);
+    const allResponsesClassified = requests.length >= 2 && requests.slice(0, 2).every((request) =>
+      request.canceled || request.errorText || Number.isFinite(request.status));
+    const remainedEmpty = requests.length >= 2 && requests.slice(0, 2).every((request) =>
+      !request.canceled && !request.errorText && request.status === 200 && isImageMime(request.mimeType)
+      && responsePayloadBytes(request) !== null
+      && responsePayloadBytes(request) < EMPTY_TILE_BYTE_THRESHOLD);
+    return {
+      coordinate: tile.coordinate,
+      initialPayloadBytes: tile.payloadBytes ?? null,
+      retryCount: requests.length,
+      filled,
+      remainedEmpty,
+      allResponsesClassified,
+    };
+  });
+  const filledTiles = perTile.filter((tile) => tile.filled).length;
+  let conclusion = "niejednoznaczne";
+  let reason = "Nie zarejestrowano wystarczających odpowiedzi dla jednoznacznego wniosku.";
+  if (!perTile.length) {
+    reason = "Pierwsze wczytanie nie zawierało pustych kafelków do ponowienia.";
+  } else if (filledTiles === perTile.length) {
+    conclusion = "pomaga";
+    reason = `${filledTiles}/${perTile.length} ponowionych pustych kafelków otrzymało niepustą odpowiedź.`;
+  } else if (filledTiles === 0 && perTile.every((tile) => tile.remainedEmpty)) {
+    conclusion = "nie pomaga";
+    reason = `0/${perTile.length} kafelków wypełniło się; wszystkie ${perTile.length * 2} ponowne odpowiedzi pozostały puste.`;
+  } else {
+    reason = `${filledTiles}/${perTile.length} kafelków wypełniło się; część wyników jest mieszana lub niekompletna.`;
+  }
+  return {
+    selectedTiles: perTile.length,
+    retryRequests: retryRequests.length,
+    filledTiles,
+    conclusion,
+    reason,
+    perTile,
   };
 }
 
@@ -129,6 +455,78 @@ function isTileHostAllowed(url) {
   });
 }
 
+function exactQueryKeys(params, keys) {
+  const entries = [...params.keys()];
+  return entries.length === keys.length
+    && keys.every((key) => params.getAll(key).length === 1)
+    && keys.every((key) => params.has(key));
+}
+
+export function isAllowedSearchServiceRequest(url) {
+  if (url.protocol !== "https:" || url.port || url.username || url.password || url.hash) return false;
+  const rule = SEARCH_SERVICE_RULES.find((item) => item.host === url.hostname && item.path === url.pathname);
+  if (!rule) return false;
+  const params = new URLSearchParams(url.search);
+  if (rule.kind === "counties") {
+    return exactQueryKeys(params, ["where", "outFields", "returnGeometry", "orderByFields", "f"])
+      && params.get("where") === "1=1"
+      && params.get("outFields") === "teryt,nazwa"
+      && params.get("returnGeometry") === "false"
+      && params.get("orderByFields") === "nazwa"
+      && params.get("f") === "json";
+  }
+  if (rule.kind === "communes") {
+    return exactQueryKeys(params, ["where", "outFields", "returnGeometry", "outSR", "orderByFields", "f"])
+      && /^teryt LIKE '\d{4}%'$/.test(params.get("where") ?? "")
+      && params.get("outFields") === "teryt,nazwa"
+      && params.get("returnGeometry") === "true"
+      && params.get("outSR") === "4326"
+      && params.get("orderByFields") === "nazwa"
+      && params.get("f") === "json";
+  }
+  if (rule.kind === "uldk") {
+    if (url.pathname !== "/") return false;
+    const request = params.get("request");
+    if (request === "GetRegionByNameOrId") {
+      return exactQueryKeys(params, ["request", "id", "result"])
+        && /^\d{6}_\d$/.test(params.get("id") ?? "")
+        && params.get("result") === "id,teryt,region,commune,county";
+    }
+    if (request === "GetParcelById") {
+      if (!exactQueryKeys(params, ["request", "id", "result", "srid"])
+          || !/^\d{6}_\d\.\d{4}\.[0-9A-Za-z./-]{1,32}$/.test(params.get("id") ?? "")) return false;
+      return (params.get("result") === "id,teryt,parcel,county,commune,region,geom_wkt" && params.get("srid") === "4326")
+        || (params.get("result") === "id,geom_wkt" && params.get("srid") === "2180");
+    }
+  }
+  if (rule.kind === "kieg") {
+    const keys = ["SERVICE", "VERSION", "REQUEST", "SRS", "BBOX", "WIDTH", "HEIGHT", "X", "Y", "LAYERS", "QUERY_LAYERS", "INFO_FORMAT", "FORMAT", "TRANSPARENT"];
+    if (!exactQueryKeys(params, keys)) return false;
+    const bbox = (params.get("BBOX") ?? "").split(",").map(Number);
+    return params.get("SERVICE") === "WMS" && params.get("VERSION") === "1.1.1"
+      && params.get("REQUEST") === "GetFeatureInfo" && params.get("SRS") === "EPSG:2180"
+      && bbox.length === 4 && bbox.every(Number.isFinite)
+      && Math.abs((bbox[2] - bbox[0]) - 200) < 0.001 && Math.abs((bbox[3] - bbox[1]) - 200) < 0.001
+      && params.get("WIDTH") === "1000" && params.get("HEIGHT") === "1000"
+      && params.get("X") === "500" && params.get("Y") === "500"
+      && params.get("LAYERS") === "dzialki" && params.get("QUERY_LAYERS") === "dzialki"
+      && params.get("INFO_FORMAT") === "text/xml" && params.get("FORMAT") === "image/png"
+      && params.get("TRANSPARENT") === "TRUE";
+  }
+  return false;
+}
+
+function isHealthRequest(url, method, healthRoutes = []) {
+  return healthRoutes.some((item) => item.origin === url.origin
+    && item.path === url.pathname && item.method === method && !url.search && !url.hash);
+}
+
+function isObservedExternalRequest(url, method, healthRoutes = []) {
+  return method === "GET" && (isHealthRequest(url, method, healthRoutes)
+    || isTileHostAllowed(url)
+    || isAllowedSearchServiceRequest(url));
+}
+
 export function isAllowedBrowserRequest(rawUrl, method, options = {}) {
   let url;
   try {
@@ -141,27 +539,24 @@ export function isAllowedBrowserRequest(rawUrl, method, options = {}) {
   if (isLocalOrigin(url, options.appOrigins ?? options.appOrigin)) return true;
   if (url.protocol !== "https:" || url.port || url.username || url.password) return false;
 
-  const route = (options.healthRoutes ?? []).find((item) =>
-    item.origin === url.origin && item.path === url.pathname && item.method === requestMethod);
-  if (route && !url.search && !url.hash) return true;
-  if (!isTileHostAllowed(url)) return false;
-  const matchingRule = TILE_HOST_RULES.find((rule) => {
-    const hostMatches = rule.subdomains
-      ? url.hostname === rule.host || url.hostname.endsWith("." + rule.host)
-      : url.hostname === rule.host;
-    return hostMatches && isTileHostAllowed(url);
-  });
-  if (matchingRule?.tilePath) {
-    return !url.search && !url.hash;
+  if (isHealthRequest(url, requestMethod, options.healthRoutes ?? [])) return true;
+  if (isTileHostAllowed(url)) {
+    const matchingRule = TILE_HOST_RULES.find((rule) => {
+      const hostMatches = rule.subdomains
+        ? url.hostname === rule.host || url.hostname.endsWith("." + rule.host)
+        : url.hostname === rule.host;
+      return hostMatches && isTileHostAllowed(url);
+    });
+    if (matchingRule?.tilePath) return !url.search && !url.hash;
+    if (matchingRule?.wmsGetMap) {
+      const params = new URLSearchParams(url.search);
+      return params.get("service")?.toUpperCase() === "WMS"
+        && params.get("request")?.toUpperCase() === "GETMAP"
+        && params.get("layers") === "Raster"
+        && !url.hash;
+    }
   }
-  if (matchingRule?.wmsGetMap) {
-    const params = new URLSearchParams(url.search);
-    return params.get("service")?.toUpperCase() === "WMS"
-      && params.get("request")?.toUpperCase() === "GETMAP"
-      && params.get("layers") === "Raster"
-      && !url.hash;
-  }
-  return true;
+  return isAllowedSearchServiceRequest(url);
 }
 
 function browserCandidates() {
@@ -337,7 +732,25 @@ export function buildStateExpression() {
     "const base = document.querySelector('[data-base-layer]:checked')?.value || '';",
     "const year = document.querySelector('#dzialki-year')?.value || '';",
     "const zoom = document.querySelector('input[aria-label=\"Przybliżenie mapy\"]')?.value || '';",
-    "return { mapVisible: Boolean(document.querySelector('.leaflet-container')), tileCount: tiles.length, loadedCount: loaded.length, failedCount: match ? Number(match[1]) : 0, base, year, zoom };",
+    "const selectedParcelCount = document.querySelectorAll('.dzialki-selected-parcel').length;",
+    "const searchStatus = document.querySelector('#dzialki-search-status')?.textContent || '';",
+    "const report = document.querySelector('#dzialki-parcel-report');",
+    "const reportText = report?.textContent || '';",
+    "const egibState = report?.dataset.egibState || 'idle';",
+    "return { mapVisible: Boolean(document.querySelector('.leaflet-container')), tileCount: tiles.length, loadedCount: loaded.length, failedCount: match ? Number(match[1]) : 0, selectedParcelCount, searchStatus, reportText, egibState, base, year, zoom };",
+    "})()",
+  ].join("\n");
+}
+
+export function buildSearchAssertionStateExpression() {
+  return [
+    "(() => {",
+    "const report = document.querySelector('#dzialki-parcel-report');",
+    "const valueFor = (label) => { const dt = [...(report?.querySelectorAll('dt') || [])].find((item) => item.textContent.trim() === label); return dt?.nextElementSibling?.textContent.trim() || ''; };",
+    "const identifier = report?.querySelector('.dzialki-report-identifier-value');",
+    "let identifierLineCount = 0;",
+    "if (identifier) { const range = document.createRange(); range.selectNodeContents(identifier); identifierLineCount = range.getClientRects().length; }",
+    "return { voivodeship: valueFor('Województwo'), county: valueFor('Powiat'), locationSummary: document.querySelector('#location-summary')?.textContent || '', identifierLength: identifier?.textContent.trim().length || 0, identifierLineCount, footer: document.querySelector('#app-version')?.textContent || '', reportText: report?.textContent || '', searchStatus: document.querySelector('#dzialki-search-status')?.textContent || '' };",
     "})()",
   ].join("\n");
 }
@@ -349,6 +762,11 @@ async function runBrowserSmoke() {
 
   const argv = process.argv.slice(2);
   const requestedPort = getArg(argv, "--port");
+  const searchArgs = parseSearchArguments(argv);
+  const expectedAssertions = parseExpectedAssertionArguments(argv);
+  if (expectedAssertions && !searchArgs) {
+    throw new Error("Argumenty --expect-voivodeship i --expect-county wymagają kompletnego scenariusza wyszukiwania działki.");
+  }
   const beforeRef = getArg(argv, "--before-ref") || (argv.includes("--compare-before") ? "HEAD" : "");
   if (beforeRef && !/^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}(?:\^[0-9]+)?$/.test(beforeRef)) {
     throw new Error("Nieprawidłowa wartość --before-ref.");
@@ -391,9 +809,11 @@ async function runBrowserSmoke() {
   let browserStderr = "";
   const requestsById = new Map();
   const tileRequests = [];
+  const externalRequests = [];
   const consoleErrors = [];
   const pageExceptions = [];
   const blockedRequests = [];
+  let archiveRepeatAllowlist = [];
   let currentScenario = "";
 
   try {
@@ -479,7 +899,9 @@ async function runBrowserSmoke() {
         const url = params.request?.url ?? "";
         let parsed;
         try { parsed = new URL(url); } catch { return; }
-        if (!isTileHostAllowed(parsed)) return;
+        const method = String(params.request?.method ?? "GET").toUpperCase();
+        const isTile = isTileHostAllowed(parsed);
+        if (!isObservedExternalRequest(parsed, method, healthRoutes)) return;
 
         if (params.redirectResponse) {
           const previous = requestsById.get(params.requestId);
@@ -488,6 +910,12 @@ async function runBrowserSmoke() {
             previous.mimeType = params.redirectResponse.mimeType ?? previous.mimeType;
             previous.elapsedMs = Math.max(0, Math.round((params.timestamp - previous.startedAt) * 1000));
             previous.redirected = true;
+            if (previous.responseHeaders) {
+              previous.responseHeaders = selectRelevantResponseHeaders(
+                previous.responseHeaders,
+                params.redirectResponse.headers,
+              );
+            }
           }
         }
         const record = {
@@ -495,7 +923,7 @@ async function runBrowserSmoke() {
           requestId: params.requestId,
           url,
           host: parsed.host,
-          method: String(params.request?.method ?? "GET").toUpperCase(),
+          method,
           resourceType: params.type ?? "Other",
           status: null,
           mimeType: "",
@@ -504,9 +932,13 @@ async function runBrowserSmoke() {
           startedAt: Number(params.timestamp ?? 0),
           elapsedMs: null,
           bodyHint: "",
+          encodedDataLength: null,
+          encodedBodyLength: null,
         };
+        if (isArchiveGetMapUrl(parsed)) record.responseHeaders = {};
         requestsById.set(params.requestId, record);
-        tileRequests.push(record);
+        externalRequests.push(record);
+        if (isTile) tileRequests.push(record);
       }
       if (event === "Network.responseReceived") {
         const record = requestsById.get(params.requestId);
@@ -515,6 +947,27 @@ async function runBrowserSmoke() {
         record.mimeType = params.response?.mimeType ?? "";
         record.resourceType = params.type ?? record.resourceType;
         record.responseUrl = params.response?.url ?? record.url;
+        if (record.responseHeaders) {
+          record.responseHeaders = selectRelevantResponseHeaders(record.responseHeaders, params.response?.headers);
+        }
+      }
+      if (event === "Network.responseReceivedExtraInfo") {
+        const headers = selectRelevantResponseHeaders(params.headers);
+        const record = requestsById.get(params.requestId);
+        if (record?.responseHeaders) {
+          record.responseHeaders = selectRelevantResponseHeaders(record.responseHeaders, headers);
+        }
+      }
+      if (event === "Network.dataReceived") {
+        const record = requestsById.get(params.requestId);
+        if (record?.responseHeaders) {
+          const encodedChunkLength = Number.isFinite(params.encodedDataLength)
+            ? params.encodedDataLength
+            : null;
+          if (encodedChunkLength !== null) {
+            record.encodedBodyLength = (record.encodedBodyLength ?? 0) + encodedChunkLength;
+          }
+        }
       }
       if (event === "Network.loadingFailed") {
         const failure = parseCdpLoadingFailed(params);
@@ -530,10 +983,13 @@ async function runBrowserSmoke() {
       if (event === "Network.loadingFinished") {
         const record = requestsById.get(params.requestId);
         if (!record) return;
+        record.encodedDataLength = Number.isFinite(params.encodedDataLength)
+          ? params.encodedDataLength
+          : null;
         if (Number.isFinite(params.timestamp)) {
           record.elapsedMs = Math.max(0, Math.round((params.timestamp - record.startedAt) * 1000));
         }
-        if (["integracja.gugik.gov.pl", "mapy.geoportal.gov.pl"].includes(record.host)
+        if (record.url.includes("/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime")
             && !isImageMime(record.mimeType)) {
           void pageCdp.command("Network.getResponseBody", { requestId: record.requestId })
             .then((body) => { record.bodyHint = bodyHint(body); })
@@ -542,7 +998,10 @@ async function runBrowserSmoke() {
       }
       if (event === "Fetch.requestPaused") {
         const request = params.request ?? {};
-        const allowed = isAllowedBrowserRequest(request.url, request.method, { appOrigins, healthRoutes });
+        const isArchiveRepeatScenario = currentScenario.startsWith("stability-2025-repeat-attempt-");
+        const allowed = isArchiveRepeatScenario
+          ? isAllowedArchiveRepeatRequest(request.url, request.method, archiveRepeatAllowlist)
+          : isAllowedBrowserRequest(request.url, request.method, { appOrigins, healthRoutes });
         if (!allowed) {
           let address = request.url;
           try {
@@ -614,8 +1073,218 @@ async function runBrowserSmoke() {
       if (!result) throw new Error("Nie znaleziono suwaka roku.");
     }
 
+    async function waitForOptions(selector, deadline) {
+      const expression = "(() => { const select = document.querySelector(" + JSON.stringify(selector)
+        + "); return Boolean(select && select.options.length > 1); })()";
+      while (Date.now() < deadline) {
+        if (await evaluate(expression).catch(() => false)) return;
+        await sleep(150);
+      }
+      throw new Error("Lista wyszukiwania nie załadowała wyników w czasie scenariusza.");
+    }
+
+    async function chooseOption(selector, label) {
+      const optionsExpression = "(() => { const select = document.querySelector(" + JSON.stringify(selector) + ");"
+        + " return select ? [...select.options].filter((item) => item.value).map((item) => ({"
+        + " label: item.textContent || '', value: item.value })) : null; })()";
+      const options = await evaluate(optionsExpression);
+      const match = matchSearchOption(options, label);
+      if (!match.option) throw new Error(formatSearchOptionError(match));
+      const selectExpression = "(() => { const select = document.querySelector(" + JSON.stringify(selector) + ");"
+        + " if (!select) return false; const option = [...select.options].find((item) => item.value === "
+        + JSON.stringify(match.option.value) + "); if (!option) return false; select.value = option.value;"
+        + " select.dispatchEvent(new Event('change', { bubbles: true })); return true; })()";
+      if (!await evaluate(selectExpression)) throw new Error(formatSearchOptionError(match));
+    }
+
+    async function waitForSearchResult(deadline) {
+      const expression = "(() => { const paths = document.querySelectorAll('.dzialki-selected-parcel').length;"
+        + " const text = document.querySelector('#dzialki-search-status')?.textContent || '';"
+        + " return paths > 0 || /Nie znaleziono działki|Nie udało się|Upłynął limit czasu/.test(text); })()";
+      while (Date.now() < deadline) {
+        if (await evaluate(expression).catch(() => false)) return;
+        await sleep(150);
+      }
+      throw new Error("Wyszukiwanie nie zakończyło się przed limitem scenariusza.");
+    }
+
+    async function waitForEgib(deadline) {
+      while (Date.now() < deadline) {
+        const state = await evaluateState().catch(() => null);
+        if (state?.egibState === "ready" || state?.egibState === "error") return state;
+        await sleep(150);
+      }
+      throw new Error("Dane EGiB nie zakończyły ładowania przed limitem scenariusza.");
+    }
+
+    async function runParcelSearchScenario(origin) {
+      const name = "m4c-search";
+      const deadline = Date.now() + SCENARIO_TIMEOUT_MS;
+      currentScenario = name;
+      await pageCdp.command("Page.navigate", {
+        url: origin + "/?browserSmoke=m4c#/dzialki?ctx=" + contextEncoded,
+      });
+      await waitForMap(origin);
+      await waitForOptions("#dzialki-search-powiat", deadline);
+      const startedAt = await evaluate("performance.now()");
+      await chooseOption("#dzialki-search-powiat", searchArgs.powiat);
+      await waitForOptions("#dzialki-search-gmina", deadline);
+      await chooseOption("#dzialki-search-gmina", searchArgs.gmina);
+      await waitForOptions("#dzialki-search-obreb", deadline);
+      await chooseOption("#dzialki-search-obreb", searchArgs.obreb);
+      const fillExpression = "(() => { const input = document.querySelector('#dzialki-search-numer');"
+        + " const button = document.querySelector('#dzialki-search-submit'); if (!input || !button) return false;"
+        + " input.value = " + JSON.stringify(searchArgs.numer) + ";"
+        + " input.dispatchEvent(new Event('input', { bubbles: true })); button.click(); return true; })()";
+      if (!await evaluate(fillExpression)) throw new Error("Nie znaleziono pola numeru działki.");
+      await waitForSearchResult(deadline);
+      const resultTimeMs = Math.max(0, Math.round((await evaluate("performance.now()")) - startedAt));
+      const resultState = await evaluateState();
+      const state = resultState.selectedParcelCount > 0 ? await waitForEgib(deadline) : resultState;
+      const egibTimeMs = state.selectedParcelCount > 0
+        ? Math.max(0, Math.round((await evaluate("performance.now()")) - startedAt)) : null;
+      const assertionState = expectedAssertions
+        ? await evaluate(buildSearchAssertionStateExpression())
+        : null;
+      const assertions = assertionState
+        ? buildParcelSearchAssertions(assertionState, expectedAssertions)
+        : null;
+      const requestDetails = externalRequests.filter((request) => request.scenario === name)
+        .map((request) => ({
+          url: request.url,
+          host: request.host,
+          method: request.method,
+          status: request.status,
+          resourceType: request.resourceType,
+          elapsedMs: request.elapsedMs,
+          errorText: request.errorText,
+        }));
+      const egibRequests = requestDetails.filter((request) =>
+        request.host === "integracja.gugik.gov.pl"
+        || (request.host === "uldk.gugik.gov.pl" && new URL(request.url).searchParams.get("srid") === "2180"));
+      const sourceRequests = requestDetails.filter((request) => [
+        "mapy.geoportal.gov.pl", "uldk.gugik.gov.pl", "integracja.gugik.gov.pl",
+      ].includes(new URL(request.url).hostname));
+      const dzialkiBackendSearchRequests = requestDetails.filter((request) => {
+        const url = new URL(request.url);
+        return url.hostname === "analizator-nieruchomosci.onrender.com" && url.pathname !== "/health";
+      });
+      const screenshot = await captureScenario(name, state);
+      screenshot.search = {
+        resultTimeMs,
+        egibTimeMs,
+        statusText: state.searchStatus,
+        selectedParcelElements: state.selectedParcelCount,
+        outlineElements: state.selectedParcelCount,
+        egibState: state.egibState,
+        reportTextPresent: {
+          heading: state.reportText.includes("2. Raport o działce"),
+          parcelId: state.reportText.includes("Identyfikator działki"),
+          area: state.reportText.includes("Powierzchnia ewidencyjna"),
+          registrationGroup: state.reportText.includes("Grupa rejestrowa"),
+          landUse: state.reportText.includes("Klasoużytki"),
+          successStatus: state.searchStatus.includes("Działka została znaleziona. Powierzchnia i klasoużytki pobrane z EGiB."),
+        },
+        assertions,
+        egibRequests,
+        sourceRequests,
+        dzialkiBackendSearchRequests,
+        requests: requestDetails,
+      };
+      return screenshot;
+    }
+
+    async function runArchiveStability(origin) {
+      const runs = [];
+      let repeat = null;
+      for (let index = 1; index <= 3; index += 1) {
+        const name = "stability-2025-run-" + index;
+        currentScenario = name;
+        await pageCdp.command("Page.navigate", {
+          url: origin + "/?browserSmoke=stability-" + index + "#/dzialki?ctx=" + contextEncoded,
+        });
+        await waitForMap(origin);
+        await setZoomForTest();
+        await selectBase("archive");
+        await setYear(2025);
+        runs.push(await captureScenario(name));
+        if (index === 1) repeat = await runArchiveEmptyRetry(runs[0]);
+      }
+      return {
+        runs,
+        repeat,
+        consistency: compareProblemCoordinateSets(runs),
+        detail: summarizeArchiveStability(runs),
+      };
+    }
+
     function tileRequestsFor(name) {
       return tileRequests.filter((request) => request.scenario === name);
+    }
+
+    async function runArchiveEmptyRetry(seedRun) {
+      const name = "stability-2025-repeat";
+      const selected = selectRepeatableArchiveRequests(seedRun.tileRequests);
+      if (!selected.length) {
+        return {
+          name,
+          skipped: true,
+          ...summarizeArchiveRetry([], []),
+          tileRequests: [],
+          aggregate: aggregateRequests([]),
+          screenshot: null,
+        };
+      }
+
+      const allowedOriginalUrls = selected.map((tile) => tile.url);
+      if (!allowedOriginalUrls.every((url) => isAllowedArchiveRepeatRequest(url, "GET", allowedOriginalUrls))) {
+        throw new Error("Powtórne pobranie wskazało adres spoza allowlisty ortofotomapy archiwalnej.");
+      }
+      archiveRepeatAllowlist = allowedOriginalUrls;
+      const startedAt = Date.now();
+      const deadline = startedAt + SCENARIO_TIMEOUT_MS;
+      const urlsJson = JSON.stringify(allowedOriginalUrls);
+      const launchImages = async (attempt) => {
+        currentScenario = name + "-attempt-" + attempt;
+        const expression = "(() => { const urls = " + urlsJson + ";"
+          + " window.__denemArchiveSmokeImages = window.__denemArchiveSmokeImages || [];"
+          + " for (const url of urls) { const image = new Image();"
+          + " window.__denemArchiveSmokeImages.push(image); image.src = url; } return urls.length; })()";
+        const count = await evaluate(expression, 5000);
+        if (count !== allowedOriginalUrls.length) throw new Error("Nie udało się uruchomić wszystkich powtórnych GET-ów archiwalnych.");
+      };
+
+      await sleep(ARCHIVE_REPEAT_DELAYS_MS[0]);
+      await launchImages(1);
+      await sleep(ARCHIVE_REPEAT_DELAYS_MS[1]);
+      await launchImages(2);
+
+      const scenarioNames = [name + "-attempt-1", name + "-attempt-2"];
+      const expectedRequests = selected.length * 2;
+      while (Date.now() < deadline) {
+        const requests = tileRequests.filter((request) => scenarioNames.includes(request.scenario));
+        const completed = requests.filter((request) => request.status !== null || request.errorText || request.canceled);
+        if (requests.length >= expectedRequests && completed.length >= expectedRequests) break;
+        await sleep(150);
+      }
+      const requests = tileRequests.filter((request) => scenarioNames.includes(request.scenario));
+      const screenshot = await pageCdp.command("Page.captureScreenshot", {
+        format: "png",
+        captureBeyondViewport: true,
+      });
+      const screenshotPath = join(resultDir, name + ".png");
+      await writeFile(screenshotPath, Buffer.from(screenshot.data, "base64"));
+      return {
+        name,
+        skipped: false,
+        delaysMs: [...ARCHIVE_REPEAT_DELAYS_MS],
+        selectedCoordinates: selected.map((tile) => tile.coordinate),
+        ...summarizeArchiveRetry(selected, requests),
+        tileRequests: requests,
+        aggregate: aggregateRequests(requests),
+        screenshot: screenshotPath,
+        elapsedMs: Date.now() - startedAt,
+      };
     }
 
     async function waitForTiles(scenario) {
@@ -644,9 +1313,9 @@ async function runBrowserSmoke() {
       return { ...(await evaluateState()), durationMs: Date.now() - start };
     }
 
-    async function captureScenario(name) {
+    async function captureScenario(name, knownState = null) {
       currentScenario = name;
-      const state = await waitForTiles(name);
+      const state = knownState ?? await waitForTiles(name);
       const screenshot = await pageCdp.command("Page.captureScreenshot", {
         format: "png",
         captureBeyondViewport: true,
@@ -715,8 +1384,16 @@ async function runBrowserSmoke() {
 
     const beforeRun = baselineOrigin ? await runScenarios("before", baselineOrigin) : null;
     const afterRun = await runScenarios("after", appOrigin);
-    const scenarios = [...(beforeRun?.scenarios ?? []), ...afterRun.scenarios];
-    const retryScenarios = [beforeRun?.retryScenario, afterRun.retryScenario].filter(Boolean);
+    const stability = await runArchiveStability(appOrigin);
+    const parcelSearch = searchArgs ? await runParcelSearchScenario(appOrigin) : null;
+    const scenarios = [
+      ...(beforeRun?.scenarios ?? []),
+      ...afterRun.scenarios,
+      ...stability.runs,
+      ...(parcelSearch ? [parcelSearch] : []),
+    ];
+    const retryScenarios = [beforeRun?.retryScenario, afterRun.retryScenario,
+      stability.repeat.skipped ? null : stability.repeat].filter(Boolean);
     const statePreserved = (!beforeRun || beforeRun.statePreserved) && afterRun.statePreserved;
 
     const report = {
@@ -728,10 +1405,19 @@ async function runBrowserSmoke() {
       baselineOrigin,
       baselineRef: beforeRef || null,
       comparisonMode: Boolean(baselineOrigin),
+      browserRunCount: 1,
       testLocation: { name: "Piła (fallback, ponieważ współrzędne baseline D2 nie są zapisane w repo)", lat: 53.1508, lon: 16.7385, zoom: 17.6 },
       allowedHealthRoutes: healthRoutes,
+      emptyTileByteThreshold: EMPTY_TILE_BYTE_THRESHOLD,
       scenarios,
       retryScenarios,
+      archive2025Stability: {
+        ...stability.detail,
+        consistency: stability.consistency,
+      },
+      archive2025EmptyTileRetry: stability.repeat,
+      parcelSearch,
+      externalRequests,
       statePreserved,
       consoleErrors,
       pageExceptions,
@@ -740,22 +1426,56 @@ async function runBrowserSmoke() {
       browserSignal: browser.signalCode,
       browserStderr: cdpSummaryText(browserStderr),
       requestCount: tileRequests.length,
+      externalRequestCount: externalRequests.length,
     };
     runReport = report;
     await writeFile(join(resultDir, "report.json"), JSON.stringify(report, null, 2), "utf8");
 
     const lines = [
-      "Scenariusz | kafelki OK/błąd/anulowane | kody HTTP | przykładowe błędne adresy",
-      "---------- | -------------------------- | ---------- | -------------------------",
+      "Scenariusz | kafelki załadowane/puste/błędne/anulowane | kody HTTP | przykładowe błędne adresy",
+      "---------- | ----------------------------------------- | ---------- | -------------------------",
     ];
     for (const scenario of [...scenarios, ...retryScenarios]) {
       lines.push(
-        scenario.name + " | " + scenario.aggregate.loaded + "/" + scenario.aggregate.failed
+        scenario.name + " | " + scenario.aggregate.loaded + "/" + scenario.aggregate.empty + "/" + scenario.aggregate.failed
           + "/" + scenario.aggregate.canceled + " | "
           + (scenario.aggregate.statuses.join(",") || "brak")
           + " | " + (scenario.aggregate.examples.join(" ; ") || "brak"),
       );
     }
+    lines.push("Zgodność zbiorów pustych/błędnych dla trzech odświeżeń 2025: " + stability.consistency.status);
+    lines.push("Stabilność 2025: puste kafelki per przebieg "
+      + stability.detail.emptySets.map((set, index) => `${index + 1}: ${set.length}`).join("; ")
+      + "; przecięcie " + stability.detail.emptyIntersection.length
+      + "; suma unikalnych " + stability.detail.emptyUnion.length
+      + "; zmienne " + stability.detail.variableCount
+      + "; suma pustych wystąpień " + stability.detail.emptyCountSum
+      + "; wskaźnik zmiennych/sumy "
+      + (stability.detail.variableRatio === null ? "brak" : stability.detail.variableRatio.toFixed(3)));
+    lines.push("Ponowne pobranie pustych kafelków: " + stability.repeat.conclusion
+      + " — " + stability.repeat.reason);
+    if (stability.repeat.skipped) {
+      lines.push("Ponowne pobranie pominięte: pierwszy przebieg nie zawierał pustych kafelków.");
+    }
+    lines.push("Elementy obrysu w wyszukiwaniu M4c: "
+      + (parcelSearch ? parcelSearch.search.outlineElements : "scenariusz pominięty — brak argumentów"));
+    if (parcelSearch?.search) {
+      lines.push("M4c: czas do obrysu " + parcelSearch.search.resultTimeMs + " ms; czas do EGiB "
+        + (parcelSearch.search.egibTimeMs ?? "brak") + " ms; stan EGiB " + parcelSearch.search.egibState
+        + "; żądania EGiB " + parcelSearch.search.egibRequests.length
+        + "; żądania backendu Działek poza /health " + parcelSearch.search.dzialkiBackendSearchRequests.length
+        + "; teksty raportu/statusu "
+        + Object.values(parcelSearch.search.reportTextPresent).every(Boolean));
+      if (parcelSearch.search.assertions) {
+        lines.push("Asercje | wynik | długość obserwowana/oczekiwana");
+        for (const assertion of parcelSearch.search.assertions) {
+          lines.push(assertion.name + " | " + (assertion.pass ? "PASS" : "FAIL") + " | "
+            + assertion.observedLength + "/" + assertion.expectedLength
+            + (Number.isFinite(assertion.valueLength) ? " (wartość: " + assertion.valueLength + " znaków)" : ""));
+        }
+      }
+    }
+    lines.push("Żądania zarejestrowane: " + externalRequests.length + " (szczegóły adresów w report.json)");
     const summary = lines.join("\n") + "\n";
     await writeFile(join(resultDir, "summary.txt"), summary, "utf8");
     process.stdout.write("Wyniki zapisano w .local-results/browser-smoke-" + timestamp + "/\n");
@@ -763,8 +1483,9 @@ async function runBrowserSmoke() {
     process.stdout.write(summary);
     process.stdout.write("Zachowanie stanu po powrocie z RCN: " + (statePreserved ? "TAK" : "NIE") + "\n");
     process.stdout.write("Żądania zablokowane przez allowlistę: " + blockedRequests.length + "\n");
+    const assertionFailed = parcelSearch?.search?.assertions?.some((assertion) => !assertion.pass) ?? false;
     if (blockedRequests.length > 0) process.exitCode = 3;
-    if (!statePreserved) process.exitCode = 1;
+    else if (!statePreserved || assertionFailed) process.exitCode = 1;
   } catch (error) {
     runError = error;
     if (!runReport) {
@@ -778,6 +1499,7 @@ async function runBrowserSmoke() {
         pageExceptions,
         blockedRequests,
         requests: tileRequests,
+        externalRequests,
         baselineOrigin,
         baselineRef: beforeRef || null,
         comparisonMode: Boolean(baselineOrigin),

@@ -26,7 +26,12 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
   globalThis.window = fake.window;
   globalThis.fetch = async (url, options = {}) => {
     requests.push({ url: String(url), method: options.method });
-    return { ok: true, status: 200 };
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ features: [{ attributes: { teryt: "9988", nazwa: "Fikcyjny powiat" } }] }),
+      text: async () => "0",
+    };
   };
   t.after(() => {
     if (previous.document === undefined) delete globalThis.document;
@@ -96,9 +101,10 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
   zoomInput.dispatch("input");
   assert.equal(firstMap.getZoom(), 8.4);
 
-  assert.equal(requests.length, 4, "mapa nie wykonuje dodatkowych wywołań API");
+  assert.equal(requests.length, 5, "mapa wykonuje wyłącznie cztery health-checki i listę powiatów");
   assert.ok(requests.every((request) => request.method === "GET"));
   assert.ok(requests.every((request) => !/api\/(admin|debug|live|search|data_source_refresh)/i.test(request.url)));
+  assert.ok(requests.some((request) => request.url.includes("/FeatureServer/1/query")));
 
   fake.window.location.hash = "#/start";
   fake.window.dispatch("hashchange");
@@ -130,5 +136,5 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
   assert.deepEqual(pointMap.getCenter(), { lat: 52.4, lng: 21 });
   assert.ok(pointMap.getZoom() >= 16);
   assert.deepEqual(contextStore.get().point, pointContext.point, "mapa nie modyfikuje wspólnego kontekstu");
-  assert.equal(requests.length, 4);
+  assert.equal(requests.length, 5);
 });
