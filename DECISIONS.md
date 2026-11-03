@@ -110,7 +110,7 @@
 
 - **Status:** zakres M4b realizowany zgodnie z zadaniem; dostawa biblioteki lokalna na mocy D15.
 - **Decyzja implementacyjna:** w M4b zakładka Działki pokazuje trzy podkłady: OpenStreetMap, Esri World Imagery i archiwalną ortofotomapę GUGiK, z pojedynczym aktywnym podkładem, widoczną atrybucją, suwakiem roku 1995–2025, krokiem zoomu 0,1 i skalą metryczną. Poprzedni front definiuje środek początkowy [52.07, 19.48], zoom 6 i limit 22. [FAKT z kodu: index.html:177,211]
-- **Polityka błędów kafelków:** do dwóch ponowień dla kafelka, z opóźnieniami około 1,5 s i 4 s, jitterem i limitem sześciu równoczesnych prób na warstwę. Zmiana warstwy/roku, odłączenie kafelka i odmontowanie anulują oczekujące próby. [FAKT: zakres implementacji M4b]
+- **Polityka błędów kafelków:** do dwóch ponowień dla kafelka, z opóźnieniami około 1,5 s i 4 s, jitterem do 250 ms i limitem sześciu równoczesnych prób na warstwę. Ponowienie uruchamia także obraz o wymiarach 1×1 (heurystyka pustej odpowiedzi). Zmiana warstwy/roku, odłączenie kafelka i odmontowanie anulują oczekujące próby. [FAKT: implementacja M4b.2]
 - **Ograniczenie M4b:** nie dodawać wyszukiwania działek ani warstw tematycznych; pozostają oznaczone jako planowane na kolejne etapy. Moduł korzysta z istniejącego stanu sondy zdrowia, nie inicjuje własnych wywołań API Działek.
 - **Adnotacja implementacyjna M4b.1 (2026-11-02):** porównanie kodu frontu z rewizji `a1aa39d` potwierdza adres WMS `/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime`, warstwę `Raster`, WMS 1.3.0, EPSG:3857, `image/png`, `transparent: true` i format parametru czasu `<rok>-12-01` z wyjątkiem 2025 (`2025-11-01`). [FAKT z kodu: index.html:211] Nowy moduł został dopasowany do tych parametrów; wyników WMS z prawdziwej przeglądarki nie uzyskano w tym przebiegu.
 
@@ -128,6 +128,13 @@
 - **Decyzja:** nowa aplikacja ma zachować każdą opcję obecnej aplikacji Działki. Zmiany funkcjonalne względem starej aplikacji wymagają zgody właściciela.
 - **Wykonanie:** `docs/parity-dzialki.md` jest macierzą wszystkich elementów z inwentarza M4a i baseline D1–D7. Macierz aktualizuje się w każdym podetapie M4. Status „zrobione” nie zastępuje porównania właściciela w przeglądarce.
 - **Baseline:** właściciel dostarczył D1 przed M4c.1. Wartości testowe i zrzuty pozostają poza publicznym repozytorium; do repo trafia opis funkcji i status parytetu, bez wyników konkretnej nieruchomości.
+
+## D20 — Niezawodność kafelków archiwalnych (2026-11-03)
+
+- **Status:** konfiguracja domyślna pozostaje K0 na podstawie kryterium pomiaru M4b.2; decyzja implementacyjna, bez zmiany liczb retry.
+- **Pomiar skorygowany:** po trzy wczytania każdej konfiguracji K0–K3, stan po 35 s, widok testowy Piły, zoom 17,6. Mediana końcowej frakcji: K0 75,0%, K1 66,7%, K2 50,0%, K3 33,3%; każda konfiguracja wysłała 36 żądań GetMap. Żadna konfiguracja K1–K3 nie poprawiła K0 o co najmniej 10 p.p. w dwóch z trzech odpowiadających sobie wczytań. Czasy 90% i 95% nie zostały osiągnięte w żadnym z 12 wczytań skorygowanego przebiegu.
+- **Odpowiedzi:** 77 z 144 żądań GetMap otrzymało HTTP 200 i `image/png`; 67 nie miało statusu HTTP po 35 s i nie wygenerowało zdarzenia błędu ani anulowania. Nie zaobserwowano obrazu 1×1, błędu kafelka ani ponowienia. Dwa uruchomienia narzędzia wysłały łącznie 288 żądań ortofotomapy; limit 800 nie został przekroczony. [FAKT z przebiegu browser-smoke]
+- **Wniosek:** nie ma podstaw z tego pomiaru, by zwiększyć liczbę prób, wydłużyć backoff ani zmienić równoległość. Brak statusu HTTP w chwili pomiaru jest zgodny z opóźnieniem usługi lub sieci, ale jego źródło pozostaje niezweryfikowane [HIP]. UI zachowuje licznik, a po wyczerpaniu prób pokazuje komunikat z prośbą o ponowienie później lub zmianę roku.
 
 ## Zasady repozytorium
 

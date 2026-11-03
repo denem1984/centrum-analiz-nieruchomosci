@@ -25,7 +25,13 @@ Stan usługi Działki jest odczytywany z pamięci istniejącej sondy powłoki i 
 
 ## Błędy kafelków
 
-Na warstwie bazowej moduł wykonuje najwyżej dwie ponowne próby danego kafelka po początkowym błędzie, po około 1,5 s i 4 s, z niewielkim jitterem. Maksymalnie sześć prób może być zaplanowanych lub aktywnych jednocześnie dla warstwy. Odejście kafelka z widoku, przełączenie podkładu albo roku oraz odmontowanie anuluje oczekujące próby. Po wyczerpaniu prób licznik „Niezaładowane kafelki: N” i przycisk „Spróbuj ponownie” informują o stanie.
+Domyślnie moduł wykonuje najwyżej dwie ponowne próby danego kafelka po błędzie ładowania albo po załadowaniu obrazu o wymiarach 1×1 (heurystyka pustej odpowiedzi), po około 1,5 s i 4 s, z jitterem do 250 ms. Maksymalnie sześć prób może być zaplanowanych lub aktywnych jednocześnie dla warstwy. Odejście kafelka z widoku, przełączenie podkładu albo roku oraz odmontowanie anuluje oczekujące próby. Po wyczerpaniu prób licznik „Niezaładowane kafelki: N”, komunikat live „Usługa GUGiK nie zwróciła obrazu dla N kafelków mimo ponowień. Spróbuj ponownie później lub zmień rok.” i przycisk „Spróbuj ponownie” informują o stanie. Ustawienie `window.__DZIALKI_TILE_RETRY__` jest przeznaczone wyłącznie do pomiaru, walidowane zakresami i bez niego pozostawia domyślną konfigurację.
+
+### Pomiar niezawodności — M4b.2 (2026-11-03)
+
+W browser-smoke wykonano dwa przebiegi macierzy K0–K3 po trzech wczytaniach na konfigurację; każdy pomiar końcowy następował po 35 s, w stałym widoku testowym Piły przy zoomie 17,6. Pierwszy przebieg posłużył do sprawdzenia macierzy; przed drugim doprecyzowano raportowanie żądań bez odpowiedzi. W skorygowanym przebiegu K0 uzyskał końcową frakcję 58,3%/75,0%/75,0% (min/mediana/maks), K1 33,3%/66,7%/75,0%, K2 0,0%/50,0%/66,7%, a K3 16,7%/33,3%/75,0%. Każda konfiguracja wysłała 36 żądań GetMap. K0–K3 nie osiągnęły 90% ani 95% w żadnym z trzech wczytań skorygowanego przebiegu.
+
+W skorygowanym przebiegu 77/144 żądań GetMap otrzymało HTTP 200 z `image/png`; pozostałe 67 nie miało statusu HTTP w chwili pomiaru 35 s. Nie zarejestrowano odpowiedzi błędu ani anulowania dla tych 67 żądań. W DOM nie znaleziono obrazu 1×1; moduł nie odnotował błędów kafelków ani ponowień w żadnej konfiguracji. K0 miał najwyższą medianę; żadna konfiguracja nie poprawiła frakcji o co najmniej 10 p.p. w co najmniej dwóch z trzech porównywanych wczytań. Dlatego liczby domyślne pozostały bez zmian. Wynik bez odpowiedzi w 35 s wskazuje na opóźnienie warstwy usługi lub sieci, ale nie rozstrzyga jego przyczyny. Szczegóły żądań i PNG pozostają w lokalnym, ignorowanym `.local-results/`.
 
 ## Wyszukiwanie działki — M4c
 

@@ -12,6 +12,9 @@ import { createStaticServer } from "./serve.mjs";
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, "..");
 export const SCENARIO_TIMEOUT_MS = 25000;
+export const DEFAULT_TILE_EXPERIMENT_SETTLE_MS = 35000;
+export const MAX_TILE_EXPERIMENT_ORTHO_REQUESTS = 800;
+export const TILE_EXPERIMENT_REPEATS = 3;
 // A 1x1 transparent PNG fixture is 68 B; 128 B allows up to 60 B of PNG framing/chunks.
 // Empty detection prefers body Content-Length / Network.dataReceived bytes; transfer length is retained too.
 export const EMPTY_TILE_BYTE_THRESHOLD = 128;
@@ -50,6 +53,28 @@ const TILE_HOST_RULES = Object.freeze([
   { host: "mapy.geoportal.gov.pl", path: "/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime", wmsGetMap: true },
 ]);
 
+export const TILE_EXPERIMENT_CONFIGS = Object.freeze([
+  Object.freeze({ id: "K0", label: "domyślna", config: null }),
+  Object.freeze({ id: "K1", label: "5 prób, równoległość 3", config: Object.freeze({
+    attempts: 5,
+    delaysMs: Object.freeze([1500, 3000, 6000, 12000, 20000]),
+    maxConcurrent: 3,
+    jitterMs: 250,
+  }) }),
+  Object.freeze({ id: "K2", label: "5 prób, równoległość 6", config: Object.freeze({
+    attempts: 5,
+    delaysMs: Object.freeze([1500, 3000, 6000, 12000, 20000]),
+    maxConcurrent: 6,
+    jitterMs: 250,
+  }) }),
+  Object.freeze({ id: "K3", label: "8 prób, opóźnienia do 30 s", config: Object.freeze({
+    attempts: 8,
+    delaysMs: Object.freeze([200, 300, 500, 800, 1200, 1800, 3000, 30000]),
+    maxConcurrent: 2,
+    jitterMs: 250,
+  }) }),
+]);
+
 function sleep(ms) {
   return new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
 }
@@ -62,6 +87,86 @@ function getArg(argv, key) {
     if (value.startsWith(prefix)) return value.slice(prefix.length);
   }
   return "";
+}
+
+export function parseTileExperimentArguments(argv = []) {
+  if (!argv.includes("--experiment-tiles")) return null;
+  const requestLimit = getArg(argv, "--max-ortho-requests");
+  const maxOrthophotoRequests = Number(requestLimit);
+  if (!requestLimit || !Number.isInteger(maxOrthophotoRequests)
+      || maxOrthophotoRequests < 1
+      || maxOrthophotoRequests > MAX_TILE_EXPERIMENT_ORTHO_REQUESTS) {
+    throw new Error("Tryb eksperymentu wymaga --max-ortho-requests z liczbą 1–800.");
+  }
+  const settleText = getArg(argv, "--settle-ms");
+  const settleMs = settleText ? Number(settleText) : DEFAULT_TILE_EXPERIMENT_SETTLE_MS;
+  if (!Number.isInteger(settleMs) || settleMs < 1000 || settleMs > 300000) {
+    throw new Error("--settle-ms musi być liczbą całkowitą z zakresu 1000–300000.");
+  }
+  return { maxOrthophotoRequests, settleMs };
+}
+
+export function shouldAllowOrthophotoRequest(sent, limit) {
+  return Number.isInteger(sent) && Number.isInteger(limit)
+    && sent >= 0 && limit >= 1 && limit <= MAX_TILE_EXPERIMENT_ORTHO_REQUESTS
+    && sent < limit;
+}
+
+function median(values) {
+  const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
+  if (!sorted.length) return null;
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+function summarizeThresholdTimes(runs, key) {
+  const values = runs.map((run) => run[key]).filter(Number.isFinite);
+  return {
+    reached: values.length,
+    total: runs.length,
+    minMs: values.length ? Math.min(...values) : null,
+    medianMs: median(values),
+    maxMs: values.length ? Math.max(...values) : null,
+  };
+}
+
+export function summarizeTileExperiment(runs = []) {
+  return TILE_EXPERIMENT_CONFIGS.map((configuration) => {
+    const trials = runs.filter((run) => run.configuration === configuration.id);
+    const fractions = trials.map((run) => run.finalFraction).filter(Number.isFinite);
+    return {
+      configuration: configuration.id,
+      label: configuration.label,
+      trials: trials.length,
+      expectedTrials: TILE_EXPERIMENT_REPEATS,
+      finalFraction: {
+        min: fractions.length ? Math.min(...fractions) : null,
+        median: median(fractions),
+        max: fractions.length ? Math.max(...fractions) : null,
+      },
+      orthophotoRequests: trials.reduce((sum, run) => sum + run.orthophotoRequests, 0),
+      pendingOrthophotoRequests: trials.reduce((sum, run) => sum + (run.pendingOrthophotoRequests ?? 0), 0),
+      timeTo90: summarizeThresholdTimes(trials, "timeTo90Ms"),
+      timeTo95: summarizeThresholdTimes(trials, "timeTo95Ms"),
+    };
+  });
+}
+
+export function buildTileExperimentStateExpression() {
+  return [
+    "(() => {",
+    "const map = document.querySelector('.leaflet-container');",
+    "const bounds = map?.getBoundingClientRect();",
+    "const tiles = [...document.querySelectorAll('.leaflet-tile')].filter((image) => { const rect = image.getBoundingClientRect(); return bounds && rect.width > 0 && rect.height > 0 && rect.right > bounds.left && rect.left < bounds.right && rect.bottom > bounds.top && rect.top < bounds.bottom; });",
+    "const loadedImages = tiles.filter((image) => image.classList.contains('leaflet-tile-loaded') && image.complete && image.naturalWidth > 0 && image.naturalHeight > 0);",
+    "const emptyImages = loadedImages.filter((image) => image.naturalWidth <= 1 || image.naturalHeight <= 1);",
+    "const loaded = loadedImages.length - emptyImages.length;",
+    "const pendingImages = tiles.filter((image) => !image.complete);",
+    "const notLoaded = Math.max(0, tiles.length - loaded - emptyImages.length - pendingImages.length);",
+    "const stats = window.__DZIALKI_TILE_STATS__ || {};",
+    "return { totalVisibleTiles: tiles.length, loaded, emptyImages: emptyImages.length, notLoaded, pendingImages: pendingImages.length, exhausted: Number(stats.finalUnloaded) || 0, pendingRetries: Number(stats.pending) || 0, errors: Number(stats.errors) || 0, retries: Number(stats.retries) || 0, base: document.querySelector('[data-base-layer]:checked')?.value || '', year: document.querySelector('#dzialki-year')?.value || '' };",
+    "})()",
+  ].join("\n");
 }
 
 export function normalizeSearchLabel(value) {
@@ -764,6 +869,7 @@ async function runBrowserSmoke() {
   const requestedPort = getArg(argv, "--port");
   const searchArgs = parseSearchArguments(argv);
   const expectedAssertions = parseExpectedAssertionArguments(argv);
+  const tileExperimentArgs = parseTileExperimentArguments(argv);
   if (expectedAssertions && !searchArgs) {
     throw new Error("Argumenty --expect-voivodeship i --expect-county wymagają kompletnego scenariusza wyszukiwania działki.");
   }
@@ -772,6 +878,13 @@ async function runBrowserSmoke() {
     throw new Error("Nieprawidłowa wartość --before-ref.");
   }
   const compareBefore = Boolean(beforeRef);
+  if (tileExperimentArgs && (searchArgs || expectedAssertions || compareBefore)) {
+    throw new Error("--experiment-tiles działa osobno i nie łączy się z wyszukiwaniem M4c ani porównaniem --before-ref.");
+  }
+  if (!tileExperimentArgs && argv.some((value) => value === "--max-ortho-requests" || value.startsWith("--max-ortho-requests=")
+      || value === "--settle-ms" || value.startsWith("--settle-ms="))) {
+    throw new Error("--max-ortho-requests i --settle-ms są dostępne tylko z --experiment-tiles.");
+  }
   const parsedPort = requestedPort ? Number(requestedPort) : 0;
   if (requestedPort && (!Number.isInteger(parsedPort) || parsedPort < 1 || parsedPort > 65535)) {
     throw new Error("Port musi być liczbą z zakresu 1–65535.");
@@ -815,6 +928,9 @@ async function runBrowserSmoke() {
   const blockedRequests = [];
   let archiveRepeatAllowlist = [];
   let currentScenario = "";
+  let orthophotoRequestCount = 0;
+  let orthophotoBudgetExceeded = false;
+  let orthophotoBudgetBlockedCount = 0;
 
   try {
     if (compareBefore) {
@@ -848,7 +964,7 @@ async function runBrowserSmoke() {
       "--remote-debugging-port=" + debugPort,
       "--remote-allow-origins=*",
       "--user-data-dir=" + profile,
-      "--window-size=1600,1050",
+      tileExperimentArgs ? "--window-size=833,620" : "--window-size=1600,1050",
       "about:blank",
     ];
     browser = spawn(selectedBrowser, browserArgs, { stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
@@ -1018,6 +1134,18 @@ async function runBrowserSmoke() {
             errorReason: "BlockedByClient",
           }).catch(() => {});
         } else {
+          if (tileExperimentArgs && isArchiveGetMapUrl(request.url)) {
+            if (!shouldAllowOrthophotoRequest(orthophotoRequestCount, tileExperimentArgs.maxOrthophotoRequests)) {
+              orthophotoBudgetExceeded = true;
+              orthophotoBudgetBlockedCount += 1;
+              void pageCdp.command("Fetch.failRequest", {
+                requestId: params.requestId,
+                errorReason: "BlockedByClient",
+              }).catch(() => {});
+              return;
+            }
+            orthophotoRequestCount += 1;
+          }
           void pageCdp.command("Fetch.continueRequest", { requestId: params.requestId }).catch(() => {});
         }
       }
@@ -1033,6 +1161,16 @@ async function runBrowserSmoke() {
     await pageCdp.command("Fetch.enable", {
       patterns: [{ urlPattern: "*", requestStage: "Request" }],
     });
+    if (tileExperimentArgs) {
+      await pageCdp.command("Emulation.setDeviceMetricsOverride", {
+        width: 833,
+        height: 620,
+        deviceScaleFactor: 1,
+        mobile: false,
+        screenWidth: 833,
+        screenHeight: 620,
+      });
+    }
 
     const contextEncoded = makeContextHash();
 
@@ -1332,6 +1470,123 @@ async function runBrowserSmoke() {
       };
     }
 
+    async function runTileExperiment(origin) {
+      const runs = [];
+      let overrideIdentifier = null;
+      for (const configuration of TILE_EXPERIMENT_CONFIGS) {
+        if (orthophotoBudgetExceeded) break;
+        if (overrideIdentifier) {
+          await pageCdp.command("Page.removeScriptToEvaluateOnNewDocument", { identifier: overrideIdentifier });
+          overrideIdentifier = null;
+        }
+        if (configuration.config) {
+          const source = "window.__DZIALKI_TILE_RETRY__ = " + JSON.stringify(configuration.config) + ";";
+          const installed = await pageCdp.command("Page.addScriptToEvaluateOnNewDocument", { source });
+          overrideIdentifier = installed.identifier;
+        }
+
+        for (let index = 1; index <= TILE_EXPERIMENT_REPEATS; index += 1) {
+          if (orthophotoBudgetExceeded) break;
+          const scenarioName = "experiment-" + configuration.id + "-run-" + index;
+          currentScenario = scenarioName;
+          const requestsBefore = orthophotoRequestCount;
+          await pageCdp.command("Page.navigate", {
+            url: origin + "/?browserSmoke=" + scenarioName + "#/dzialki?ctx=" + contextEncoded,
+          });
+          await waitForMap(origin);
+          await setZoomForTest();
+          await sleep(350);
+          await setYear(2025);
+          await selectBase("archive");
+          const selectedAt = Date.now();
+
+          let timeTo90Ms = null;
+          let timeTo95Ms = null;
+          let previousTotal = -1;
+          let stableTotalSamples = 0;
+          const deadline = selectedAt + tileExperimentArgs.settleMs;
+          while (Date.now() < deadline && !orthophotoBudgetExceeded) {
+            const state = await evaluate(buildTileExperimentStateExpression()).catch(() => null);
+            if (state?.base === "archive" && state.year === "2025" && state.totalVisibleTiles > 0) {
+              if (state.totalVisibleTiles === previousTotal) stableTotalSamples += 1;
+              else stableTotalSamples = 0;
+              previousTotal = state.totalVisibleTiles;
+              if (stableTotalSamples >= 2) {
+                const elapsedMs = Date.now() - selectedAt;
+                const fraction = state.loaded / state.totalVisibleTiles;
+                if (timeTo90Ms === null && fraction >= 0.9) timeTo90Ms = elapsedMs;
+                if (timeTo95Ms === null && fraction >= 0.95) timeTo95Ms = elapsedMs;
+              }
+            }
+            if (orthophotoBudgetExceeded) break;
+            await sleep(Math.min(500, Math.max(0, deadline - Date.now())));
+          }
+
+          const finalState = await evaluate(buildTileExperimentStateExpression()).catch(() => null);
+          const finalTotal = Number(finalState?.totalVisibleTiles) || 0;
+          const finalLoaded = Number(finalState?.loaded) || 0;
+          const finalFraction = finalTotal > 0 ? finalLoaded / finalTotal : null;
+          const elapsedMs = Math.max(0, Date.now() - selectedAt);
+          if (timeTo90Ms === null && finalFraction !== null && finalFraction >= 0.9) timeTo90Ms = elapsedMs;
+          if (timeTo95Ms === null && finalFraction !== null && finalFraction >= 0.95) timeTo95Ms = elapsedMs;
+          const screenshot = await pageCdp.command("Page.captureScreenshot", {
+            format: "png",
+            captureBeyondViewport: true,
+          });
+          const screenshotPath = join(resultDir, scenarioName + ".png");
+          await writeFile(screenshotPath, Buffer.from(screenshot.data, "base64"));
+          const scenarioRequests = tileRequests.filter((request) => request.scenario === scenarioName
+            && isArchiveGetMapUrl(request.url) && request.method === "GET");
+          const aggregate = aggregateRequests(scenarioRequests);
+          const pendingOrthophotoRequests = scenarioRequests.filter((request) => request.status === null
+            && !request.canceled && !request.errorText).length;
+          runs.push({
+            configuration: configuration.id,
+            run: index,
+            name: scenarioName,
+            finalLoaded: finalLoaded,
+            finalEmptyImages: Number(finalState?.emptyImages) || 0,
+            finalNotLoaded: Number(finalState?.notLoaded) || 0,
+            finalPendingImages: Number(finalState?.pendingImages) || 0,
+            exhaustedAfterRetries: Number(finalState?.exhausted) || 0,
+            pendingRetries: Number(finalState?.pendingRetries) || 0,
+            totalVisible: finalTotal,
+            finalFraction,
+            retries: Number(finalState?.retries) || 0,
+            errors: Number(finalState?.errors) || 0,
+            timeTo90Ms,
+            timeTo95Ms,
+            settleMs: elapsedMs,
+            orthophotoRequests: orthophotoRequestCount - requestsBefore,
+            pendingOrthophotoRequests,
+            requestCounts: {
+              loaded: aggregate.loaded,
+              empty: aggregate.empty,
+              failed: aggregate.failed,
+              canceled: aggregate.canceled,
+              statuses: aggregate.statuses,
+            },
+            screenshot: screenshotPath,
+          });
+        }
+      }
+      if (overrideIdentifier) {
+        await pageCdp.command("Page.removeScriptToEvaluateOnNewDocument", { identifier: overrideIdentifier })
+          .catch(() => {});
+      }
+      return {
+        runs,
+        summary: summarizeTileExperiment(runs),
+        maxOrthophotoRequests: tileExperimentArgs.maxOrthophotoRequests,
+        orthophotoRequestsSent: orthophotoRequestCount,
+        budgetExceeded: orthophotoBudgetExceeded,
+        budgetBlockedCount: orthophotoBudgetBlockedCount,
+        settleMs: tileExperimentArgs.settleMs,
+        repeatsPerConfiguration: TILE_EXPERIMENT_REPEATS,
+        viewport: { width: 833, height: 620, zoom: 17.6 },
+      };
+    }
+
     async function runScenarios(phase, origin) {
       const scenarios = [];
       const name = (suffix) => phase + "-" + suffix;
@@ -1382,19 +1637,22 @@ async function runBrowserSmoke() {
       return { scenarios, retryScenario, statePreserved };
     }
 
-    const beforeRun = baselineOrigin ? await runScenarios("before", baselineOrigin) : null;
-    const afterRun = await runScenarios("after", appOrigin);
-    const stability = await runArchiveStability(appOrigin);
-    const parcelSearch = searchArgs ? await runParcelSearchScenario(appOrigin) : null;
-    const scenarios = [
+    const tileExperiment = tileExperimentArgs ? await runTileExperiment(appOrigin) : null;
+    const beforeRun = !tileExperiment && baselineOrigin ? await runScenarios("before", baselineOrigin) : null;
+    const afterRun = !tileExperiment ? await runScenarios("after", appOrigin) : null;
+    const stability = !tileExperiment ? await runArchiveStability(appOrigin) : null;
+    const parcelSearch = !tileExperiment && searchArgs ? await runParcelSearchScenario(appOrigin) : null;
+    const scenarios = tileExperiment ? tileExperiment.runs : [
       ...(beforeRun?.scenarios ?? []),
       ...afterRun.scenarios,
       ...stability.runs,
       ...(parcelSearch ? [parcelSearch] : []),
     ];
-    const retryScenarios = [beforeRun?.retryScenario, afterRun.retryScenario,
+    const retryScenarios = tileExperiment ? [] : [beforeRun?.retryScenario, afterRun.retryScenario,
       stability.repeat.skipped ? null : stability.repeat].filter(Boolean);
-    const statePreserved = (!beforeRun || beforeRun.statePreserved) && afterRun.statePreserved;
+    const statePreserved = tileExperiment
+      ? null
+      : (!beforeRun || beforeRun.statePreserved) && afterRun.statePreserved;
 
     const report = {
       createdAt: new Date().toISOString(),
@@ -1412,11 +1670,16 @@ async function runBrowserSmoke() {
       scenarios,
       retryScenarios,
       archive2025Stability: {
-        ...stability.detail,
-        consistency: stability.consistency,
+        ...(stability ? stability.detail : {}),
+        consistency: stability?.consistency ?? null,
       },
-      archive2025EmptyTileRetry: stability.repeat,
+      archive2025EmptyTileRetry: stability?.repeat ?? null,
       parcelSearch,
+      tileExperiment,
+      orthophotoRequestsSent: orthophotoRequestCount,
+      orthophotoRequestLimit: tileExperimentArgs?.maxOrthophotoRequests ?? null,
+      orthophotoBudgetExceeded,
+      orthophotoBudgetBlockedCount,
       externalRequests,
       statePreserved,
       consoleErrors,
@@ -1431,34 +1694,65 @@ async function runBrowserSmoke() {
     runReport = report;
     await writeFile(join(resultDir, "report.json"), JSON.stringify(report, null, 2), "utf8");
 
-    const lines = [
+    const lines = tileExperiment ? [
+      "Konfiguracja | końcowa frakcja załadowanych min/mediana/maks | żądania ortofotomapy | GetMap bez statusu | czas do 90% | czas do 95%",
+      "------------ | --------------------------------------------- | --------------------- | ------------------ | ----------- | -----------",
+    ] : [
       "Scenariusz | kafelki załadowane/puste/błędne/anulowane | kody HTTP | przykładowe błędne adresy",
       "---------- | ----------------------------------------- | ---------- | -------------------------",
     ];
-    for (const scenario of [...scenarios, ...retryScenarios]) {
-      lines.push(
-        scenario.name + " | " + scenario.aggregate.loaded + "/" + scenario.aggregate.empty + "/" + scenario.aggregate.failed
-          + "/" + scenario.aggregate.canceled + " | "
-          + (scenario.aggregate.statuses.join(",") || "brak")
-          + " | " + (scenario.aggregate.examples.join(" ; ") || "brak"),
-      );
+    if (tileExperiment) {
+      const percent = (value) => Number.isFinite(value) ? (value * 100).toFixed(1) + "%" : "brak";
+      const threshold = (value) => value.reached
+        ? `${Math.round(value.medianMs)} ms (${value.reached}/${value.total})`
+        : "nie osiągnięto";
+      for (const summary of tileExperiment.summary) {
+        lines.push(summary.configuration + " | "
+          + percent(summary.finalFraction.min) + "/" + percent(summary.finalFraction.median) + "/" + percent(summary.finalFraction.max)
+          + " | " + summary.orthophotoRequests
+          + " | " + summary.pendingOrthophotoRequests
+          + " | " + threshold(summary.timeTo90)
+          + " | " + threshold(summary.timeTo95));
+      }
+      lines.push("Pomiar końcowy: po " + tileExperiment.settleMs + " ms; widok "
+        + tileExperiment.viewport.width + "×" + tileExperiment.viewport.height + " px przy zoomie " + tileExperiment.viewport.zoom + ".");
+      lines.push("Żądania ortofotomapy: " + tileExperiment.orthophotoRequestsSent + "/" + tileExperiment.maxOrthophotoRequests
+        + "; przekroczono limit: " + (tileExperiment.budgetExceeded ? "TAK" : "NIE")
+        + "; dodatkowe próby zablokowane przed wysłaniem: " + tileExperiment.budgetBlockedCount + ".");
+      lines.push("Przebieg | config | załadowane/widoczne | puste obrazy | błędne | obrazy oczekujące | wyczerpane | retry oczekujące | błędy/próby | żądania WMS | WMS bez statusu | 90%/95%");
+      for (const run of tileExperiment.runs) {
+        lines.push(run.name + " | " + run.configuration + " | " + run.finalLoaded + "/" + run.totalVisible
+          + " | " + run.finalEmptyImages + " | " + run.finalNotLoaded + " | " + run.finalPendingImages
+          + " | " + run.exhaustedAfterRetries + " | " + run.pendingRetries + " | " + run.errors + "/" + run.retries
+          + " | " + run.orthophotoRequests + " | " + run.pendingOrthophotoRequests
+          + " | " + (run.timeTo90Ms ?? "—") + "/" + (run.timeTo95Ms ?? "—") + " ms");
+      }
+    } else {
+      for (const scenario of [...scenarios, ...retryScenarios]) {
+        lines.push(
+          scenario.name + " | " + scenario.aggregate.loaded + "/" + scenario.aggregate.empty + "/" + scenario.aggregate.failed
+            + "/" + scenario.aggregate.canceled + " | "
+            + (scenario.aggregate.statuses.join(",") || "brak")
+            + " | " + (scenario.aggregate.examples.join(" ; ") || "brak"),
+        );
+      }
+      lines.push("Zgodność zbiorów pustych/błędnych dla trzech odświeżeń 2025: " + stability.consistency.status);
+      lines.push("Stabilność 2025: puste kafelki per przebieg "
+        + stability.detail.emptySets.map((set, index) => `${index + 1}: ${set.length}`).join("; ")
+        + "; przecięcie " + stability.detail.emptyIntersection.length
+        + "; suma unikalnych " + stability.detail.emptyUnion.length
+        + "; zmienne " + stability.detail.variableCount
+        + "; suma pustych wystąpień " + stability.detail.emptyCountSum
+        + "; wskaźnik zmiennych/sumy "
+        + (stability.detail.variableRatio === null ? "brak" : stability.detail.variableRatio.toFixed(3)));
+      lines.push("Ponowne pobranie pustych kafelków: " + stability.repeat.conclusion
+        + " — " + stability.repeat.reason);
+      if (stability.repeat.skipped) {
+        lines.push("Ponowne pobranie pominięte: pierwszy przebieg nie zawierał pustych kafelków.");
+      }
+      lines.push("Elementy obrysu w wyszukiwaniu M4c: "
+        + (parcelSearch ? parcelSearch.search.outlineElements : "scenariusz pominięty — brak argumentów"));
     }
-    lines.push("Zgodność zbiorów pustych/błędnych dla trzech odświeżeń 2025: " + stability.consistency.status);
-    lines.push("Stabilność 2025: puste kafelki per przebieg "
-      + stability.detail.emptySets.map((set, index) => `${index + 1}: ${set.length}`).join("; ")
-      + "; przecięcie " + stability.detail.emptyIntersection.length
-      + "; suma unikalnych " + stability.detail.emptyUnion.length
-      + "; zmienne " + stability.detail.variableCount
-      + "; suma pustych wystąpień " + stability.detail.emptyCountSum
-      + "; wskaźnik zmiennych/sumy "
-      + (stability.detail.variableRatio === null ? "brak" : stability.detail.variableRatio.toFixed(3)));
-    lines.push("Ponowne pobranie pustych kafelków: " + stability.repeat.conclusion
-      + " — " + stability.repeat.reason);
-    if (stability.repeat.skipped) {
-      lines.push("Ponowne pobranie pominięte: pierwszy przebieg nie zawierał pustych kafelków.");
-    }
-    lines.push("Elementy obrysu w wyszukiwaniu M4c: "
-      + (parcelSearch ? parcelSearch.search.outlineElements : "scenariusz pominięty — brak argumentów"));
     if (parcelSearch?.search) {
       lines.push("M4c: czas do obrysu " + parcelSearch.search.resultTimeMs + " ms; czas do EGiB "
         + (parcelSearch.search.egibTimeMs ?? "brak") + " ms; stan EGiB " + parcelSearch.search.egibState
@@ -1481,11 +1775,12 @@ async function runBrowserSmoke() {
     process.stdout.write("Wyniki zapisano w .local-results/browser-smoke-" + timestamp + "/\n");
     process.stdout.write("Hosty: " + [...new Set(tileRequests.map((request) => request.host))].join(", ") + "\n");
     process.stdout.write(summary);
-    process.stdout.write("Zachowanie stanu po powrocie z RCN: " + (statePreserved ? "TAK" : "NIE") + "\n");
+    if (!tileExperiment) process.stdout.write("Zachowanie stanu po powrocie z RCN: " + (statePreserved ? "TAK" : "NIE") + "\n");
     process.stdout.write("Żądania zablokowane przez allowlistę: " + blockedRequests.length + "\n");
     const assertionFailed = parcelSearch?.search?.assertions?.some((assertion) => !assertion.pass) ?? false;
     if (blockedRequests.length > 0) process.exitCode = 3;
-    else if (!statePreserved || assertionFailed) process.exitCode = 1;
+    else if (orthophotoBudgetExceeded) process.exitCode = 4;
+    else if (!tileExperiment && (!statePreserved || assertionFailed)) process.exitCode = 1;
   } catch (error) {
     runError = error;
     if (!runReport) {

@@ -14,6 +14,12 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
   const fake = createFakeDom();
   const leaflet = createFakeLeaflet();
   fake.window.L = leaflet.L;
+  fake.window.__DZIALKI_TILE_RETRY__ = {
+    attempts: 0,
+    delaysMs: [],
+    maxConcurrent: 1,
+    jitterMs: 0,
+  };
   fake.window.location.hash = "#/dzialki";
   const previous = {
     document: globalThis.document,
@@ -87,6 +93,23 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
   let archiveLayer = [...firstMap.layers][0];
   assert.equal(archiveLayer.isWms, true);
   assert.equal(archiveLayer.options.time, "2025-11-01");
+  archiveLayer.fire("tileload", {
+    coords: { x: 1, y: 2, z: 8 },
+    tile: { _leaflet_id: 1, naturalWidth: 1, naturalHeight: 1 },
+  });
+  const exhaustedMessage = fake.document.querySelectorAll("p.dzialki-tile-exhausted-status")[0];
+  assert.equal(exhaustedMessage.attributes.get("aria-live"), "polite");
+  assert.equal(exhaustedMessage.hidden, false);
+  assert.equal(exhaustedMessage.textContent,
+    "Usługa GUGiK nie zwróciła obrazu dla 1 kafelków mimo ponowień. Spróbuj ponownie później lub zmień rok.");
+  assert.deepEqual(fake.window.__DZIALKI_TILE_STATS__, {
+    errors: 1,
+    retries: 0,
+    finalUnloaded: 1,
+    pending: 0,
+  });
+  fake.document.querySelectorAll("button.dzialki-retry-button")[0].click();
+  assert.equal(exhaustedMessage.hidden, true, "ręczne ponowienie usuwa komunikat wyczerpanych kafelków");
   const yearInput = fake.document.getElementById("dzialki-year");
   yearInput.value = "2023";
   yearInput.dispatch("input");
