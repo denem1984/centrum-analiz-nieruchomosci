@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { createFakeDom } from "./helpers/fake-dom.mjs";
 import { createFakeLeaflet } from "./helpers/fake-leaflet.mjs";
 import { contextStore } from "../app/js/context.js";
@@ -7,7 +8,7 @@ import { mountDzialki } from "../app/js/modules/dzialki/index.js";
 import { mountParcelSearch } from "../app/js/modules/dzialki/search-ui.js";
 import { resetDzialkiState, getDzialkiState } from "../app/js/modules/dzialki/state.js";
 
-const parcelRow = "998877_6.0001.12/3|9988776|12/3|Fikcyjny powiat|Fikcyjna gmina|Fikcyjne województwo|POLYGON ((20.00 52.00, 20.10 52.00, 20.10 52.10, 20.00 52.10, 20.00 52.00))";
+const parcelRow = "289977_6.0001.12/3|2899776|12/3|Powiat surowy ULDK|Gmina surowa ULDK|Region surowy ULDK|POLYGON ((20.00 52.00, 20.10 52.00, 20.10 52.10, 20.00 52.10, 20.00 52.00))";
 
 function flush() {
   return new Promise((resolve) => setImmediate(resolve));
@@ -26,8 +27,8 @@ test("formularz szuka działki, rysuje obrys, ustawia kontekst i zachowuje wybó
     getComputedStyle: globalThis.getComputedStyle,
   };
   const requests = [];
-  const countyPayload = { features: [{ attributes: { teryt: "9988", nazwa: "Fikcyjny powiat" } }] };
-  const communePayload = { features: [{ attributes: { teryt: "9988776", nazwa: "Fikcyjna gmina" } }] };
+  const countyPayload = { features: [{ attributes: { teryt: "2899", nazwa: "Fikcyjny powiat" } }] };
+  const communePayload = { features: [{ attributes: { teryt: "2899776", nazwa: "Fikcyjna gmina" } }] };
   globalThis.document = fake.document;
   globalThis.window = fake.window;
   globalThis.fetch = async (rawUrl, options = {}) => {
@@ -41,18 +42,18 @@ test("formularz szuka działki, rysuje obrys, ustawia kontekst i zachowuje wybó
     }
     if (url.hostname === "uldk.gugik.gov.pl") {
       if (url.searchParams.get("request") === "GetRegionByNameOrId") {
-        return { ok: true, status: 200, text: async () => "0\n998877_6.0001|9988776|Fikcyjny obręb|Fikcyjna gmina|Fikcyjny powiat" };
+        return { ok: true, status: 200, text: async () => "0\n289977_6.0001|2899776|Fikcyjny obręb|Fikcyjna gmina|Fikcyjny powiat" };
       }
       if (url.searchParams.get("request") === "GetParcelById") {
         if (url.searchParams.get("srid") === "2180") {
-          return { ok: true, status: 200, text: async () => "0\n998877_6.0001.12/3|POLYGON ((300000 500000, 300100 500000, 300100 500100, 300000 500100, 300000 500000))" };
+          return { ok: true, status: 200, text: async () => "0\n289977_6.0001.12/3|POLYGON ((300000 500000, 300100 500000, 300100 500100, 300000 500100, 300000 500000))" };
         }
         return { ok: true, status: 200, text: async () => "0\n" + parcelRow };
       }
     }
     if (url.hostname === "integracja.gugik.gov.pl") {
       return { ok: true, status: 200, text: async () => "<Feature>"
-        + "<Attribute Name=\"Identyfikator działki\">998877_6.0001.12/3</Attribute>"
+        + "<Attribute Name=\"Identyfikator działki\">289977_6.0001.12/3</Attribute>"
         + "<Attribute Name=\"Pole pow. w ewidencji gruntów\">0.4449</Attribute>"
         + "<Attribute Name=\"Grupa rejestrowa\">7</Attribute>"
         + "<Attribute Name=\"Oznaczenie użytku\">RVI, B</Attribute></Feature>" };
@@ -91,13 +92,13 @@ test("formularz szuka działki, rysuje obrys, ustawia kontekst i zachowuje wybó
   const precinct = fake.document.getElementById("dzialki-search-obreb");
   const number = fake.document.getElementById("dzialki-search-numer");
   assert.equal(county.disabled, false);
-  county.value = "9988";
+  county.value = "2899";
   county.dispatch("change");
   await flush();
-  commune.value = "9988776";
+  commune.value = "2899776";
   commune.dispatch("change");
   await flush();
-  precinct.value = "998877_6.0001";
+  precinct.value = "289977_6.0001";
   precinct.dispatch("change");
   number.value = "12/3";
   number.dispatch("input");
@@ -114,7 +115,7 @@ test("formularz szuka działki, rysuje obrys, ustawia kontekst i zachowuje wybó
   assert.equal(new URL(requests[5].url).hostname, "integracja.gugik.gov.pl");
   assert.equal(leaflet.geoJsonLayers.length, 1);
   assert.equal(leaflet.geoJsonLayers[0].options.style.className, "dzialki-selected-parcel");
-  assert.match(leaflet.geoJsonLayers[0].popup.textContent, /Działka 998877_6\.0001\.12\/3/);
+  assert.match(leaflet.geoJsonLayers[0].popup.textContent, /Działka 289977_6\.0001\.12\/3/);
   assert.match(leaflet.geoJsonLayers[0].popup.textContent, /Grupa rejestrowa: 7 – osoby fizyczne/);
   assert.match(leaflet.geoJsonLayers[0].popup.textContent, /Klasoużytki: RVI, B/);
   leaflet.geoJsonLayers[0].fire("click");
@@ -128,7 +129,9 @@ test("formularz szuka działki, rysuje obrys, ustawia kontekst i zachowuje wybó
   assert.match(leaflet.geoJsonLayers[0].tooltip.textContent, /12\/3/);
   assert.equal(contexts.length, 1);
   assert.equal(contexts[0].source, "dzialki");
-  assert.equal(contexts[0].parcel.id, "998877_6.0001.12/3");
+  assert.equal(contexts[0].parcel.id, "289977_6.0001.12/3");
+  assert.deepEqual(contexts[0].voivodeship, { code: "28", name: "warmińsko-mazurskie" });
+  assert.deepEqual(contexts[0].powiat, { code: "2899", name: "Fikcyjny powiat" });
   assert.equal(contexts[0].parcel.obrebTeryt, undefined);
   assert.equal(contexts[0].gmina, undefined, "rodzaj jednostki 6 nie mapuje się do kontekstu gminy");
   assert.ok(Math.abs(contexts[0].point.lat - 52.05) < 1e-8);
@@ -138,6 +141,17 @@ test("formularz szuka działki, rysuje obrys, ustawia kontekst i zachowuje wybó
   assert.equal(getDzialkiState().selectedParcel.egib.area, "0,4449 ha");
   assert.equal(fake.document.getElementById("dzialki-parcel-report").dataset.egibState, "ready");
   assert.match(fake.document.getElementById("dzialki-parcel-report").textContent, /0,4449 ha/);
+  const report = fake.document.getElementById("dzialki-parcel-report");
+  assert.match(report.textContent, /Województwowarmińsko-mazurskie/);
+  assert.match(report.textContent, /PowiatFikcyjny powiat/);
+  assert.match(report.textContent, /GminaFikcyjna gmina/);
+  assert.match(report.textContent, /ObrębFikcyjny obręb/);
+  assert.doesNotMatch(report.textContent, /Powiat surowy ULDK|Gmina surowa ULDK|Region surowy ULDK/);
+  const identifier = report.querySelector("dd.dzialki-report-identifier-value");
+  assert.equal(identifier?.textContent, "289977_6.0001.12/3");
+  const css = await readFile(new URL("../app/css/modules/dzialki.css", import.meta.url), "utf8");
+  assert.match(css, /\.dzialki-report-identifier-value[\s\S]*?white-space:\s*nowrap/);
+  assert.match(css, /@media\s*\(max-width:\s*28rem\)[\s\S]*?\.dzialki-report-identifier-label,[\s\S]*?grid-column:\s*1\s*\/\s*-1/);
   assert.match(fake.document.getElementById("dzialki-search-status").textContent, /Powierzchnia i klasoużytki pobrane z EGiB/);
   assert.deepEqual(getDzialkiState().center, [52.05, 20.05]);
 
@@ -146,7 +160,7 @@ test("formularz szuka działki, rysuje obrys, ustawia kontekst i zachowuje wybó
   await flush();
   assert.equal(leaflet.maps.length, 2);
   assert.equal(leaflet.geoJsonLayers.length, 2);
-  assert.equal(fake.document.getElementById("dzialki-search-powiat").value, "9988");
+  assert.equal(fake.document.getElementById("dzialki-search-powiat").value, "2899");
   assert.equal(fake.document.getElementById("dzialki-search-numer").value, "12/3");
   assert.equal(requests.length, 6, "zapamiętane listy i raport nie są pobierane ponownie po zmianie zakładki");
   cleanup();

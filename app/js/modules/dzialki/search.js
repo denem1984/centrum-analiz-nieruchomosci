@@ -9,6 +9,35 @@ export const SEARCH_AUTO_RETRIES = 1;
 
 const REGION_RESULT_FIELDS = "id,teryt,region,commune,county";
 const PARCEL_RESULT_FIELDS = "id,teryt,parcel,county,commune,region,geom_wkt";
+
+export const VOIVODESHIP_NAMES = Object.freeze({
+  "02": "dolnośląskie", "04": "kujawsko-pomorskie", "06": "lubelskie", "08": "lubuskie",
+  "10": "łódzkie", "12": "małopolskie", "14": "mazowieckie", "16": "opolskie",
+  "18": "podkarpackie", "20": "podlaskie", "22": "pomorskie", "24": "śląskie",
+  "26": "świętokrzyskie", "28": "warmińsko-mazurskie", "30": "wielkopolskie", "32": "zachodniopomorskie",
+});
+
+function textName(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizedCountyFallback(value) {
+  return textName(value).replace(/^powiat\s+/i, "");
+}
+
+export function resolveParcelAdministrativeNames(parcel, selected = {}, voivodeshipNames = VOIVODESHIP_NAMES) {
+  const idPrefix = typeof parcel?.id === "string" ? parcel.id.match(/^(\d{2})\d{4}_/)?.[1] : null;
+  const countyCode = typeof selected.powiat?.code === "string" && /^\d{4}$/.test(selected.powiat.code)
+    ? selected.powiat.code
+    : null;
+  const voivodeshipCode = countyCode?.slice(0, 2) ?? idPrefix;
+  return {
+    voivodeshipName: voivodeshipNames[voivodeshipCode] ?? "",
+    countyName: textName(selected.powiat?.name) || normalizedCountyFallback(parcel?.county),
+    communeName: textName(selected.gmina?.name) || textName(parcel?.commune),
+    regionName: textName(selected.region?.name) || textName(parcel?.region),
+  };
+}
 const PARCEL_NUMBER_PATTERN = /^[0-9]+(?:[/.\-][0-9A-Za-z]+)*$/;
 
 function withParams(url, entries) {

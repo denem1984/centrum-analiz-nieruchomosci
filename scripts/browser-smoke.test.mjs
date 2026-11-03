@@ -7,11 +7,18 @@ import {
   chooseBrowserPath,
   compareProblemCoordinateSets,
   EMPTY_TILE_BYTE_THRESHOLD,
+  formatSearchOptionError,
+  isAllowedArchiveRepeatRequest,
   isAllowedBrowserRequest,
+  matchSearchOption,
   normalizeSearchLabel,
   parseSearchArguments,
   parseCdpLoadingFailed,
   parseCdpMessage,
+  selectRelevantResponseHeaders,
+  selectRepeatableArchiveRequests,
+  summarizeArchiveRetry,
+  summarizeArchiveStability,
   tileCoordinateKey,
 } from "./browser-smoke.mjs";
 import {
@@ -75,6 +82,20 @@ test("agreguje kafelki załadowane, błędne, anulowane i statusy", () => {
   assert.equal(EMPTY_TILE_BYTE_THRESHOLD, 128);
 });
 
+test("rozmiar pustego obrazu używa długości ładunku, a nie transferu z narzutem nagłówków", () => {
+  const summary = aggregateRequests([{
+    url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime?BBOX=1,2,3,4",
+    method: "GET",
+    status: 200,
+    mimeType: "image/png",
+    encodedDataLength: 520,
+    encodedBodyLength: 68,
+    responseHeaders: { "Content-Type": "image/png", "Content-Length": "68" },
+  }]);
+  assert.equal(summary.empty, 1);
+  assert.equal(summary.loaded, 0);
+});
+
 test("stabilność porównuje zbiory współrzędnych pustych i błędnych", () => {
   const runs = [
     { aggregate: { emptyCoordinates: ["bbox=a"], failedCoordinates: [] } },
@@ -87,6 +108,128 @@ test("stabilność porównuje zbiory współrzędnych pustych i błędnych", () 
   assert.deepEqual(result.sets, [["bbox=a"], ["bbox=a"], ["bbox=b"]]);
   assert.equal(tileCoordinateKey("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/17/8/7"),
     "z=17/x=7/y=8");
+});
+
+test("metryki stabilności liczą przecięcie, sumę, zmienne współrzędne i wskaźnik", () => {
+  const result = summarizeArchiveStability([
+    { aggregate: { emptyCoordinates: ["bbox=A", "bbox=B"], loadedCoordinates: ["bbox=C"] } },
+    { aggregate: { emptyCoordinates: ["bbox=B", "bbox=C"], loadedCoordinates: ["bbox=A"] } },
+    { aggregate: { emptyCoordinates: ["bbox=A", "bbox=C"], loadedCoordinates: ["bbox=B"] } },
+  ]);
+  assert.deepEqual(result.emptyIntersection, []);
+  assert.deepEqual(result.emptyUnion, ["bbox=A", "bbox=B", "bbox=C"]);
+  assert.deepEqual(result.variableCoordinates, ["bbox=A", "bbox=B", "bbox=C"]);
+  assert.equal(result.variableCount, 3);
+  assert.equal(result.emptyCountSum, 6);
+  assert.equal(result.variableRatio, 0.5);
+});
+
+test("nagłówki diagnostyczne są ograniczone do dozwolonej listy", () => {
+  assert.deepEqual(selectRelevantResponseHeaders({
+    "access-control-allow-origin": "*",
+    "TIMING-ALLOW-ORIGIN": "https://example.org",
+    "content-type": "image/png",
+    "content-length": "68",
+    "cache-control": "public, max-age=60",
+    age: "3",
+    via: "edge",
+    "x-cache": "HIT",
+    "set-cookie": "must-not-be-recorded",
+    authorization: "must-not-be-recorded",
+  }), {
+    "Access-Control-Allow-Origin": "*",
+    "Timing-Allow-Origin": "https://example.org",
+    "Content-Type": "image/png",
+    "Content-Length": "68",
+    "Cache-Control": "public, max-age=60",
+    Age: "3",
+    Via: "edge",
+    "X-Cache": "HIT",
+  });
+});
+
+test("dopasowuje etykiety opcji po exact, prefix i contains wyłącznie jednoznacznie", () => {
+  const options = [
+    { value: "2816", label: "piski (warmińsko-mazurskie)" },
+    { value: "2817", label: "Fikcyjny powiat" },
+  ];
+  assert.equal(matchSearchOption(options, "piski").match, "prefix");
+  assert.equal(matchSearchOption(options, "PISKI (WARMIŃSKO-MAZURSKIE)").match, "exact");
+  assert.equal(matchSearchOption(options, "cyjny pow").option.value, "2817");
+  const ambiguous = matchSearchOption([
+    { value: "1", label: "Testowo północ" },
+    { value: "2", label: "Testowo południe" },
+  ], "testowo");
+  assert.equal(ambiguous.reason, "ambiguous");
+  assert.deepEqual(ambiguous.labels, ["Testowo północ", "Testowo południe"]);
+  assert.match(formatSearchOptionError(ambiguous), /Testowo północ \| Testowo południe/);
+  assert.equal(matchSearchOption(options, "brak").reason, "missing");
+  assert.match(formatSearchOptionError({ reason: "missing", labels: ["jeden"] }), /jeden/);
+});
+
+test("ponowne GET-y archiwalne wybierają do sześciu pustych adresów i odrzucają inne żądania", () => {
+  const emptyUrl = "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime"
+    + "?service=WMS&request=GetMap&layers=Raster&bbox=1%2C2%2C3%2C4";
+  const requests = Array.from({ length: 8 }, (_, index) => ({
+    url: emptyUrl.replace("bbox=1%2C2%2C3%2C4", `bbox=${index}%2C2%2C3%2C4`),
+    method: "GET",
+    status: 200,
+    mimeType: "image/png",
+    encodedDataLength: 68,
+  }));
+  requests.push({ ...requests[0] });
+  requests.push({ ...requests[0], url: "https://example.org/tile.png" });
+  requests.push({ ...requests[0], method: "POST" });
+  requests.push({ ...requests[0], status: 503 });
+  requests.push({ ...requests[0], encodedDataLength: EMPTY_TILE_BYTE_THRESHOLD });
+  const selected = selectRepeatableArchiveRequests(requests);
+  assert.equal(selected.length, 6);
+  const originalUrls = selected.map(({ url }) => url);
+  assert.equal(isAllowedArchiveRepeatRequest(originalUrls[0], "GET", originalUrls), true);
+  assert.equal(isAllowedArchiveRepeatRequest(originalUrls[0], "POST", originalUrls), false);
+  assert.equal(isAllowedArchiveRepeatRequest(originalUrls[0] + "&extra=1", "GET", originalUrls), false);
+  assert.equal(isAllowedArchiveRepeatRequest("https://example.org/tile.png", "GET", originalUrls), false);
+  assert.equal(isAllowedArchiveRepeatRequest(
+    "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime"
+      + "?service=WMS&request=GetMap&layers=Raster&bbox=8%2C2%2C3%2C4",
+    "GET", originalUrls,
+  ), false);
+});
+
+test("ocenia wynik dwóch powtórnych GET-ów na tych samych kafelkach", () => {
+  const selected = [
+    { url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime?service=WMS&request=GetMap&layers=Raster&bbox=A", coordinate: "bbox=A" },
+    { url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime?service=WMS&request=GetMap&layers=Raster&bbox=B", coordinate: "bbox=B" },
+  ];
+  const result = summarizeArchiveRetry(selected, [
+    { url: selected[0].url, status: 200, mimeType: "image/png", encodedDataLength: 400 },
+    { url: selected[0].url, status: 200, mimeType: "image/png", encodedDataLength: 400 },
+    { url: selected[1].url, status: 200, mimeType: "image/png", encodedDataLength: 68 },
+    { url: selected[1].url, status: 200, mimeType: "image/png", encodedDataLength: 68 },
+  ]);
+  assert.equal(result.selectedTiles, 2);
+  assert.equal(result.retryRequests, 4);
+  assert.equal(result.filledTiles, 1);
+  assert.equal(result.conclusion, "niejednoznaczne");
+  assert.deepEqual(result.perTile.map(({ filled, remainedEmpty }) => [filled, remainedEmpty]), [[true, false], [false, true]]);
+});
+
+test("wniosek o ponawianiu jest liczbowy i rozróżnia pomaga od nie pomaga", () => {
+  const tileUrl = "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime"
+    + "?service=WMS&request=GetMap&layers=Raster&bbox=A";
+  const tiles = [{ url: tileUrl, coordinate: "bbox=A" }];
+  const filled = summarizeArchiveRetry(tiles, [
+    { url: tileUrl, status: 200, mimeType: "image/png", encodedDataLength: 256 },
+    { url: tileUrl, status: 200, mimeType: "image/png", encodedDataLength: 256 },
+  ]);
+  assert.equal(filled.conclusion, "pomaga");
+  assert.match(filled.reason, /1\/1/);
+  const empty = summarizeArchiveRetry(tiles, [
+    { url: tileUrl, status: 200, mimeType: "image/png", encodedDataLength: 68 },
+    { url: tileUrl, status: 200, mimeType: "image/png", encodedDataLength: 68 },
+  ]);
+  assert.equal(empty.conclusion, "nie pomaga");
+  assert.match(empty.reason, /0\/1/);
 });
 
 test("wybiera ścieżkę przeglądarki według jawnego argumentu, EDGE_PATH, następnie kandydatów", () => {

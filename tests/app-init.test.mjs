@@ -4,6 +4,9 @@ import { createFakeDom } from "./helpers/fake-dom.mjs";
 
 test("aplikacja startuje, renderuje zakładki i obsługuje kontekst bez sieci", async (t) => {
   const fake = createFakeDom();
+  const appVersion = fake.document.createElement("p");
+  appVersion.id = "app-version";
+  fake.document.body.append(appVersion);
   const previous = {
     document: globalThis.document,
     window: globalThis.window,
@@ -33,6 +36,7 @@ test("aplikacja startuje, renderuje zakładki i obsługuje kontekst bez sieci", 
   const links = fake.document.getElementById("module-nav")
     .children.filter((element) => element.tagName === "a");
   assert.equal(links.length, 6);
+  assert.equal(appVersion.textContent, "Centrum Analiz Nieruchomości · wersja M4c");
   assert.equal(fake.document.getElementById("location-summary").textContent, "Nie wybrano lokalizacji");
   assert.equal(fake.document.getElementById("clear-location").listeners.get("click")?.length, 1);
 

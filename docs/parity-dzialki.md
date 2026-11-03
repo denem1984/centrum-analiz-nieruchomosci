@@ -19,6 +19,14 @@ Status „zrobione” oznacza implementację lokalnej funkcji i testy bez sieci;
 | Raport: grupa rejestrowa z opisem | [FAKT z kodu: `index.html:560`] | zrobione | M4c.1 | Krótki słownik opisów grup jest danymi aplikacji. |
 | Raport: klasoużytki z opisami kodów | [FAKT z kodu: `index.html:560`] | zrobione | M4c.1 | Słownik opisów jest danymi aplikacji; nie kopiowano implementacji starego frontu. |
 | Źródła danych przy statusie wyszukiwania | [FAKT z kodu: `index.html:560`] | zrobione | M4c.1 | Widoczna informacja wymienia GUGiK PRG, ULDK GUGiK oraz EGiB/KIEG. |
+| Żądanie listy powiatów PRG — GET `/FeatureServer/1/query` | [FAKT z kodu: `index.html:560`, wywołanie listy powiatów] | zrobione; URL sprawdzany testem | M4c | Wzorzec i kolejność parametrów opisane w `docs/dzialki-module.md`. |
+| Żądanie listy gmin — GET `/FeatureServer/0/query` | [FAKT z kodu: `index.html:560`, wywołanie listy gmin po kodzie powiatu] | zrobione; URL sprawdzany testem | M4c | Odpowiedź PRG w EPSG:4326. |
+| Żądanie listy obrębów ULDK — GET `GetRegionByNameOrId` | [FAKT z kodu: `index.html:560`, wywołanie listy obrębów] | zrobione; URL sprawdzany testem | M4c | Id gminy ULDK pochodzi z pełnego TERC7. |
+| Żądanie geometrii ULDK — GET `GetParcelById` | [FAKT z kodu: `index.html:560`, wywołanie wyszukiwania działki] | zrobione; URL sprawdzany testem | M4c | Wynik w EPSG:4326. |
+| Żądanie geometrii do EGiB — GET `GetParcelById`, `srid=2180` | [FAKT z kodu: `index.html:560`, wariant pobrania geometrii dla EGiB] | zrobione; URL sprawdzany testem | M4c.1 | Kolejność przed zapytaniem KIEG. |
+| Żądanie danych EGiB — GET WMS `GetFeatureInfo` | [FAKT z kodu: `index.html:560`, wywołanie informacji KIEG] | zrobione; URL sprawdzany testem | M4c.1 | Odpowiedź XML. |
+| Województwo z kodu powiatu; powiat, gmina i obręb z wybranych list | [FAKT z kodu: `index.html:211` — mapa nazw województw; `index.html:560` — wykorzystanie nazw w raporcie] | zrobione; fikcyjne odpowiedzi testowe | M4c.2 | `region` z ULDK nie jest nazwą województwa; nazwa powiatu nie ma prefiksu „powiat”. |
+| Identyfikator działki bez łamania tokenu | [FAKT z baseline D1 właściciela] | zrobione; wąski widok przenosi wartość pod etykietę | M4c.2 | Test sprawdza strukturę raportu i reguły CSS. |
 | Czerwony obrys z półprzezroczystym wypełnieniem | [FAKT z kodu: `index.html:451`] | zrobione | M4c | Reguły stylu należą do CSS nowego modułu. |
 | Popup: identyfikator, powierzchnia, grupa i kody klasoużytków | [FAKT z kodu: `index.html:817–837`] | zrobione | M4c.1 | Treść budowana z pól odpowiedzi, bez HTML pochodzącego z usługi. |
 | Kliknięcie wyniku przełącza zaznaczenie | [FAKT z kodu: `index.html:817–837`] | zrobione | M4c.1 | W M4c.1 przełącza się wynik wyszukiwania; zaznaczanie wielu działek na mapie jest w M4d. |
@@ -37,9 +45,17 @@ Status „zrobione” oznacza implementację lokalnej funkcji i testy bez sieci;
 | Lista elementów raportu: dodawanie, usuwanie i czyszczenie | [FAKT z kodu: `index.html:189–194,862–965`] | brak | M4f | Stan listy ma pozostawać w pamięci aplikacji zgodnie z decyzją D15. |
 | Eksport raportu PDF z działką i widokiem warstw | [FAKT z kodu: `index.html:993–1110`] | brak | M4f | Wróci w baseline D7; wymaga porównania właściciela. |
 
+W `index.html` rewizji `a1aa39d` wywołania wyszukiwania i przypisania pól raportu znajdują się na jednej długiej fizycznej linii `560`. Wiersze macierzy rozróżniają te wywołania po ich celu; nie podaję nieistniejących osobnych numerów linii.
+
 ## Weryfikacja baseline D1
 
 Właściciel przekazał zrzuty i opis D1 przed M4c.1. Nowa zakładka ma odtwarzać formularz z etykietami zależnymi od administracji, zielonym przyciskiem wyszukiwania, czerwonym obrysem, raportem EGiB i popupem z przełączanym zaznaczeniem. Konkretne wartości wejściowe, identyfikatory, pomiary i zrzuty nie są utrwalane w repozytorium. Wynik porównania nowego frontu z działającymi usługami musi dostarczyć właściciel po swoim przebiegu browser-smoke.
+
+## Diagnostyka pustych kafelków M4c.2
+
+Właściciel uruchamia narzędzie diagnostyczne. Metryki obejmują wybrane nagłówki i rozmiar transferu, trzy zbiory pustych kafelków, ich przecięcie i sumę, współrzędne zmienne oraz wskaźnik zmienne/suma pustych. Odpowiedź HTTP 200 typu obraz poniżej 128 B jest heurystycznie klasyfikowana jako pusta. Ponowienie diagnostyczne wysyła ten sam GET dwa razy dla najwyżej sześciu pustych adresów; nie zmienia kodu ani polityki ponowień aplikacji.
+
+Przyszłą klasyfikację po stronie aplikacji należy oprzeć na nagłówkach z przebiegu właściciela. Odczyt odpowiedzi przez `fetch` wymaga dozwolonego CORS dla pochodzenia aplikacji; `Timing-Allow-Origin` samo nie wystarcza. Jeśli CORS nie umożliwia odczytu danych, wiarygodna klasyfikacja może wymagać osobnej warstwy pobierania i dekodowania kafelków, co pozostaje poza M4c.2. Wyniki nowego przebiegu nie zostały jeszcze zebrane.
 
 ## Utrzymanie
 

@@ -1,4 +1,4 @@
-import { BACKENDS, BACKEND_IDS } from "./config.js";
+import { APP_STAGE, BACKENDS, BACKEND_IDS } from "./config.js";
 import { checkBackend, getBackendStatus, subscribeBackendStatus } from "./health.js";
 import { decodeContext, encodeContext, contextStore } from "./context.js";
 import { MODULES, MODULE_BY_ID } from "./modules/registry.js";
@@ -247,6 +247,8 @@ function startHealthChecks() {
 }
 
 function init() {
+  const version = document.getElementById("app-version");
+  if (version) version.textContent = "Centrum Analiz Nieruchomości · wersja " + APP_STAGE;
   contextStore.subscribe((context) => {
     updateLocationToolbar(context);
     updateNavigationLinks();

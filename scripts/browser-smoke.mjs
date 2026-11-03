@@ -12,10 +12,24 @@ import { createStaticServer } from "./serve.mjs";
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, "..");
 export const SCENARIO_TIMEOUT_MS = 25000;
-// 1x1 transparent PNG fixture: 68 B; 128 B allows up to 60 B of PNG framing/chunks.
-// Only an HTTP 200 image response below this size is classified as an empty tile.
+// A 1x1 transparent PNG fixture is 68 B; 128 B allows up to 60 B of PNG framing/chunks.
+// Empty detection prefers body Content-Length / Network.dataReceived bytes; transfer length is retained too.
 export const EMPTY_TILE_BYTE_THRESHOLD = 128;
+export const MAX_ARCHIVE_REPEAT_TILES = 6;
+export const ARCHIVE_REPEAT_DELAYS_MS = Object.freeze([1500, 4000]);
 const MIN_SETTLE_MS = 6000;
+const ARCHIVE_WMS_HOST = "mapy.geoportal.gov.pl";
+const ARCHIVE_WMS_PATH = "/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime";
+const RELEVANT_ARCHIVE_HEADERS = Object.freeze({
+  "access-control-allow-origin": "Access-Control-Allow-Origin",
+  "timing-allow-origin": "Timing-Allow-Origin",
+  "content-type": "Content-Type",
+  "content-length": "Content-Length",
+  "cache-control": "Cache-Control",
+  age: "Age",
+  via: "Via",
+  "x-cache": "X-Cache",
+});
 const SEARCH_SERVICE_RULES = Object.freeze([
   {
     host: "mapy.geoportal.gov.pl",
@@ -53,6 +67,47 @@ function getArg(argv, key) {
 export function normalizeSearchLabel(value) {
   return String(value ?? "").replace(/[Łł]/g, "l").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .toLocaleLowerCase("pl-PL").trim().replace(/\s+/g, " ");
+}
+
+export function matchSearchOption(options, requestedLabel) {
+  const target = normalizeSearchLabel(requestedLabel);
+  const candidates = (Array.isArray(options) ? options : []).map((item) => ({
+    label: String(item?.label ?? item?.textContent ?? ""),
+    value: String(item?.value ?? ""),
+  }));
+  if (!target) return { option: null, match: null, reason: "missing", labels: candidates.map(({ label }) => label) };
+
+  const stages = [
+    ["exact", (label) => normalizeSearchLabel(label) === target],
+    ["prefix", (label) => normalizeSearchLabel(label).startsWith(target)],
+    ["contains", (label) => normalizeSearchLabel(label).includes(target)],
+  ];
+  for (const [match, predicate] of stages) {
+    const matched = candidates.filter((item) => predicate(item.label));
+    if (matched.length === 1) return { option: matched[0], match, reason: null, labels: candidates.map(({ label }) => label) };
+    if (matched.length > 1) return { option: null, match, reason: "ambiguous", labels: candidates.map(({ label }) => label) };
+  }
+  return { option: null, match: null, reason: "missing", labels: candidates.map(({ label }) => label) };
+}
+
+export function formatSearchOptionError(result) {
+  const labels = Array.isArray(result?.labels) ? result.labels : [];
+  return "Nie można jednoznacznie dopasować pozycji listy. Dostępne etykiety: "
+    + (labels.length ? labels.join(" | ") : "brak");
+}
+
+export function selectRelevantResponseHeaders(...sources) {
+  const selected = {};
+  for (const source of sources) {
+    if (!source || typeof source !== "object") continue;
+    for (const [name, rawValue] of Object.entries(source)) {
+      const canonicalName = RELEVANT_ARCHIVE_HEADERS[String(name).toLowerCase()];
+      if (!canonicalName || rawValue === undefined || rawValue === null) continue;
+      const value = Array.isArray(rawValue) ? rawValue.join(", ") : String(rawValue);
+      selected[canonicalName] = value;
+    }
+  }
+  return selected;
 }
 
 export function parseSearchArguments(argv = []) {
@@ -93,19 +148,38 @@ function isImageMime(value) {
   return typeof value === "string" && value.toLowerCase().startsWith("image/");
 }
 
+function responsePayloadBytes(request) {
+  const contentLength = request.responseHeaders?.["Content-Length"]
+    ?? request.responseHeaders?.["content-length"];
+  if (contentLength !== undefined && /^\d+$/.test(String(contentLength))) return Number(contentLength);
+  if (Number.isFinite(request.encodedBodyLength)) return request.encodedBodyLength;
+  return Number.isFinite(request.encodedDataLength) ? request.encodedDataLength : null;
+}
+
+function isArchiveGetMapUrl(value) {
+  let url;
+  try { url = value instanceof URL ? value : new URL(value); } catch { return false; }
+  const params = url.searchParams;
+  return url.protocol === "https:" && !url.port && !url.username && !url.password && !url.hash
+    && url.hostname === ARCHIVE_WMS_HOST && url.pathname === ARCHIVE_WMS_PATH
+    && params.get("service")?.toUpperCase() === "WMS"
+    && params.get("request")?.toUpperCase() === "GETMAP"
+    && params.get("layers") === "Raster";
+}
+
 export function aggregateRequests(requests = []) {
   const statuses = [...new Set(requests.map((request) => request.status)
     .filter((status) => Number.isFinite(status)))].sort((a, b) => a - b);
   const canceled = requests.filter((request) => request.canceled);
   const empty = requests.filter((request) => !request.canceled
     && request.status === 200 && isImageMime(request.mimeType)
-    && Number.isFinite(request.encodedDataLength)
-    && request.encodedDataLength < EMPTY_TILE_BYTE_THRESHOLD);
+    && responsePayloadBytes(request) !== null
+    && responsePayloadBytes(request) < EMPTY_TILE_BYTE_THRESHOLD);
   const loaded = requests.filter((request) => !request.canceled && !empty.includes(request)
     && request.status >= 200 && request.status < 300 && isImageMime(request.mimeType));
   const failed = requests.filter((request) => !request.canceled && !empty.includes(request) && (
     request.errorText || !Number.isFinite(request.status) || request.status < 200
-    || request.status >= 400 || !isImageMime(request.mimeType)
+    || request.status >= 300 || !isImageMime(request.mimeType)
   ));
   const coordinatesFor = (items) => [...new Set(items.map((request) => tileCoordinateKey(request.url)).filter(Boolean))].sort();
   return {
@@ -116,6 +190,7 @@ export function aggregateRequests(requests = []) {
     canceled: canceled.length,
     statuses,
     examples: failed.slice(0, 3).map((request) => request.url),
+    loadedCoordinates: coordinatesFor(loaded),
     emptyCoordinates: coordinatesFor(empty),
     failedCoordinates: coordinatesFor(failed),
   };
@@ -144,6 +219,106 @@ export function compareProblemCoordinateSets(runs = []) {
   const first = JSON.stringify(sets[0] ?? []);
   const same = sets.every((set) => JSON.stringify(set) === first);
   return { same, status: same ? "te same" : "różne", sets };
+}
+
+export function summarizeArchiveStability(runs = []) {
+  const emptySets = runs.map((run) => new Set(run.aggregate?.emptyCoordinates ?? []));
+  const loadedSets = runs.map((run) => new Set(run.aggregate?.loadedCoordinates ?? []));
+  const emptyUnion = new Set(emptySets.flatMap((set) => [...set]));
+  const emptyIntersection = [...emptyUnion].filter((coordinate) => emptySets.length > 0
+    && emptySets.every((set) => set.has(coordinate))).sort();
+  const variableCoordinates = [...emptyUnion].filter((coordinate) =>
+    emptySets.some((set) => set.has(coordinate)) && loadedSets.some((set) => set.has(coordinate)))
+    .sort();
+  const emptyCountSum = emptySets.reduce((sum, set) => sum + set.size, 0);
+  return {
+    emptySets: emptySets.map((set) => [...set].sort()),
+    emptyIntersection,
+    emptyUnion: [...emptyUnion].sort(),
+    variableCoordinates,
+    variableCount: variableCoordinates.length,
+    emptyCountSum,
+    variableRatio: emptyCountSum ? variableCoordinates.length / emptyCountSum : null,
+    problemConsistency: compareProblemCoordinateSets(runs),
+  };
+}
+
+export function selectRepeatableArchiveRequests(requests = [], maxTiles = MAX_ARCHIVE_REPEAT_TILES) {
+  const limit = Math.max(0, Math.min(MAX_ARCHIVE_REPEAT_TILES, Number.isInteger(maxTiles) ? maxTiles : 0));
+  const seen = new Set();
+  const selected = [];
+  for (const request of requests) {
+    if (selected.length >= limit) break;
+    const payloadBytes = responsePayloadBytes(request);
+    if (!isArchiveGetMapUrl(request.url) || request.method && request.method !== "GET"
+        || request.canceled || request.errorText || request.status !== 200 || !isImageMime(request.mimeType)
+        || payloadBytes === null || payloadBytes >= EMPTY_TILE_BYTE_THRESHOLD) continue;
+    const key = new URL(request.url).href;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    selected.push({ url: key, coordinate: tileCoordinateKey(key), payloadBytes,
+      encodedDataLength: request.encodedDataLength, encodedBodyLength: request.encodedBodyLength ?? null });
+  }
+  return selected;
+}
+
+export function isAllowedArchiveRepeatRequest(rawUrl, method, originalUrls = []) {
+  let url;
+  try { url = new URL(rawUrl); } catch { return false; }
+  if (String(method ?? "").toUpperCase() !== "GET" || !isArchiveGetMapUrl(url)) return false;
+  const originals = new Set();
+  for (const original of originalUrls) {
+    try { originals.add(new URL(original).href); } catch {}
+  }
+  return originals.has(url.href) && isAllowedBrowserRequest(url.href, "GET");
+}
+
+export function summarizeArchiveRetry(selectedTiles = [], retryRequests = []) {
+  const perTile = selectedTiles.map((tile) => {
+    const requests = retryRequests.filter((request) => {
+      try { return new URL(request.url).href === new URL(tile.url).href; } catch { return false; }
+    });
+    const filled = requests.some((request) => !request.canceled && !request.errorText
+      && request.status >= 200 && request.status < 300 && isImageMime(request.mimeType)
+      && responsePayloadBytes(request) !== null
+      && responsePayloadBytes(request) >= EMPTY_TILE_BYTE_THRESHOLD);
+    const allResponsesClassified = requests.length >= 2 && requests.slice(0, 2).every((request) =>
+      request.canceled || request.errorText || Number.isFinite(request.status));
+    const remainedEmpty = requests.length >= 2 && requests.slice(0, 2).every((request) =>
+      !request.canceled && !request.errorText && request.status === 200 && isImageMime(request.mimeType)
+      && responsePayloadBytes(request) !== null
+      && responsePayloadBytes(request) < EMPTY_TILE_BYTE_THRESHOLD);
+    return {
+      coordinate: tile.coordinate,
+      initialPayloadBytes: tile.payloadBytes ?? null,
+      retryCount: requests.length,
+      filled,
+      remainedEmpty,
+      allResponsesClassified,
+    };
+  });
+  const filledTiles = perTile.filter((tile) => tile.filled).length;
+  let conclusion = "niejednoznaczne";
+  let reason = "Nie zarejestrowano wystarczających odpowiedzi dla jednoznacznego wniosku.";
+  if (!perTile.length) {
+    reason = "Pierwsze wczytanie nie zawierało pustych kafelków do ponowienia.";
+  } else if (filledTiles === perTile.length) {
+    conclusion = "pomaga";
+    reason = `${filledTiles}/${perTile.length} ponowionych pustych kafelków otrzymało niepustą odpowiedź.`;
+  } else if (filledTiles === 0 && perTile.every((tile) => tile.remainedEmpty)) {
+    conclusion = "nie pomaga";
+    reason = `0/${perTile.length} kafelków wypełniło się; wszystkie ${perTile.length * 2} ponowne odpowiedzi pozostały puste.`;
+  } else {
+    reason = `${filledTiles}/${perTile.length} kafelków wypełniło się; część wyników jest mieszana lub niekompletna.`;
+  }
+  return {
+    selectedTiles: perTile.length,
+    retryRequests: retryRequests.length,
+    filledTiles,
+    conclusion,
+    reason,
+    perTile,
+  };
 }
 
 export function chooseBrowserPath(options = {}) {
@@ -539,6 +714,7 @@ async function runBrowserSmoke() {
   const consoleErrors = [];
   const pageExceptions = [];
   const blockedRequests = [];
+  let archiveRepeatAllowlist = [];
   let currentScenario = "";
 
   try {
@@ -635,6 +811,12 @@ async function runBrowserSmoke() {
             previous.mimeType = params.redirectResponse.mimeType ?? previous.mimeType;
             previous.elapsedMs = Math.max(0, Math.round((params.timestamp - previous.startedAt) * 1000));
             previous.redirected = true;
+            if (previous.responseHeaders) {
+              previous.responseHeaders = selectRelevantResponseHeaders(
+                previous.responseHeaders,
+                params.redirectResponse.headers,
+              );
+            }
           }
         }
         const record = {
@@ -652,7 +834,9 @@ async function runBrowserSmoke() {
           elapsedMs: null,
           bodyHint: "",
           encodedDataLength: null,
+          encodedBodyLength: null,
         };
+        if (isArchiveGetMapUrl(parsed)) record.responseHeaders = {};
         requestsById.set(params.requestId, record);
         externalRequests.push(record);
         if (isTile) tileRequests.push(record);
@@ -664,6 +848,27 @@ async function runBrowserSmoke() {
         record.mimeType = params.response?.mimeType ?? "";
         record.resourceType = params.type ?? record.resourceType;
         record.responseUrl = params.response?.url ?? record.url;
+        if (record.responseHeaders) {
+          record.responseHeaders = selectRelevantResponseHeaders(record.responseHeaders, params.response?.headers);
+        }
+      }
+      if (event === "Network.responseReceivedExtraInfo") {
+        const headers = selectRelevantResponseHeaders(params.headers);
+        const record = requestsById.get(params.requestId);
+        if (record?.responseHeaders) {
+          record.responseHeaders = selectRelevantResponseHeaders(record.responseHeaders, headers);
+        }
+      }
+      if (event === "Network.dataReceived") {
+        const record = requestsById.get(params.requestId);
+        if (record?.responseHeaders) {
+          const encodedChunkLength = Number.isFinite(params.encodedDataLength)
+            ? params.encodedDataLength
+            : null;
+          if (encodedChunkLength !== null) {
+            record.encodedBodyLength = (record.encodedBodyLength ?? 0) + encodedChunkLength;
+          }
+        }
       }
       if (event === "Network.loadingFailed") {
         const failure = parseCdpLoadingFailed(params);
@@ -694,7 +899,10 @@ async function runBrowserSmoke() {
       }
       if (event === "Fetch.requestPaused") {
         const request = params.request ?? {};
-        const allowed = isAllowedBrowserRequest(request.url, request.method, { appOrigins, healthRoutes });
+        const isArchiveRepeatScenario = currentScenario.startsWith("stability-2025-repeat-attempt-");
+        const allowed = isArchiveRepeatScenario
+          ? isAllowedArchiveRepeatRequest(request.url, request.method, archiveRepeatAllowlist)
+          : isAllowedBrowserRequest(request.url, request.method, { appOrigins, healthRoutes });
         if (!allowed) {
           let address = request.url;
           try {
@@ -777,16 +985,17 @@ async function runBrowserSmoke() {
     }
 
     async function chooseOption(selector, label) {
-      const expression = "(() => { const select = document.querySelector(" + JSON.stringify(selector) + ");"
-        + " if (!select) return false; const normalize = (value) => String(value || '').replace(/[Łł]/g, 'l').normalize('NFD')"
-        + ".replace(/[\\u0300-\\u036f]/g, '').toLowerCase().trim().replace(/\\s+/g, ' ');"
-        + " const target = normalize(" + JSON.stringify(label) + ");"
-        + " const option = [...select.options].find((item) => normalize(item.textContent) === target || item.value === "
-        + JSON.stringify(label) + "); if (!option) return false; select.value = option.value;"
+      const optionsExpression = "(() => { const select = document.querySelector(" + JSON.stringify(selector) + ");"
+        + " return select ? [...select.options].filter((item) => item.value).map((item) => ({"
+        + " label: item.textContent || '', value: item.value })) : null; })()";
+      const options = await evaluate(optionsExpression);
+      const match = matchSearchOption(options, label);
+      if (!match.option) throw new Error(formatSearchOptionError(match));
+      const selectExpression = "(() => { const select = document.querySelector(" + JSON.stringify(selector) + ");"
+        + " if (!select) return false; const option = [...select.options].find((item) => item.value === "
+        + JSON.stringify(match.option.value) + "); if (!option) return false; select.value = option.value;"
         + " select.dispatchEvent(new Event('change', { bubbles: true })); return true; })()";
-      if (!await evaluate(expression)) {
-        throw new Error("Nie znaleziono pozycji listy dla podanego scenariusza wyszukiwania.");
-      }
+      if (!await evaluate(selectExpression)) throw new Error(formatSearchOptionError(match));
     }
 
     async function waitForSearchResult(deadline) {
@@ -881,6 +1090,7 @@ async function runBrowserSmoke() {
 
     async function runArchiveStability(origin) {
       const runs = [];
+      let repeat = null;
       for (let index = 1; index <= 3; index += 1) {
         const name = "stability-2025-run-" + index;
         currentScenario = name;
@@ -892,12 +1102,83 @@ async function runBrowserSmoke() {
         await selectBase("archive");
         await setYear(2025);
         runs.push(await captureScenario(name));
+        if (index === 1) repeat = await runArchiveEmptyRetry(runs[0]);
       }
-      return { runs, consistency: compareProblemCoordinateSets(runs) };
+      return {
+        runs,
+        repeat,
+        consistency: compareProblemCoordinateSets(runs),
+        detail: summarizeArchiveStability(runs),
+      };
     }
 
     function tileRequestsFor(name) {
       return tileRequests.filter((request) => request.scenario === name);
+    }
+
+    async function runArchiveEmptyRetry(seedRun) {
+      const name = "stability-2025-repeat";
+      const selected = selectRepeatableArchiveRequests(seedRun.tileRequests);
+      if (!selected.length) {
+        return {
+          name,
+          skipped: true,
+          ...summarizeArchiveRetry([], []),
+          tileRequests: [],
+          aggregate: aggregateRequests([]),
+          screenshot: null,
+        };
+      }
+
+      const allowedOriginalUrls = selected.map((tile) => tile.url);
+      if (!allowedOriginalUrls.every((url) => isAllowedArchiveRepeatRequest(url, "GET", allowedOriginalUrls))) {
+        throw new Error("Powtórne pobranie wskazało adres spoza allowlisty ortofotomapy archiwalnej.");
+      }
+      archiveRepeatAllowlist = allowedOriginalUrls;
+      const startedAt = Date.now();
+      const deadline = startedAt + SCENARIO_TIMEOUT_MS;
+      const urlsJson = JSON.stringify(allowedOriginalUrls);
+      const launchImages = async (attempt) => {
+        currentScenario = name + "-attempt-" + attempt;
+        const expression = "(() => { const urls = " + urlsJson + ";"
+          + " window.__denemArchiveSmokeImages = window.__denemArchiveSmokeImages || [];"
+          + " for (const url of urls) { const image = new Image();"
+          + " window.__denemArchiveSmokeImages.push(image); image.src = url; } return urls.length; })()";
+        const count = await evaluate(expression, 5000);
+        if (count !== allowedOriginalUrls.length) throw new Error("Nie udało się uruchomić wszystkich powtórnych GET-ów archiwalnych.");
+      };
+
+      await sleep(ARCHIVE_REPEAT_DELAYS_MS[0]);
+      await launchImages(1);
+      await sleep(ARCHIVE_REPEAT_DELAYS_MS[1]);
+      await launchImages(2);
+
+      const scenarioNames = [name + "-attempt-1", name + "-attempt-2"];
+      const expectedRequests = selected.length * 2;
+      while (Date.now() < deadline) {
+        const requests = tileRequests.filter((request) => scenarioNames.includes(request.scenario));
+        const completed = requests.filter((request) => request.status !== null || request.errorText || request.canceled);
+        if (requests.length >= expectedRequests && completed.length >= expectedRequests) break;
+        await sleep(150);
+      }
+      const requests = tileRequests.filter((request) => scenarioNames.includes(request.scenario));
+      const screenshot = await pageCdp.command("Page.captureScreenshot", {
+        format: "png",
+        captureBeyondViewport: true,
+      });
+      const screenshotPath = join(resultDir, name + ".png");
+      await writeFile(screenshotPath, Buffer.from(screenshot.data, "base64"));
+      return {
+        name,
+        skipped: false,
+        delaysMs: [...ARCHIVE_REPEAT_DELAYS_MS],
+        selectedCoordinates: selected.map((tile) => tile.coordinate),
+        ...summarizeArchiveRetry(selected, requests),
+        tileRequests: requests,
+        aggregate: aggregateRequests(requests),
+        screenshot: screenshotPath,
+        elapsedMs: Date.now() - startedAt,
+      };
     }
 
     async function waitForTiles(scenario) {
@@ -1005,7 +1286,8 @@ async function runBrowserSmoke() {
       ...stability.runs,
       ...(parcelSearch ? [parcelSearch] : []),
     ];
-    const retryScenarios = [beforeRun?.retryScenario, afterRun.retryScenario].filter(Boolean);
+    const retryScenarios = [beforeRun?.retryScenario, afterRun.retryScenario,
+      stability.repeat.skipped ? null : stability.repeat].filter(Boolean);
     const statePreserved = (!beforeRun || beforeRun.statePreserved) && afterRun.statePreserved;
 
     const report = {
@@ -1023,7 +1305,11 @@ async function runBrowserSmoke() {
       emptyTileByteThreshold: EMPTY_TILE_BYTE_THRESHOLD,
       scenarios,
       retryScenarios,
-      archive2025Stability: stability.consistency,
+      archive2025Stability: {
+        ...stability.detail,
+        consistency: stability.consistency,
+      },
+      archive2025EmptyTileRetry: stability.repeat,
       parcelSearch,
       externalRequests,
       statePreserved,
@@ -1052,6 +1338,19 @@ async function runBrowserSmoke() {
       );
     }
     lines.push("Zgodność zbiorów pustych/błędnych dla trzech odświeżeń 2025: " + stability.consistency.status);
+    lines.push("Stabilność 2025: puste kafelki per przebieg "
+      + stability.detail.emptySets.map((set, index) => `${index + 1}: ${set.length}`).join("; ")
+      + "; przecięcie " + stability.detail.emptyIntersection.length
+      + "; suma unikalnych " + stability.detail.emptyUnion.length
+      + "; zmienne " + stability.detail.variableCount
+      + "; suma pustych wystąpień " + stability.detail.emptyCountSum
+      + "; wskaźnik zmiennych/sumy "
+      + (stability.detail.variableRatio === null ? "brak" : stability.detail.variableRatio.toFixed(3)));
+    lines.push("Ponowne pobranie pustych kafelków: " + stability.repeat.conclusion
+      + " — " + stability.repeat.reason);
+    if (stability.repeat.skipped) {
+      lines.push("Ponowne pobranie pominięte: pierwszy przebieg nie zawierał pustych kafelków.");
+    }
     lines.push("Elementy obrysu w wyszukiwaniu M4c: "
       + (parcelSearch ? parcelSearch.search.outlineElements : "scenariusz pominięty — brak argumentów"));
     if (parcelSearch?.search) {

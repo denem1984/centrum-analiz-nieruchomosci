@@ -1,6 +1,12 @@
 import { contextStore } from "../../context.js";
 import { getDzialkiState, updateDzialkiState } from "./state.js";
-import { createSearchApi, createSearchContext, isValidParcelNumber } from "./search.js";
+import {
+  createSearchApi,
+  createSearchContext,
+  isValidParcelNumber,
+  resolveParcelAdministrativeNames,
+  VOIVODESHIP_NAMES,
+} from "./search.js";
 
 function makeElement(document, tag, text, className) {
   const element = document.createElement(tag);
@@ -21,13 +27,6 @@ function setOptions(select, items, placeholder, selectedValue = "", labelFor = (
   for (const item of items) select.append(option(document, item.code, labelFor(item)));
   select.value = selectedValue;
 }
-
-const VOIVODESHIP_NAMES = Object.freeze({
-  "02": "dolnośląskie", "04": "kujawsko-pomorskie", "06": "lubelskie", "08": "lubuskie",
-  "10": "łódzkie", "12": "małopolskie", "14": "mazowieckie", "16": "opolskie",
-  "18": "podkarpackie", "20": "podlaskie", "22": "pomorskie", "24": "śląskie",
-  "26": "świętokrzyskie", "28": "warmińsko-mazurskie", "30": "wielkopolskie", "32": "zachodniopomorskie",
-});
 
 function reportElement(document, tag, text, className) {
   const node = makeElement(document, tag, text, className);
@@ -67,8 +66,11 @@ function renderParcelReport(report, selection) {
   ];
   const grid = reportElement(body.ownerDocument, "dl", undefined, "dzialki-report-rows");
   for (const [label, value] of rows) {
-    grid.append(reportElement(body.ownerDocument, "dt", label));
-    grid.append(reportElement(body.ownerDocument, "dd", typeof value === "string" && value ? value : "—"));
+    const isIdentifier = label === "Identyfikator działki";
+    grid.append(reportElement(body.ownerDocument, "dt", label,
+      isIdentifier ? "dzialki-report-identifier-label" : ""));
+    grid.append(reportElement(body.ownerDocument, "dd", typeof value === "string" && value ? value : "—",
+      isIdentifier ? "dzialki-report-identifier-value" : ""));
   }
   body.append(grid);
   if (selection.egib?.group) {
@@ -323,15 +325,20 @@ export function mountParcelSearch(container, options = {}) {
       setStatus("Nie znaleziono działki o podanym numerze.");
       return;
     }
+    const names = resolveParcelAdministrativeNames(result, {
+      powiat: selectedCounty,
+      gmina: selectedCommune,
+      region: selectedPrecinct,
+    });
     const selection = {
       parcel: { id: result.id, number: result.number || parcelNumber },
       powiat: selectedCounty,
       gmina: selectedCommune,
       communes: communeItems,
-      region: selectedPrecinct,
-      countyName: result.county || selectedCounty.name,
-      communeName: result.commune || selectedCommune.name,
-      voivodeshipName: result.region || "",
+      countyName: names.countyName,
+      communeName: names.communeName,
+      voivodeshipName: names.voivodeshipName,
+      region: { ...selectedPrecinct, name: names.regionName },
       geometry: result.geometry,
       extent: result.extent,
       egib: null,

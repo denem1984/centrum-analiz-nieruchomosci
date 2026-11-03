@@ -16,6 +16,7 @@ import {
   parseRegionsText,
   parseWktGeometry,
   isValidParcelNumber,
+  resolveParcelAdministrativeNames,
   terc7ToTeryt,
 } from "../app/js/modules/dzialki/search.js";
 import { resetDzialkiState, getDzialkiState, updateDzialkiState } from "../app/js/modules/dzialki/state.js";
@@ -171,6 +172,8 @@ test("kontekst działki wyprowadza kody z identyfikatora jednostki i nazw PRG", 
   assert.equal(context.parcel.id, selection.parcel.id);
   assert.equal(context.parcel.obrebTeryt, undefined);
   assert.deepEqual(context.point, { lat: 52.05, lon: 20.05, crs: "EPSG:4326" });
+  assert.deepEqual(context.powiat, { code: "9988", name: "Fikcyjny powiat" });
+  assert.deepEqual(context.voivodeship, { code: "99", name: "Fikcyjne województwo" });
   assert.equal(validateContext(context).context.source, "dzialki");
 
   context = createSearchContext({ ...selection, gmina: { code: "9988776", name: "Fikcyjna gmina" } });
@@ -197,6 +200,27 @@ test("kontekst działki wyprowadza kody z identyfikatora jednostki i nazw PRG", 
   }
   assert.equal(deriveCommuneFromUnitId("998877_6.0001.12/3", communes), null);
   assert.equal(deriveCommuneFromUnitId("invalid", communes), null);
+});
+
+test("nazwy województwa, powiatu, gminy i obrębu pochodzą z właściwych źródeł", () => {
+  const names = resolveParcelAdministrativeNames({
+    id: "981234_6.0001.12/3",
+    county: "powiat surowy z ULDK",
+    commune: "gmina surowa z ULDK",
+    region: "region surowy z ULDK",
+  }, {
+    powiat: { code: "9812", name: "Testowy powiat z PRG" },
+    gmina: { code: "9812346", name: "Testowa gmina z PRG" },
+    region: { code: "981234_6.0001", name: "Testowy obręb z ULDK" },
+  }, { "98": "Testowe województwo z kodu" });
+
+  assert.deepEqual(names, {
+    voivodeshipName: "Testowe województwo z kodu",
+    countyName: "Testowy powiat z PRG",
+    communeName: "Testowa gmina z PRG",
+    regionName: "Testowy obręb z ULDK",
+  });
+  assert.equal(resolveParcelAdministrativeNames({ county: "powiat surowy" }).countyName, "surowy");
 });
 
 test("API używa tylko GET i pokazuje atrapowy czas oczekiwania zimnego startu", async () => {
