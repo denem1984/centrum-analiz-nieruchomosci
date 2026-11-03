@@ -35,6 +35,16 @@ Do porównania parametrów warstwy archiwalnej przed i po zmianie możesz wskaza
 
 Skrypt używa wyłącznie lokalnego adresu aplikacji, czterech tras zdrowia GET z `app/js/config.js`, kafelków OpenStreetMap, Esri World Imagery oraz żądań WMS GetMap dla warstwy archiwalnej GUGiK. Pozostałe adresy i metody blokuje przed wysłaniem. Scenariusze używają testowego punktu w Pile, zoom 17,6, gdy współrzędne baseline nie zostały podane. Każdy scenariusz czeka maksymalnie 25 sekund. Narzędzie nie jest uruchamiane w CI.
 
+### Eksperyment niezawodności kafelków archiwalnych
+
+Tryb `--experiment-tiles` wykonuje po trzy niezależne wczytania dla K0–K3. Wymaga jawnego limitu żądań do ortofotomapy:
+
+```powershell
+node scripts/browser-smoke.mjs --experiment-tiles --max-ortho-requests 800 --settle-ms 35000
+```
+
+Limit obejmuje każde żądanie WMS GetMap, również automatyczne ponowienia; narzędzie zatrzymuje dalszą wysyłkę po osiągnięciu limitu. Używaj tylko budżetu zatwierdzonego przez właściciela. Każde wczytanie używa punktu testowego w Pile, zoomu 17,6 i stałego widoku 833×620 pikseli, by ograniczyć liczbę kafelków bez zmiany miejsca i skali. Wynik końcowy jest pobierany po wskazanym czasie (domyślnie 35 s od wyboru roku 2025); raport osobno pokazuje obrazy poprawne, puste, błędne, nadal ładujące się, retry wyczerpane/oczekujące i żądania GetMap bez odpowiedzi HTTP. Tabele K0–K3, czasy dojścia do 90%/95%, liczba żądań i zrzuty trafiają do ignorowanego `.local-results/browser-smoke-<czas>/`.
+
 ### Wyszukanie działki w scenariuszu właściciela M4c
 
 Scenariusz wyszukiwania jest opcjonalny i wymaga wartości z przygotowanego przez właściciela przypadku testowego. Wpisz je tylko do polecenia w swoim terminalu; nie dopisuj ich do plików repozytorium ani do dokumentacji. Dla wartości zawierających spacje użyj cudzysłowów:

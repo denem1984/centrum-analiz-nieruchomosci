@@ -5,9 +5,11 @@ import {
   aggregateRequests,
   buildParcelSearchAssertions,
   buildSearchAssertionStateExpression,
+  buildTileExperimentStateExpression,
   buildStateExpression,
   chooseBrowserPath,
   compareProblemCoordinateSets,
+  DEFAULT_TILE_EXPERIMENT_SETTLE_MS,
   EMPTY_TILE_BYTE_THRESHOLD,
   formatSearchOptionError,
   isAllowedArchiveRepeatRequest,
@@ -16,12 +18,18 @@ import {
   normalizeSearchLabel,
   parseSearchArguments,
   parseExpectedAssertionArguments,
+  parseTileExperimentArguments,
   parseCdpLoadingFailed,
   parseCdpMessage,
+  MAX_TILE_EXPERIMENT_ORTHO_REQUESTS,
   selectRelevantResponseHeaders,
   selectRepeatableArchiveRequests,
+  shouldAllowOrthophotoRequest,
   summarizeArchiveRetry,
   summarizeArchiveStability,
+  summarizeTileExperiment,
+  TILE_EXPERIMENT_CONFIGS,
+  TILE_EXPERIMENT_REPEATS,
   tileCoordinateKey,
 } from "./browser-smoke.mjs";
 import {
@@ -63,6 +71,50 @@ test("parsuje zdarzenia CDP i zwraca null dla niepoprawnego JSON", () => {
 test("wyrażenie odczytu stanu kafelków ma poprawną składnię JavaScript", () => {
   assert.doesNotThrow(() => new Script(buildStateExpression()));
   assert.doesNotThrow(() => new Script(buildSearchAssertionStateExpression()));
+  assert.doesNotThrow(() => new Script(buildTileExperimentStateExpression()));
+});
+
+test("tryb eksperymentu wymaga jawnego limitu i waliduje czas ustalenia", () => {
+  assert.equal(parseTileExperimentArguments([]), null);
+  assert.deepEqual(parseTileExperimentArguments([
+    "--experiment-tiles", "--max-ortho-requests", "800",
+  ]), {
+    maxOrthophotoRequests: MAX_TILE_EXPERIMENT_ORTHO_REQUESTS,
+    settleMs: DEFAULT_TILE_EXPERIMENT_SETTLE_MS,
+  });
+  assert.deepEqual(parseTileExperimentArguments([
+    "--experiment-tiles", "--max-ortho-requests=500", "--settle-ms", "35000",
+  ]), { maxOrthophotoRequests: 500, settleMs: 35000 });
+  assert.throws(() => parseTileExperimentArguments(["--experiment-tiles"]), /wymaga/);
+  assert.throws(() => parseTileExperimentArguments(["--experiment-tiles", "--max-ortho-requests", "801"]), /1–800/);
+  assert.throws(() => parseTileExperimentArguments([
+    "--experiment-tiles", "--max-ortho-requests", "400", "--settle-ms", "999",
+  ]), /1000–300000/);
+  assert.equal(shouldAllowOrthophotoRequest(0, 800), true);
+  assert.equal(shouldAllowOrthophotoRequest(799, 800), true);
+  assert.equal(shouldAllowOrthophotoRequest(800, 800), false);
+  assert.equal(shouldAllowOrthophotoRequest(0, 801), false);
+});
+
+test("macierz K0–K3 i agregacja eksperymentu liczą frakcje oraz czasy", () => {
+  assert.deepEqual(TILE_EXPERIMENT_CONFIGS.map(({ id }) => id), ["K0", "K1", "K2", "K3"]);
+  assert.deepEqual(TILE_EXPERIMENT_CONFIGS[0].config, null);
+  assert.deepEqual(TILE_EXPERIMENT_CONFIGS[1].config.delaysMs, [1500, 3000, 6000, 12000, 20000]);
+  assert.equal(TILE_EXPERIMENT_CONFIGS[1].config.maxConcurrent, 3);
+  assert.equal(TILE_EXPERIMENT_CONFIGS[2].config.maxConcurrent, 6);
+  assert.equal(TILE_EXPERIMENT_CONFIGS[3].config.attempts, 8);
+  assert.equal(TILE_EXPERIMENT_CONFIGS[3].config.delaysMs.at(-1), 30000);
+  assert.equal(TILE_EXPERIMENT_REPEATS, 3);
+  const summary = summarizeTileExperiment([
+    { configuration: "K0", finalFraction: 0.5, orthophotoRequests: 1, pendingOrthophotoRequests: 1, timeTo90Ms: 1000, timeTo95Ms: null },
+    { configuration: "K0", finalFraction: 0.75, orthophotoRequests: 2, pendingOrthophotoRequests: 2, timeTo90Ms: null, timeTo95Ms: null },
+    { configuration: "K0", finalFraction: 1, orthophotoRequests: 3, pendingOrthophotoRequests: 0, timeTo90Ms: 3000, timeTo95Ms: 3500 },
+  ])[0];
+  assert.deepEqual(summary.finalFraction, { min: 0.5, median: 0.75, max: 1 });
+  assert.equal(summary.orthophotoRequests, 6);
+  assert.equal(summary.pendingOrthophotoRequests, 3);
+  assert.deepEqual(summary.timeTo90, { reached: 2, total: 3, minMs: 1000, medianMs: 2000, maxMs: 3000 });
+  assert.deepEqual(summary.timeTo95, { reached: 1, total: 3, minMs: 3500, medianMs: 3500, maxMs: 3500 });
 });
 
 test("argumenty oczekiwań są opcjonalną, wymaganą parą i nie są częścią wyniku", () => {

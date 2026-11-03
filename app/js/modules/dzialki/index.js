@@ -1,6 +1,6 @@
 import { getBackendStatus } from "../../health.js";
 import { contextStore } from "../../context.js";
-import { attachTileRetry, TILE_RETRY_CONFIG } from "./tile-retry.js";
+import { attachTileRetry, resolveTileRetryConfig } from "./tile-retry.js";
 import { archiveTimeForYear, createBaseLayers, createMap, BASE_LAYER_OPTIONS } from "./layers-base.js";
 import { loadLeaflet } from "./leaflet-loader.js";
 import { getDzialkiState, updateDzialkiState } from "./state.js";
@@ -230,13 +230,17 @@ export function mountDzialki(container, ctx = {}) {
   const retryStatus = element("p", "Niezaładowane kafelki: 0", "dzialki-tile-status");
   retryStatus.setAttribute("role", "status");
   retryStatus.setAttribute("aria-live", "polite");
+  const exhaustedTileStatus = element("p", "", "dzialki-tile-exhausted-status");
+  exhaustedTileStatus.setAttribute("role", "status");
+  exhaustedTileStatus.setAttribute("aria-live", "polite");
+  exhaustedTileStatus.hidden = true;
   const retryButton = element("button", "Spróbuj ponownie", "dzialki-retry-button");
   retryButton.type = "button";
   retryButton.disabled = true;
   retryButton.addEventListener("click", () => {
     retryController?.retryVisible();
   });
-  controls.append(retryStatus, retryButton);
+  controls.append(retryStatus, exhaustedTileStatus, retryButton);
 
   const futureHeading = element("h3", "Dostępne w kolejnych etapach");
   controls.append(futureHeading);
@@ -292,6 +296,16 @@ export function mountDzialki(container, ctx = {}) {
     retryButton.disabled = count === 0;
   }
 
+  function setTileStats(stats) {
+    if (typeof window !== "undefined") window.__DZIALKI_TILE_STATS__ = stats;
+    const failed = Math.max(0, Number(stats?.finalUnloaded) || 0);
+    exhaustedTileStatus.textContent = failed > 0
+      ? "Usługa GUGiK nie zwróciła obrazu dla " + failed
+        + " kafelków mimo ponowień. Spróbuj ponownie później lub zmień rok."
+      : "";
+    exhaustedTileStatus.hidden = failed === 0;
+  }
+
   function detachRetry() {
     retryController?.cancel();
     retryController = null;
@@ -300,8 +314,9 @@ export function mountDzialki(container, ctx = {}) {
 
   function attachRetry(layer) {
     retryController = attachTileRetry(layer, {
-      ...TILE_RETRY_CONFIG,
+      ...resolveTileRetryConfig(typeof window === "undefined" ? undefined : window.__DZIALKI_TILE_RETRY__),
       onCount: setTileCount,
+      onStats: setTileStats,
       isVisible: (event, target) => retryIsVisible(event, target, map),
     });
   }

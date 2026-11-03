@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createTileRetryController, TILE_RETRY_CONFIG } from "../app/js/modules/dzialki/tile-retry.js";
+import {
+  createTileRetryController,
+  resolveTileRetryConfig,
+  TILE_RETRY_CONFIG,
+  validateTileRetryConfig,
+} from "../app/js/modules/dzialki/tile-retry.js";
 import { FakeTileLayer } from "./helpers/fake-leaflet.mjs";
 
 function createClock() {
@@ -36,6 +41,35 @@ test("polityka ponawiania ma limit dwóch prób, opóźnienia, jitter i limit ws
   assert.deepEqual(TILE_RETRY_CONFIG.delaysMs, [1500, 4000]);
   assert.equal(TILE_RETRY_CONFIG.maxConcurrent, 6);
   assert.ok(TILE_RETRY_CONFIG.jitterMs > 0);
+  assert.strictEqual(resolveTileRetryConfig(), TILE_RETRY_CONFIG);
+  assert.deepEqual(resolveTileRetryConfig({
+    attempts: 2,
+    delaysMs: [1500, 4000],
+    maxConcurrent: 6,
+  }), TILE_RETRY_CONFIG);
+});
+
+test("waliduje zakresy konfiguracji retry i ignoruje niepoprawny override", () => {
+  const valid = { attempts: 8, delaysMs: Array(8).fill(30000), maxConcurrent: 12, jitterMs: 0 };
+  assert.deepEqual(validateTileRetryConfig(valid), valid);
+  assert.deepEqual(validateTileRetryConfig({ attempts: 0, delaysMs: [], maxConcurrent: 1 }), {
+    attempts: 0,
+    delaysMs: [],
+    maxConcurrent: 1,
+    jitterMs: TILE_RETRY_CONFIG.jitterMs,
+  });
+  for (const invalid of [
+    { ...valid, attempts: 9 },
+    { ...valid, attempts: 5 },
+    { ...valid, delaysMs: [199, ...valid.delaysMs.slice(1)] },
+    { ...valid, delaysMs: [30001, ...valid.delaysMs.slice(1)] },
+    { ...valid, maxConcurrent: 0 },
+    { ...valid, maxConcurrent: 13 },
+    { ...valid, jitterMs: -1 },
+  ]) {
+    assert.equal(validateTileRetryConfig(invalid), null);
+    assert.strictEqual(resolveTileRetryConfig(invalid), TILE_RETRY_CONFIG);
+  }
 });
 
 test("retry pobiera ponownie tylko obraz błędnego kafelka", () => {
@@ -59,31 +93,61 @@ test("retry pobiera ponownie tylko obraz błędnego kafelka", () => {
   controller.cancel();
 });
 
+test("pusty obraz 1×1 też ponawia się, a poprawny obraz kończy stan kafelka", () => {
+  const clock = createClock();
+  const layer = new FakeTileLayer("tiles");
+  let retryCount = 0;
+  const controller = createTileRetryController(layer, {
+    setTimeoutImpl: clock.setTimeout,
+    clearTimeoutImpl: clock.clearTimeout,
+    random: () => 0,
+    retryTile: () => { retryCount += 1; },
+  });
+  const coords = { x: 4, y: 7, z: 9 };
+  layer.fire("tileload", { coords, tile: { naturalWidth: 1, naturalHeight: 1 } });
+  assert.equal(controller.getStats().errors, 1);
+  assert.equal(controller.getStats().pending, 1);
+  clock.runNext();
+  assert.equal(retryCount, 1);
+  assert.equal(controller.getStats().retries, 1);
+  layer.fire("tileload", { coords, tile: { naturalWidth: 256, naturalHeight: 256 } });
+  assert.deepEqual(controller.getStats(), { errors: 1, retries: 1, finalUnloaded: 0, pending: 0 });
+  controller.cancel();
+});
+
 test("kafelek otrzymuje dwie próby, licznik błędów i ręczne ponowienie", () => {
   const clock = createClock();
   const layer = new FakeTileLayer("tiles");
   const counts = [];
+  const stats = [];
   const controller = createTileRetryController(layer, {
     setTimeoutImpl: clock.setTimeout,
     clearTimeoutImpl: clock.clearTimeout,
     random: () => 0,
     jitterMs: 200,
     onCount: (count) => counts.push(count),
+    onStats: (value) => stats.push(value),
   });
   layer.fire("tileerror", tile());
+  assert.deepEqual(controller.getStats(), { errors: 1, retries: 0, finalUnloaded: 0, pending: 1 });
   assert.deepEqual([...clock.timers.values()].map((timer) => timer.delay), [1500]);
   clock.runNext();
+  assert.equal(controller.getStats().retries, 1);
   assert.equal(layer.redrawCount, 1);
   layer.fire("tileerror", tile());
   assert.deepEqual([...clock.timers.values()].map((timer) => timer.delay), [4000]);
   clock.runNext();
+  assert.equal(controller.getStats().retries, 2);
   assert.equal(layer.redrawCount, 2);
   layer.fire("tileerror", tile());
   assert.equal(controller.getFailedCount(), 1);
+  assert.deepEqual(controller.getStats(), { errors: 3, retries: 2, finalUnloaded: 1, pending: 0 });
   assert.equal(counts.at(-1), 1);
   assert.equal(controller.retryVisible(), true);
   assert.equal(layer.redrawCount, 3);
   assert.equal(controller.getFailedCount(), 0);
+  assert.equal(controller.getStats().finalUnloaded, 0);
+  assert.ok(stats.length > 0);
   layer.fire("tileload", tile());
   assert.equal(controller.getFailedCount(), 0);
   controller.cancel();
