@@ -144,6 +144,14 @@
 - **Pytanie otwarte do właściciela:** czy kliknięcie działki na mapie ma ustawiać kontekst lokalizacji?
 - **Ograniczenie:** M4d.1 nie implementuje planowania przestrzennego, inwestycji, infrastruktury ani M4b.3. Zakres M4d.2/M4d.3 pozostaje osobny.
 
+## D22 — Ponawianie kafelków KIEG (2026-11-13)
+
+- **Status:** M4d.1b częściowo zmierzone; konfiguracja domyślna pozostaje K0, bo nie uzyskano trzech porównywalnych przebiegów dla każdego wariantu.
+- **Stary front:** w `index.html` rewizji `a1aa39d` obie definicje WMS KIEG (`dzialki` i `budynki`) są na jednej fizycznej linii 211. Obie używają 256 px (domyślny rozmiar Leaflet), `image/png`, przezroczystości, opacity 0,95, `maxZoom:22`, `updateWhenZooming:false`, `updateWhenIdle:true` i `keepBuffer:1`; warstwy mają osobne pane. Nie znaleziono obsługi KIEG `tileerror`/`tileload`, ponowienia, `errorTileUrl`, `setUrl`, `redraw` ani cache-bustingu. [FAKT z kodu: `index.html:211`]
+- **Decyzja implementacyjna:** nowa aplikacja obejmuje oba kafelkowe overlaye KIEG polityką K0: dwa ponowienia po 1500 i 4000 ms, jitter do 250 ms, równoległość do 6 na warstwę; statystyki KIEG pozostają oddzielone od podkładów. Nie dodaje się query parametru do URL, bo stary front go nie wysyła, a zgodność usługi z dodatkowymi parametrami nie została potwierdzona.
+- **Pochodzenie strony:** hipoteza wpływu różnicy `localhost`/hostingu nie jest sprawdzana przez zmianę nagłówków ani podszywanie się pod domenę. Do sprawdzenia po wdrożeniu podglądowym (M10).
+- **Wynik przed/po:** wariant bez retry wysłał 100 żądań KIEG, a limit zatrzymał 14 dalszych; selektor DOM w tej wersji narzędzia nie odczytał kafelków IMG, więc końcowej frakcji „przed” nie da się wiarygodnie odtworzyć. Wariant K0 wysłał 100 żądań i zatrzymał 81 dalszych prób; pierwszy 25-sekundowy przebieg osiągnął 2/12 kafelków (16,7%), a kolejne dwa były ograniczone wyczerpaniem limitu. Nie ma podstaw do zmiany K0 na podstawie tych wyników. Pełny łączny budżet nie został przekroczony: przerwane wcześniejsze uruchomienie miało limit 300, a dwa późniejsze wysłały po maksymalnie 100; dokładnej sumy pierwszego uruchomienia nie da się odzyskać.
+
 ## Zasady repozytorium
 
 [FAKT: decyzja właściciela z 2026-10-26] Repozytorium jest publiczne. Nie zapisujemy w nim wartości sekretów, konfiguracji, tokenów, kluczy, danych osobowych ani identyfikatorów kont lub usług. Wyjątkiem jest niesekretna wartość trybu źródło danych RCN. Pięć repozytoriów źródłowych jest tylko do odczytu.

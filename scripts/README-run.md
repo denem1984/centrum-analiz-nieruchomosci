@@ -72,3 +72,16 @@ Scenariusz sprawdza domyślne warstwy „Numery działek” i „Kontury działe
 5. Porównaj ręcznie z baseline M4d zapisanym przez właściciela. Wklej do odbioru asercje, liczniki, kody HTTP i zrzut; usuń z raportu identyfikatory działek, jeśli wystąpią.
 
 Tryb `--egib-layers` działa niezależnie od scenariuszy wyszukiwania i nie przyjmuje numeru działki ani obrębu jako argumentu. Nie rozszerzaj allowlisty o dalsze hosty, ścieżki, parametry ani metody bez odrębnej zgody właściciela.
+
+### Pomiar niezawodności kafelków KIEG
+
+Właściciel może porównać trzy wczytania bez automatycznego ponawiania z trzema wczytaniami K0. Każde polecenie uruchamia jedną przeglądarkę headless i czeka domyślnie 25 s na każde wczytanie. Narzędzie samo wyłącza cache przeglądarki na czas pomiaru. Uruchamiaj tylko w ramach limitu żądań zatwierdzonego dla danego zadania; każdy argument `--max-kieg-requests` jest twardym limitem dla jednego uruchomienia i nie może przekraczać 500.
+
+```powershell
+node scripts/browser-smoke.mjs --kieg-reliability --kieg-variant before --max-kieg-requests 100
+node scripts/browser-smoke.mjs --kieg-reliability --kieg-variant after --max-kieg-requests 100
+```
+
+`before` wyłącza retry w nowym kodzie przed załadowaniem strony (0 prób ponownych), aby odtworzyć porównanie bez kompensacji. `after` używa bieżącego K0: dwie próby po 1500/4000 ms, równoległość 6. Oba warianty używają widoku testowego w Pile, zoomu 17,6 i trzech niezależnych przeładowań. W podsumowaniu porównaj dla każdego wczytania frakcję załadowanych kafelków, hosty przekierowań, odpowiedzi HTTP, błędy ORB i łączną liczbę żądań. `before` ponadto testuje do sześciu tych samych błędnych URL-i ponownie po 1,5 i 4 s; te diagnostyczne GET-y wchodzą do twardego limitu. Kod i adresy szczegółowe pozostają w ignorowanym `.local-results/browser-smoke-<czas>/report.json`; PNG są obok raportu.
+
+Allowlista ogranicza żądania do tras zdrowia, WFS i dokładnych żądań GetMap KIEG dla warstw `dzialki`/`budynki`, wraz z zatwierdzonymi hostami przekierowań. Skrypt blokuje niedozwolone hosty, ścieżki, query i metody przed wysłaniem. Nie zmieniaj `Origin`/`Referer` i nie dopisuj parametru cache-busting. Wynik diagnostyczny nie jest pomiarem na środowisku wdrożonym.

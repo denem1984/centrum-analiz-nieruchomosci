@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import { Script } from "node:vm";
 import {
   aggregateRequests,
+  buildKiegRetryOverrideSource,
   buildEgibStateExpression,
+  buildKiegReliabilityStateExpression,
   buildParcelSearchAssertions,
   buildSearchAssertionStateExpression,
   buildTileExperimentStateExpression,
@@ -21,6 +23,7 @@ import {
   normalizeSearchLabel,
   parseSearchArguments,
   parseEgibBackendRequestLimit,
+  parseKiegReliabilityArguments,
   parseExpectedAssertionArguments,
   parseTileExperimentArguments,
   parseCdpLoadingFailed,
@@ -31,8 +34,12 @@ import {
   selectRepeatableArchiveRequests,
   shouldAllowOrthophotoRequest,
   shouldAllowEgibBackendRequest,
+  shouldAllowKiegRequest,
   summarizeArchiveRetry,
   summarizeArchiveStability,
+  summarizeKiegHostOutcomes,
+  summarizeKiegRequestDisposition,
+  summarizeKiegReliabilityRuns,
   summarizeTileExperiment,
   TILE_EXPERIMENT_CONFIGS,
   TILE_EXPERIMENT_REPEATS,
@@ -80,6 +87,73 @@ test("wyrażenie odczytu stanu kafelków ma poprawną składnię JavaScript", ()
   assert.doesNotThrow(() => new Script(buildSearchAssertionStateExpression()));
   assert.doesNotThrow(() => new Script(buildTileExperimentStateExpression()));
   assert.doesNotThrow(() => new Script(buildEgibStateExpression()));
+  const kiegExpression = buildKiegReliabilityStateExpression();
+  assert.doesNotThrow(() => new Script(kiegExpression));
+  assert.match(kiegExpression, /\.dzialki-egib-parcels-tile/);
+  assert.match(kiegExpression, /img\.leaflet-tile/);
+});
+
+test("tryb pomiaru KIEG wymaga wariantu i twardego limitu do 500 żądań", () => {
+  assert.equal(parseKiegReliabilityArguments([]), null);
+  assert.deepEqual(parseKiegReliabilityArguments([
+    "--kieg-reliability", "--kieg-variant", "before", "--max-kieg-requests", "240",
+  ]), { variant: "before", maxRequests: 240, settleMs: 25000 });
+  assert.deepEqual(parseKiegReliabilityArguments([
+    "--kieg-reliability", "--kieg-variant=after", "--max-kieg-requests=500", "--kieg-settle-ms=12000",
+  ]), { variant: "after", maxRequests: 500, settleMs: 12000 });
+  assert.throws(() => parseKiegReliabilityArguments(["--kieg-reliability"]), /--kieg-variant/);
+  assert.throws(() => parseKiegReliabilityArguments([
+    "--kieg-reliability", "--kieg-variant", "before", "--max-kieg-requests", "501",
+  ]), /1–500/);
+  assert.throws(() => parseKiegReliabilityArguments([
+    "--kieg-reliability", "--kieg-variant", "after", "--max-kieg-requests", "100", "--kieg-settle-ms", "25001",
+  ]), /1000–25000/);
+  assert.equal(shouldAllowKiegRequest(0, 500), true);
+  assert.equal(shouldAllowKiegRequest(499, 500), true);
+  assert.equal(shouldAllowKiegRequest(500, 500), false);
+  assert.equal(shouldAllowKiegRequest(0, 501), false);
+});
+
+test("wariant przed wyłącza retry przed nawigacją, a wariant po zachowuje K0", () => {
+  assert.equal(buildKiegRetryOverrideSource("before"),
+    "window.__DZIALKI_TILE_RETRY__ = { attempts: 0, delaysMs: [], maxConcurrent: 1, jitterMs: 0 };");
+  assert.equal(buildKiegRetryOverrideSource("after"), null);
+});
+
+test("frakcja kafelków KIEG i agregacja hostów rozróżniają odpowiedzi, ORB i render", () => {
+  assert.deepEqual(summarizeKiegReliabilityRuns([
+    { totalTiles: 10, loadedTiles: 7, kiegRequestCount: 12, orbErrors: 2 },
+    { totalTiles: 10, loadedTiles: 9, kiegRequestCount: 10, orbErrors: 1 },
+    { totalTiles: 10, loadedTiles: 8, kiegRequestCount: 11, orbErrors: 0 },
+  ]), {
+    runCount: 3,
+    finalFraction: { min: 0.7, median: 0.8, max: 0.9 },
+    requests: 33,
+    orbErrors: 3,
+  });
+  assert.deepEqual(summarizeKiegHostOutcomes([
+    { url: "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow?x=1", status: 302, contentType: "text/html", tileRendered: false },
+    { url: "https://integracja01.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow?x=1", status: null, errorText: "net::ERR_BLOCKED_BY_ORB", tileRendered: false },
+    { url: "https://integracja02.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow?x=1", status: 200, contentType: "image/png", tileRendered: true },
+  ]), [
+    { host: "integracja.gugik.gov.pl", requests: 1, http200: 0, redirects302: 1, imageResponses: 0, otherContentTypes: 1, orbErrors: 0, otherErrors: 0, renderedTiles: 0, nonRenderedTiles: 1 },
+    { host: "integracja01.gugik.gov.pl", requests: 1, http200: 0, redirects302: 0, imageResponses: 0, otherContentTypes: 0, orbErrors: 1, otherErrors: 0, renderedTiles: 0, nonRenderedTiles: 1 },
+    { host: "integracja02.gugik.gov.pl", requests: 1, http200: 1, redirects302: 0, imageResponses: 1, otherContentTypes: 0, orbErrors: 0, otherErrors: 0, renderedTiles: 1, nonRenderedTiles: 0 },
+  ]);
+});
+
+test("rozliczenie KIEG oddziela GET-y wysłane od zablokowanych limitem", () => {
+  assert.deepEqual(summarizeKiegRequestDisposition([
+    { requestSent: true, url: "https://integracja02.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow", status: 200, mimeType: "image/png" },
+    { requestSent: false, url: "https://integracja01.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow", status: null },
+    { url: "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow", status: 302 },
+  ]), {
+    sent: 1,
+    blocked: 1,
+    unclassified: 1,
+    hostOutcomes: [{ host: "integracja02.gugik.gov.pl", requests: 1, http200: 1, redirects302: 0,
+      imageResponses: 1, otherContentTypes: 0, orbErrors: 0, otherErrors: 0, renderedTiles: 0, nonRenderedTiles: 0 }],
+  });
 });
 
 test("tryb eksperymentu wymaga jawnego limitu i waliduje czas ustalenia", () => {

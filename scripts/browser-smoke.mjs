@@ -20,6 +20,11 @@ export const TILE_EXPERIMENT_REPEATS = 3;
 export const EMPTY_TILE_BYTE_THRESHOLD = 128;
 export const MAX_ARCHIVE_REPEAT_TILES = 6;
 export const MAX_EGIB_BACKEND_REQUESTS = 400;
+export const DEFAULT_KIEG_RELIABILITY_SETTLE_MS = 25000;
+export const MAX_KIEG_RELIABILITY_REQUESTS = 500;
+export const KIEG_RELIABILITY_REPEATS = 3;
+export const MAX_KIEG_DIAGNOSTIC_RETRY_TILES = 6;
+export const KIEG_DIAGNOSTIC_RETRY_DELAYS_MS = Object.freeze([1500, 4000]);
 export const ARCHIVE_REPEAT_DELAYS_MS = Object.freeze([1500, 4000]);
 const MIN_SETTLE_MS = 6000;
 const ARCHIVE_WMS_HOST = "mapy.geoportal.gov.pl";
@@ -122,6 +127,103 @@ export function parseEgibBackendRequestLimit(argv = []) {
     throw new Error("--max-egib-backend-requests musi być liczbą całkowitą z zakresu 1–400.");
   }
   return limit;
+}
+
+export function parseKiegReliabilityArguments(argv = []) {
+  if (!argv.includes("--kieg-reliability")) return null;
+  const variant = getArg(argv, "--kieg-variant");
+  if (!["before", "after"].includes(variant)) {
+    throw new Error("Tryb KIEG wymaga --kieg-variant before|after.");
+  }
+  const rawLimit = getArg(argv, "--max-kieg-requests");
+  const maxRequests = Number(rawLimit);
+  if (!rawLimit || !Number.isInteger(maxRequests)
+      || maxRequests < 1 || maxRequests > MAX_KIEG_RELIABILITY_REQUESTS) {
+    throw new Error("Tryb KIEG wymaga --max-kieg-requests z liczbą 1–500.");
+  }
+  const rawSettle = getArg(argv, "--kieg-settle-ms");
+  const settleMs = rawSettle ? Number(rawSettle) : DEFAULT_KIEG_RELIABILITY_SETTLE_MS;
+  if (!Number.isInteger(settleMs) || settleMs < 1000 || settleMs > DEFAULT_KIEG_RELIABILITY_SETTLE_MS) {
+    throw new Error("--kieg-settle-ms musi mieścić się w zakresie 1000–25000.");
+  }
+  return { variant, maxRequests, settleMs };
+}
+
+export function shouldAllowKiegRequest(sent, limit) {
+  return Number.isInteger(sent) && Number.isInteger(limit)
+    && sent >= 0 && limit >= 1 && limit <= MAX_KIEG_RELIABILITY_REQUESTS
+    && sent < limit;
+}
+
+export function buildKiegRetryOverrideSource(variant) {
+  if (variant === "before") {
+    return "window.__DZIALKI_TILE_RETRY__ = { attempts: 0, delaysMs: [], maxConcurrent: 1, jitterMs: 0 };";
+  }
+  return null;
+}
+
+export function classifyKiegTile(tile = {}) {
+  if (tile.loaded === true || (tile.complete === true
+      && Number(tile.naturalWidth) > 1 && Number(tile.naturalHeight) > 1)) return "loaded";
+  if (tile.complete === false) return "pending";
+  return "failed";
+}
+
+function medianNumber(values) {
+  const sorted = [...values].sort((left, right) => left - right);
+  if (!sorted.length) return null;
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+export function summarizeKiegReliabilityRuns(runs = []) {
+  const fractions = runs.map((run) => run.totalTiles > 0 ? run.loadedTiles / run.totalTiles : null)
+    .filter(Number.isFinite);
+  return {
+    runCount: runs.length,
+    finalFraction: fractions.length ? {
+      min: Math.min(...fractions),
+      median: medianNumber(fractions),
+      max: Math.max(...fractions),
+    } : { min: null, median: null, max: null },
+    requests: runs.reduce((sum, run) => sum + (Number(run.kiegRequestCount) || 0), 0),
+    orbErrors: runs.reduce((sum, run) => sum + (Number(run.orbErrors) || 0), 0),
+  };
+}
+
+export function summarizeKiegHostOutcomes(requests = []) {
+  const byHost = new Map();
+  for (const request of requests) {
+    let url;
+    try { url = new URL(request.url); } catch { continue; }
+    const row = byHost.get(url.hostname) ?? {
+      host: url.hostname, requests: 0, http200: 0, redirects302: 0,
+      imageResponses: 0, otherContentTypes: 0, orbErrors: 0, otherErrors: 0,
+      renderedTiles: 0, nonRenderedTiles: 0,
+    };
+    row.requests += 1;
+    if (request.status === 200) row.http200 += 1;
+    if (request.status === 302) row.redirects302 += 1;
+    if (/^image\//i.test(request.contentType ?? request.mimeType ?? "")) row.imageResponses += 1;
+    else if (request.status !== null && request.status !== undefined) row.otherContentTypes += 1;
+    if (/ERR_BLOCKED_BY_ORB/i.test(request.errorText ?? "")) row.orbErrors += 1;
+    else if (request.errorText) row.otherErrors += 1;
+    if (request.tileRendered === true) row.renderedTiles += 1;
+    if (request.tileRendered === false) row.nonRenderedTiles += 1;
+    byHost.set(url.hostname, row);
+  }
+  return [...byHost.values()].sort((left, right) => left.host.localeCompare(right.host));
+}
+
+export function summarizeKiegRequestDisposition(requests = []) {
+  const sent = requests.filter((request) => request.requestSent === true);
+  const blocked = requests.filter((request) => request.requestSent === false);
+  return {
+    sent: sent.length,
+    blocked: blocked.length,
+    unclassified: requests.length - sent.length - blocked.length,
+    hostOutcomes: summarizeKiegHostOutcomes(sent),
+  };
 }
 
 export function shouldAllowOrthophotoRequest(sent, limit) {
@@ -648,6 +750,12 @@ export function isDzialkiBackendHostRequest(url) {
   return url instanceof URL && url.hostname === DZIALKI_BACKEND_HOST;
 }
 
+function isKiegWmsHostRequest(url) {
+  return url instanceof URL
+    && [KIEG_WMS_HOST, ...KIEG_WMS_REDIRECT_HOSTS].includes(url.hostname)
+    && url.pathname === KIEG_WMS_PATH;
+}
+
 export function isAllowedSearchServiceRequest(url) {
   if (url.protocol !== "https:" || url.port || url.username || url.password || url.hash) return false;
   const rule = SEARCH_SERVICE_RULES.find((item) => item.host === url.hostname && item.path === url.pathname);
@@ -955,6 +1063,20 @@ export function buildEgibStateExpression() {
   ].join("\n");
 }
 
+export function buildKiegReliabilityStateExpression() {
+  return [
+    "(() => {",
+    "const layer = document.querySelector('.dzialki-egib-parcels-tile');",
+    "const tiles = [...(layer?.querySelectorAll('img.leaflet-tile') || [])].map((image) => ({",
+    "url: image.currentSrc || image.src, complete: image.complete, naturalWidth: image.naturalWidth, naturalHeight: image.naturalHeight,",
+    "loaded: image.complete && image.naturalWidth > 1 && image.naturalHeight > 1,",
+    "}));",
+    "const stats = window.__DZIALKI_KIEG_TILE_STATS__ || {};",
+    "return { tiles, stats, status: document.querySelector('#dzialki-egib-status')?.textContent || '' };",
+    "})()",
+  ].join("\n");
+}
+
 export function buildSearchAssertionStateExpression() {
   return [
     "(() => {",
@@ -982,6 +1104,8 @@ async function runBrowserSmoke() {
   const searchArgs = parseSearchArguments(argv);
   const expectedAssertions = parseExpectedAssertionArguments(argv);
   const tileExperimentArgs = parseTileExperimentArguments(argv);
+  const kiegReliabilityArgs = parseKiegReliabilityArguments(argv);
+  const kiegReliabilityMode = Boolean(kiegReliabilityArgs);
   if (expectedAssertions && !searchArgs) {
     throw new Error("Argumenty --expect-voivodeship i --expect-county wymagają kompletnego scenariusza wyszukiwania działki.");
   }
@@ -992,6 +1116,15 @@ async function runBrowserSmoke() {
   const compareBefore = Boolean(beforeRef);
   if (egibLayersMode && (tileExperimentArgs || searchArgs || expectedAssertions || compareBefore)) {
     throw new Error("--egib-layers działa samodzielnie, bez wyszukiwania ani porównania baseline.");
+  }
+  if (kiegReliabilityMode && (egibLayersMode || tileExperimentArgs || searchArgs || expectedAssertions || compareBefore)) {
+    throw new Error("--kieg-reliability działa samodzielnie i nie łączy się z innymi scenariuszami.");
+  }
+  if (!kiegReliabilityMode && argv.some((value) => value === "--kieg-variant"
+      || value.startsWith("--kieg-variant=") || value === "--max-kieg-requests"
+      || value.startsWith("--max-kieg-requests=") || value === "--kieg-settle-ms"
+      || value.startsWith("--kieg-settle-ms="))) {
+    throw new Error("Argumenty konfiguracji KIEG są dostępne tylko z --kieg-reliability.");
   }
   if (egibRequestLimitProvided && !egibLayersMode) {
     throw new Error("--max-egib-backend-requests jest dostępny tylko z --egib-layers.");
@@ -1051,6 +1184,8 @@ async function runBrowserSmoke() {
   let orthophotoBudgetBlockedCount = 0;
   let egibBackendRequestCount = 0;
   let egibBackendBudgetExceeded = false;
+  let kiegRequestCount = 0;
+  let kiegBudgetExceeded = false;
 
   try {
     if (compareBefore) {
@@ -1084,7 +1219,7 @@ async function runBrowserSmoke() {
       "--remote-debugging-port=" + debugPort,
       "--remote-allow-origins=*",
       "--user-data-dir=" + profile,
-      tileExperimentArgs ? "--window-size=833,620" : "--window-size=1600,1050",
+      tileExperimentArgs || kiegReliabilityMode ? "--window-size=833,620" : "--window-size=1600,1050",
       "about:blank",
     ];
     browser = spawn(selectedBrowser, browserArgs, { stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
@@ -1144,6 +1279,7 @@ async function runBrowserSmoke() {
           if (previous) {
             previous.status = params.redirectResponse.status;
             previous.mimeType = params.redirectResponse.mimeType ?? previous.mimeType;
+            previous.redirectTargetHost = parsed.hostname;
             previous.elapsedMs = Math.max(0, Math.round((params.timestamp - previous.startedAt) * 1000));
             previous.redirected = true;
             if (previous.responseHeaders) {
@@ -1171,7 +1307,7 @@ async function runBrowserSmoke() {
           encodedDataLength: null,
           encodedBodyLength: null,
         };
-        if (isArchiveGetMapUrl(parsed)) record.responseHeaders = {};
+        if (isArchiveGetMapUrl(parsed) || isKiegWmsHostRequest(parsed)) record.responseHeaders = {};
         requestsById.set(params.requestId, record);
         externalRequests.push(record);
         if (isTile) tileRequests.push(record);
@@ -1183,6 +1319,8 @@ async function runBrowserSmoke() {
         record.mimeType = params.response?.mimeType ?? "";
         record.resourceType = params.type ?? record.resourceType;
         record.responseUrl = params.response?.url ?? record.url;
+        record.fromDiskCache = params.response?.fromDiskCache === true;
+        record.fromServiceWorker = params.response?.fromServiceWorker === true;
         if (record.responseHeaders) {
           record.responseHeaders = selectRelevantResponseHeaders(record.responseHeaders, params.response?.headers);
         }
@@ -1251,6 +1389,26 @@ async function runBrowserSmoke() {
             egibBackendRequestCount += 1;
           }
         }
+        if (allowed && kiegReliabilityMode) {
+          let parsedKieg;
+          try { parsedKieg = new URL(request.url); } catch {}
+          if (parsedKieg && isKiegWmsHostRequest(parsedKieg)) {
+            if (!shouldAllowKiegRequest(kiegRequestCount, kiegReliabilityArgs.maxRequests)) {
+              allowed = false;
+              kiegBudgetExceeded = true;
+            } else {
+              kiegRequestCount += 1;
+            }
+          }
+        }
+        if (kiegReliabilityMode && params.networkId) {
+          try {
+            if (isKiegWmsHostRequest(new URL(request.url))) {
+              const networkRecord = requestsById.get(params.networkId);
+              if (networkRecord) networkRecord.requestAllowedBySmoke = allowed;
+            }
+          } catch {}
+        }
         if (!allowed) {
           let address = request.url;
           try {
@@ -1294,7 +1452,11 @@ async function runBrowserSmoke() {
     await pageCdp.command("Fetch.enable", {
       patterns: [{ urlPattern: "*", requestStage: "Request" }],
     });
-    if (tileExperimentArgs) {
+    const kiegRetryOverrideSource = buildKiegRetryOverrideSource(kiegReliabilityArgs?.variant);
+    if (kiegRetryOverrideSource) {
+      await pageCdp.command("Page.addScriptToEvaluateOnNewDocument", { source: kiegRetryOverrideSource });
+    }
+    if (tileExperimentArgs || kiegReliabilityMode) {
       await pageCdp.command("Emulation.setDeviceMetricsOverride", {
         width: 833,
         height: 620,
@@ -1563,6 +1725,156 @@ async function runBrowserSmoke() {
         consoleErrorCount: scenarioErrors.length,
         screenshot: screenshotPath,
         passed: assertions.every((assertion) => assertion.pass),
+      };
+    }
+
+    async function runKiegReliability(origin) {
+      const modeStartCount = kiegRequestCount;
+      const runs = [];
+      const failedUrls = [];
+      for (let index = 1; index <= KIEG_RELIABILITY_REPEATS; index += 1) {
+        const name = "kieg-" + kiegReliabilityArgs.variant + "-run-" + index;
+        currentScenario = name;
+        await pageCdp.command("Page.navigate", {
+          url: origin + "/?browserSmoke=" + name + "#/dzialki?ctx=" + contextEncoded,
+        });
+        await waitForMap(origin);
+        await setZoomForTest();
+        await sleep(250);
+        const startedAt = Date.now();
+        await sleep(kiegReliabilityArgs.settleMs);
+        const state = await evaluate(buildKiegReliabilityStateExpression());
+        const tiles = Array.isArray(state.tiles) ? state.tiles : [];
+        const loadedTiles = tiles.filter((tile) => classifyKiegTile(tile) === "loaded").length;
+        const scenarioRequests = externalRequests.filter((request) => request.scenario === name
+          && (() => { try { return isKiegWmsHostRequest(new URL(request.url)); } catch { return false; } })());
+        const tileByQuery = new Map();
+        for (const tile of tiles) {
+          try {
+            const url = new URL(tile.url);
+            tileByQuery.set(url.pathname + url.search, classifyKiegTile(tile) === "loaded");
+          } catch {}
+        }
+        const requestDetails = scenarioRequests.map((request) => {
+          let key = "";
+          try { const url = new URL(request.url); key = url.pathname + url.search; } catch {}
+          const contentType = request.responseHeaders?.["content-type"] ?? "";
+          return {
+            url: request.url,
+            host: request.host,
+            redirectTargetHost: request.redirectTargetHost ?? null,
+            status: request.status,
+            mimeType: request.mimeType,
+            contentType,
+            contentLength: request.responseHeaders?.["content-length"] ?? null,
+            cacheControl: request.responseHeaders?.["cache-control"] ?? null,
+            resourceType: request.resourceType,
+            elapsedMs: request.elapsedMs,
+            errorText: request.errorText,
+            fromDiskCache: request.fromDiskCache === true,
+            requestSent: request.requestAllowedBySmoke === true,
+            budgetBlocked: request.requestAllowedBySmoke === false,
+            tileRendered: tileByQuery.has(key) ? tileByQuery.get(key) : null,
+          };
+        });
+        const orbErrors = requestDetails.filter((request) => /ERR_BLOCKED_BY_ORB/i.test(request.errorText)).length;
+        const screenshot = await pageCdp.command("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
+        const screenshotPath = join(resultDir, name + ".png");
+        await writeFile(screenshotPath, Buffer.from(screenshot.data, "base64"));
+        runs.push({
+          name,
+          durationMs: Date.now() - startedAt,
+          settleMs: kiegReliabilityArgs.settleMs,
+          totalTiles: tiles.length,
+          loadedTiles,
+          failedTiles: tiles.filter((tile) => classifyKiegTile(tile) === "failed").length,
+          pendingTiles: tiles.filter((tile) => classifyKiegTile(tile) === "pending").length,
+          finalFraction: tiles.length ? loadedTiles / tiles.length : null,
+          stats: state.stats,
+          kiegRequestCount: requestDetails.length,
+          orbErrors,
+          requests: requestDetails,
+          hostOutcomes: summarizeKiegHostOutcomes(requestDetails),
+          screenshot: screenshotPath,
+        });
+        if (kiegReliabilityArgs.variant === "before") {
+          for (const tile of tiles) {
+            if (classifyKiegTile(tile) === "failed" && tile.url && !failedUrls.includes(tile.url)) failedUrls.push(tile.url);
+          }
+        }
+      }
+
+      const diagnosticRetries = [];
+      if (kiegReliabilityArgs.variant === "before" && failedUrls.length) {
+        const selected = failedUrls.slice(0, MAX_KIEG_DIAGNOSTIC_RETRY_TILES);
+        const retryStart = Date.now();
+        for (let index = 0; index < KIEG_DIAGNOSTIC_RETRY_DELAYS_MS.length; index += 1) {
+          const delayMs = KIEG_DIAGNOSTIC_RETRY_DELAYS_MS[index];
+          await sleep(Math.max(0, retryStart + delayMs - Date.now()));
+          const name = "kieg-before-diagnostic-" + delayMs + "ms";
+          currentScenario = name;
+          const expression = "Promise.all(" + JSON.stringify(selected) + ".map((url) => new Promise((resolve) => {"
+            + "const image = new Image(); const started = performance.now(); let settled = false;"
+            + "const finish = (result) => { if (settled) return; settled = true; clearTimeout(timeout); resolve({ url, delayMs: " + delayMs
+            + ", result, width: image.naturalWidth, height: image.naturalHeight, elapsedMs: Math.round(performance.now() - started) }); };"
+            + "const timeout = setTimeout(() => finish('timeout'), 12000); image.onload = () => finish('loaded'); image.onerror = () => finish('error'); image.src = url;"
+            + "})))";
+          diagnosticRetries.push(...(await evaluate(expression, 16000)));
+        }
+      }
+      const diagnosticRequests = externalRequests.filter((request) => request.scenario.startsWith("kieg-before-diagnostic-"));
+      for (const run of runs) {
+        const scenarioRequests = externalRequests.filter((request) => request.scenario === run.name);
+        const kiegScenarioRequests = scenarioRequests.filter((request) => {
+          try { return isKiegWmsHostRequest(new URL(request.url)); } catch { return false; }
+        }).map((request) => ({
+          requestSent: request.requestAllowedBySmoke === true,
+          url: request.url,
+          status: request.status,
+          mimeType: request.mimeType,
+          contentType: request.responseHeaders?.["content-type"] ?? "",
+          errorText: request.errorText,
+        }));
+        const disposition = summarizeKiegRequestDisposition(kiegScenarioRequests);
+        run.kiegRequestCount = disposition.sent;
+        run.budgetBlockedRequests = disposition.blocked;
+        run.unclassifiedRequests = disposition.unclassified;
+      }
+      const assertionPass = kiegReliabilityArgs.variant === "after"
+        ? runs.length === KIEG_RELIABILITY_REPEATS && runs.every((run) => run.finalFraction !== null && run.finalFraction >= 0.9)
+        : null;
+      return {
+        variant: kiegReliabilityArgs.variant,
+        retryPolicy: kiegReliabilityArgs.variant === "before" ? "retry wyłączony (0 prób ponownych)" : "K0: 2 próby, 1500/4000 ms, równoległość 6",
+        repeats: KIEG_RELIABILITY_REPEATS,
+        settleMs: kiegReliabilityArgs.settleMs,
+        maxRequests: kiegReliabilityArgs.maxRequests,
+        requestsSent: kiegRequestCount - modeStartCount,
+        budgetExceeded: kiegBudgetExceeded,
+        cacheDisabled: true,
+        runs,
+        summary: summarizeKiegReliabilityRuns(runs),
+        assertionPass,
+        hostOutcomes: summarizeKiegHostOutcomes(runs.flatMap((run) => run.requests)
+          .filter((request) => request.requestSent === true)),
+        failedUrlsConsideredForRepeat: Math.min(failedUrls.length, MAX_KIEG_DIAGNOSTIC_RETRY_TILES),
+        diagnosticRetryDelaysMs: kiegReliabilityArgs.variant === "before" ? KIEG_DIAGNOSTIC_RETRY_DELAYS_MS : [],
+        diagnosticRetries,
+        diagnosticRequests: diagnosticRequests.map((request) => ({
+          url: request.url,
+          host: request.host,
+          redirectTargetHost: request.redirectTargetHost ?? null,
+          status: request.status,
+          mimeType: request.mimeType,
+          contentType: request.responseHeaders?.["content-type"] ?? "",
+          contentLength: request.responseHeaders?.["content-length"] ?? null,
+          cacheControl: request.responseHeaders?.["cache-control"] ?? null,
+          elapsedMs: request.elapsedMs,
+          errorText: request.errorText,
+          fromDiskCache: request.fromDiskCache === true,
+          requestSent: request.requestAllowedBySmoke === true,
+          budgetBlocked: request.requestAllowedBySmoke === false,
+        })),
       };
     }
 
@@ -1873,19 +2185,21 @@ async function runBrowserSmoke() {
 
     const egibScenario = egibLayersMode ? await runEgibLayersScenario(appOrigin) : null;
     const tileExperiment = !egibLayersMode && tileExperimentArgs ? await runTileExperiment(appOrigin) : null;
-    const beforeRun = !egibLayersMode && !tileExperiment && baselineOrigin ? await runScenarios("before", baselineOrigin) : null;
-    const afterRun = !egibLayersMode && !tileExperiment ? await runScenarios("after", appOrigin) : null;
-    const stability = !egibLayersMode && !tileExperiment ? await runArchiveStability(appOrigin) : null;
-    const parcelSearch = !egibLayersMode && !tileExperiment && searchArgs ? await runParcelSearchScenario(appOrigin) : null;
-    const scenarios = egibScenario ? [egibScenario] : tileExperiment ? tileExperiment.runs : [
+    const kiegReliability = kiegReliabilityMode ? await runKiegReliability(appOrigin) : null;
+    const standardScenarioMode = !egibLayersMode && !tileExperiment && !kiegReliabilityMode;
+    const beforeRun = standardScenarioMode && baselineOrigin ? await runScenarios("before", baselineOrigin) : null;
+    const afterRun = standardScenarioMode ? await runScenarios("after", appOrigin) : null;
+    const stability = standardScenarioMode ? await runArchiveStability(appOrigin) : null;
+    const parcelSearch = standardScenarioMode && searchArgs ? await runParcelSearchScenario(appOrigin) : null;
+    const scenarios = egibScenario ? [egibScenario] : tileExperiment ? tileExperiment.runs : kiegReliability ? kiegReliability.runs : [
       ...(beforeRun?.scenarios ?? []),
       ...afterRun.scenarios,
       ...stability.runs,
       ...(parcelSearch ? [parcelSearch] : []),
     ];
-    const retryScenarios = egibLayersMode || tileExperiment ? [] : [beforeRun?.retryScenario, afterRun.retryScenario,
+    const retryScenarios = egibLayersMode || tileExperiment || kiegReliabilityMode ? [] : [beforeRun?.retryScenario, afterRun.retryScenario,
       stability.repeat.skipped ? null : stability.repeat].filter(Boolean);
-    const statePreserved = egibLayersMode || tileExperiment
+    const statePreserved = egibLayersMode || tileExperiment || kiegReliabilityMode
       ? null
       : (!beforeRun || beforeRun.statePreserved) && afterRun.statePreserved;
 
@@ -1911,6 +2225,9 @@ async function runBrowserSmoke() {
       archive2025EmptyTileRetry: stability?.repeat ?? null,
       parcelSearch,
       egibScenario,
+      kiegReliability,
+      kiegRequestCount,
+      kiegBudgetExceeded,
       egibBackendRequestCount,
       egibBackendRequestLimit,
       egibBackendBudgetExceeded,
@@ -1933,7 +2250,10 @@ async function runBrowserSmoke() {
     runReport = report;
     await writeFile(join(resultDir, "report.json"), JSON.stringify(report, null, 2), "utf8");
 
-    const lines = egibScenario ? [
+    const lines = kiegReliability ? [
+      "Przebieg | kafelki KIEG załadowane/wszystkie | frakcja | GET wysłane/zablokowane | błędy ORB",
+      "-------- | ------------------------------- | ------- | ---------------------- | ---------",
+    ] : egibScenario ? [
       "Asercja EGiB | wynik | szczegół",
       "------------- | ----- | --------",
     ] : tileExperiment ? [
@@ -1943,7 +2263,36 @@ async function runBrowserSmoke() {
       "Scenariusz | kafelki załadowane/puste/błędne/anulowane | kody HTTP | przykładowe błędne adresy",
       "---------- | ----------------------------------------- | ---------- | -------------------------",
     ];
-    if (egibScenario) {
+    if (kiegReliability) {
+      for (const run of kiegReliability.runs) {
+        lines.push(run.name + " | " + run.loadedTiles + "/" + run.totalTiles + " | "
+          + (Number.isFinite(run.finalFraction) ? (run.finalFraction * 100).toFixed(1) + "%" : "brak")
+          + " | " + run.kiegRequestCount + "/" + (run.budgetBlockedRequests ?? 0) + " | " + run.orbErrors);
+      }
+      lines.push("Frakcja min/mediana/maks: "
+        + [kiegReliability.summary.finalFraction.min, kiegReliability.summary.finalFraction.median,
+          kiegReliability.summary.finalFraction.max]
+          .map((value) => Number.isFinite(value) ? (value * 100).toFixed(1) + "%" : "brak").join("/") + ".");
+      lines.push("Host | żądania | HTTP 200 | HTTP 302 | image/* | ORB | kafelek wyrenderowany/niewyrenderowany");
+      for (const row of kiegReliability.hostOutcomes) {
+        lines.push(row.host + " | " + row.requests + " | " + row.http200 + " | " + row.redirects302
+          + " | " + row.imageResponses + " | " + row.orbErrors
+          + " | " + row.renderedTiles + "/" + row.nonRenderedTiles);
+      }
+      lines.push("Diagnostyczne powtórzenia: " + kiegReliability.failedUrlsConsideredForRepeat
+        + " kafelków, opóźnienia " + (kiegReliability.diagnosticRetryDelaysMs.join("/") || "brak") + " ms.");
+      for (const result of kiegReliability.diagnosticRetries) {
+        lines.push("Powtórzenie " + result.delayMs + " ms | " + result.result + " | "
+          + result.width + "×" + result.height + " | " + result.elapsedMs + " ms");
+      }
+      lines.push("Limit KIEG: " + kiegReliability.requestsSent + "/" + kiegReliability.maxRequests
+        + "; przekroczono: " + (kiegReliability.budgetExceeded ? "TAK" : "NIE")
+        + "; cache przeglądarki wyłączony w narzędziu: TAK.");
+      lines.push("Asercja końcowa ≥90%: " + (kiegReliability.assertionPass === null
+        ? "nie dotyczy wariantu bazowego"
+        : kiegReliability.assertionPass ? "PASS" : "FAIL"));
+      lines.push("Zrzuty: " + kiegReliability.runs.map((run) => run.screenshot).join("; "));
+    } else if (egibScenario) {
       for (const assertion of egibScenario.assertions) {
         lines.push(assertion.name + " | " + (assertion.pass ? "PASS" : "FAIL")
           + " | " + (assertion.observed === false ? "nie zaobserwowano (usługa była już gotowa)" : ""));
@@ -2030,14 +2379,16 @@ async function runBrowserSmoke() {
     process.stdout.write("Wyniki zapisano w .local-results/browser-smoke-" + timestamp + "/\n");
     process.stdout.write("Hosty: " + [...new Set(tileRequests.map((request) => request.host))].join(", ") + "\n");
     process.stdout.write(summary);
-    if (!tileExperiment && !egibLayersMode) process.stdout.write("Zachowanie stanu po powrocie z RCN: " + (statePreserved ? "TAK" : "NIE") + "\n");
+    if (!tileExperiment && !egibLayersMode && !kiegReliabilityMode) process.stdout.write("Zachowanie stanu po powrocie z RCN: " + (statePreserved ? "TAK" : "NIE") + "\n");
     process.stdout.write("Żądania zablokowane przez allowlistę: " + blockedRequests.length + "\n");
     const assertionFailed = parcelSearch?.search?.assertions?.some((assertion) => !assertion.pass) ?? false;
     const egibAssertionFailed = egibScenario ? !egibScenario.passed : false;
+    const kiegAssertionFailed = kiegReliability?.assertionPass === false;
     if (blockedRequests.length > 0) process.exitCode = 3;
     else if (orthophotoBudgetExceeded) process.exitCode = 4;
     else if (egibBackendBudgetExceeded) process.exitCode = 5;
-    else if (egibAssertionFailed || (!tileExperiment && !egibLayersMode && (!statePreserved || assertionFailed))) process.exitCode = 1;
+    else if (kiegBudgetExceeded) process.exitCode = 6;
+    else if (egibAssertionFailed || kiegAssertionFailed || (!tileExperiment && !egibLayersMode && !kiegReliabilityMode && (!statePreserved || assertionFailed))) process.exitCode = 1;
   } catch (error) {
     runError = error;
     if (!runReport) {

@@ -51,8 +51,15 @@ export function mountDzialki(container, ctx = {}) {
   let egibLayerController = null;
   let pendingSearchSelection = null;
   let retryController = null;
+  let baseFailedTileCount = 0;
+  let kiegFailedTileCount = 0;
+  let retryButton = null;
   let unmountSearch = () => {};
   let unsubscribeHealth = () => {};
+
+  function updateRetryAvailability() {
+    if (retryButton) retryButton.disabled = baseFailedTileCount + kiegFailedTileCount === 0;
+  }
   const root = element("section", undefined, "dzialki-module");
   root.dataset.module = "dzialki";
   root.setAttribute("aria-labelledby", "dzialki-title");
@@ -194,6 +201,11 @@ export function mountDzialki(container, ctx = {}) {
     getBackendStatus: ctx.getBackendStatus ?? getBackendStatus,
     checkBackend: ctx.checkBackend ?? checkBackend,
     subscribeBackendStatus: ctx.subscribeBackendStatus,
+    onKiegTileStats(stats) {
+      kiegFailedTileCount = (Number(stats?.parcels?.finalUnloaded) || 0)
+        + (Number(stats?.buildings?.finalUnloaded) || 0);
+      updateRetryAvailability();
+    },
   });
 
   const upcomingGroups = [
@@ -238,11 +250,12 @@ export function mountDzialki(container, ctx = {}) {
   exhaustedTileStatus.setAttribute("role", "status");
   exhaustedTileStatus.setAttribute("aria-live", "polite");
   exhaustedTileStatus.hidden = true;
-  const retryButton = element("button", "Spróbuj ponownie", "dzialki-retry-button");
+  retryButton = element("button", "Spróbuj ponownie", "dzialki-retry-button");
   retryButton.type = "button";
   retryButton.disabled = true;
   retryButton.addEventListener("click", () => {
     retryController?.retryVisible();
+    egibLayerController?.retryFailedTiles();
   });
   mapLayersPanel.append(retryStatus, exhaustedTileStatus, retryButton);
   controls.append(mapLayersPanel);
@@ -281,8 +294,9 @@ export function mountDzialki(container, ctx = {}) {
   if (applyNewPoint) updateDzialkiState({ appliedPoint: currentPointKey });
 
   function setTileCount(count) {
+    baseFailedTileCount = Math.max(0, Number(count) || 0);
     retryStatus.textContent = "Niezaładowane kafelki: " + count;
-    retryButton.disabled = count === 0;
+    updateRetryAvailability();
   }
 
   function setTileStats(stats) {

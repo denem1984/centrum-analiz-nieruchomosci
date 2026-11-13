@@ -83,6 +83,18 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
     || layer.options?.time,
   );
   const osmLayer = baseLayer(firstMap);
+  const kiegParcelLayer = leaflet.layers.find((layer) => layer.isWms && layer.options.layers === "dzialki");
+  kiegParcelLayer.fire("tileerror", {
+    coords: { x: 3, y: 4, z: 8 },
+    tile: { _leaflet_id: 303 },
+  });
+  const retryButton = fake.document.querySelectorAll("button.dzialki-retry-button")[0];
+  assert.equal(retryButton.disabled, false, "wspólny przycisk jest dostępny dla błędów KIEG");
+  assert.equal(fake.window.__DZIALKI_KIEG_TILE_STATS__.parcels.finalUnloaded, 1);
+  retryButton.click();
+  assert.equal(fake.window.__DZIALKI_KIEG_TILE_STATS__.parcels.finalUnloaded, 0);
+  assert.equal(kiegParcelLayer.redrawCount, 1, "wspólny przycisk ponawia warstwę KIEG");
+  assert.equal(fake.window.__DZIALKI_TILE_STATS__.finalUnloaded, 0, "licznik podkładu pozostaje osobny");
   esriRadio.checked = true;
   esriRadio.dispatch("change");
   assert.equal(osmLayer.listenerCount("tileerror"), 0, "zmiana podkładu odłącza retry poprzedniej warstwy");

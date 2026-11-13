@@ -44,6 +44,22 @@ function readyOptions(fetchImpl) {
 
 const wait = (ms = 10) => new Promise((resolve) => setTimeout(resolve, ms));
 
+function createClock() {
+  let nextId = 0;
+  const timers = new Map();
+  return {
+    timers,
+    setTimeout(callback, delay) { const id = ++nextId; timers.set(id, { callback, delay }); return id; },
+    clearTimeout(id) { timers.delete(id); },
+    runDelay(delay) {
+      const entry = [...timers.entries()].find(([, value]) => value.delay === delay);
+      assert.ok(entry, "timer „" + delay + " ms” powinien istnieć");
+      timers.delete(entry[0]);
+      entry[1].callback();
+    },
+  };
+}
+
 test("WFS GeoJSON odtwarza dokładny GET starego frontu: ścieżka i bbox południe,zachód,północ,wschód", () => {
   assert.equal(PARCEL_WFS_URL, "https://analizator-nieruchomosci.onrender.com/api/wfs");
   assert.equal(buildParcelWfsUrl(bounds),
@@ -120,6 +136,87 @@ test("panel EGiB ma wymagane domyślne stany, wczytuje etykiety i kontury oraz z
   assert.equal(map.listenerCount("zoomend"), 0);
   assert.equal(map.layers.size, 0);
   assert.equal(unsubscribeCalls, 1);
+  resetDzialkiState();
+});
+
+test("kafelek KIEG ponawia się według K0, ma własne liczniki i reaguje na ręczne ponowienie", () => {
+  resetDzialkiState();
+  const fake = createFakeDom();
+  const leaflet = createFakeLeaflet();
+  const clock = createClock();
+  const container = fake.document.createElement("aside");
+  const statsSeen = [];
+  const controller = mountEgibLayers(container, {
+    ...readyOptions(async () => ({ ok: true, status: 200, json: async () => ({ features: [] }) })),
+    setTimeoutFn: clock.setTimeout,
+    clearTimeoutFn: clock.clearTimeout,
+    retryRandom: () => 0,
+    onKiegTileStats: (stats) => statsSeen.push(stats),
+  });
+  const map = leaflet.L.map(container, {});
+  map.setZoom(17);
+  controller.attach(map, leaflet.L);
+  const parcels = leaflet.layers.find((layer) => layer.isWms && layer.options.layers === "dzialki");
+  const buildings = leaflet.layers.find((layer) => layer.isWms && layer.options.layers === "budynki");
+  parcels.getTileUrl = (coords) => "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow?tile=" + coords.x;
+  const coords = { x: 8, y: 6, z: 17 };
+  const image = { src: "tile-failed", removeAttribute(name) { if (name === "src") this.src = ""; } };
+
+  parcels.fire("tileerror", { coords, tile: image });
+  assert.equal(controller.getKiegTileStats().parcels.errors, 1);
+  assert.equal(controller.getKiegTileStats().parcels.pending, 1);
+  assert.equal(controller.getKiegTileStats().buildings.errors, 0);
+  clock.runDelay(1500);
+  assert.match(image.src, /[?&]tile=8$/);
+  assert.equal(controller.getKiegTileStats().parcels.retries, 1);
+
+  parcels.fire("tileerror", { coords, tile: image });
+  clock.runDelay(4000);
+  assert.equal(controller.getKiegTileStats().parcels.retries, 2);
+  parcels.fire("tileerror", { coords, tile: image });
+  assert.equal(controller.getKiegTileStats().parcels.finalUnloaded, 1);
+  assert.equal(container.querySelectorAll("#dzialki-kieg-parcel-tile-status")[0].textContent,
+    "Kontury działek: 1 kafelków niezaładowanych");
+  assert.equal(container.querySelectorAll("#dzialki-kieg-building-tile-status")[0].textContent,
+    "Kontury budynków: 0 kafelków niezaładowanych");
+  assert.equal(controller.retryFailedTiles(), true);
+  assert.equal(parcels.redrawCount, 1);
+  assert.equal(controller.getKiegTileStats().parcels.finalUnloaded, 0);
+  assert.ok(statsSeen.length > 0);
+  controller.cleanup();
+  assert.equal(parcels.listenerCount("tileerror"), 0);
+  assert.equal(buildings.listenerCount("tileerror"), 0);
+  resetDzialkiState();
+});
+
+test("zmiana widoku lub unmount anuluje zaplanowane retry KIEG", () => {
+  resetDzialkiState();
+  const fake = createFakeDom();
+  const leaflet = createFakeLeaflet();
+  const clock = createClock();
+  const container = fake.document.createElement("aside");
+  const controller = mountEgibLayers(container, {
+    ...readyOptions(async () => ({ ok: true, status: 200, json: async () => ({ features: [] }) })),
+    setTimeoutFn: clock.setTimeout,
+    clearTimeoutFn: clock.clearTimeout,
+    retryRandom: () => 0,
+  });
+  const map = leaflet.L.map(container, {});
+  map.setZoom(17);
+  controller.attach(map, leaflet.L);
+  const parcels = leaflet.layers.find((layer) => layer.isWms && layer.options.layers === "dzialki");
+  const coords = { x: 4, y: 3, z: 17 };
+  parcels.fire("tileerror", { coords, tile: { _leaflet_id: 4 } });
+  assert.ok([...clock.timers.values()].some((timer) => timer.delay === 1500));
+  controller.inputs.get("parcels").checked = false;
+  controller.inputs.get("parcels").dispatch("change");
+  clock.runDelay(1500);
+  assert.equal(controller.getKiegTileStats().parcels.retries, 0);
+  assert.equal(controller.getKiegTileStats().parcels.pending, 0);
+  parcels.fire("tileerror", { coords: { x: 5, y: 3, z: 17 }, tile: { _leaflet_id: 5 } });
+  controller.cleanup();
+  assert.equal(parcels.listenerCount("tileerror"), 0);
+  assert.equal(clock.timers.size, 0);
   resetDzialkiState();
 });
 

@@ -2,6 +2,7 @@ import { BACKENDS } from "../../config.js";
 import { checkBackend, getBackendStatus, subscribeBackendStatus } from "../../health.js";
 import { getDzialkiState, updateDzialkiState } from "./state.js";
 import { KIEG_ENDPOINT, parseKiegFeatureInfo } from "./egib.js";
+import { attachTileRetry, resolveTileRetryConfig } from "./tile-retry.js";
 
 export const PARCEL_WFS_URL = BACKENDS.Dzialki.baseUrl + "/api/wfs";
 export const EGiB_MIN_ZOOM = 13;
@@ -196,6 +197,15 @@ export function mountEgibLayers(container, options = {}) {
   status.setAttribute("role", "status");
   status.setAttribute("aria-live", "polite");
   body.append(status);
+  const parcelTileStatus = element(document, "p", "Kontury działek: 0 kafelków niezaładowanych", "dzialki-kieg-tile-status");
+  parcelTileStatus.id = "dzialki-kieg-parcel-tile-status";
+  parcelTileStatus.setAttribute("role", "status");
+  parcelTileStatus.setAttribute("aria-live", "polite");
+  const buildingTileStatus = element(document, "p", "Kontury budynków: 0 kafelków niezaładowanych", "dzialki-kieg-tile-status");
+  buildingTileStatus.id = "dzialki-kieg-building-tile-status";
+  buildingTileStatus.setAttribute("role", "status");
+  buildingTileStatus.setAttribute("aria-live", "polite");
+  body.append(parcelTileStatus, buildingTileStatus);
   const retry = element(document, "button", "Spróbuj ponownie", "dzialki-egib-retry");
   retry.id = "dzialki-egib-retry";
   retry.type = "button";
@@ -209,6 +219,8 @@ export function mountEgibLayers(container, options = {}) {
   let leaflet = null;
   let parcelWms = null;
   let buildingWms = null;
+  let parcelTileRetry = null;
+  let buildingTileRetry = null;
   let outlineLayer = null;
   let labelLayers = [];
   let features = [];
@@ -229,6 +241,47 @@ export function mountEgibLayers(container, options = {}) {
   const check = options.checkBackend ?? checkBackend;
   const delay = options.retryDelayMs ?? EGiB_RETRY_DELAY_MS;
   const debounceMs = options.debounceMs ?? EGiB_REFRESH_DEBOUNCE_MS;
+
+  function readKiegTileStats() {
+    return {
+      parcels: parcelTileRetry?.getStats() ?? { errors: 0, retries: 0, finalUnloaded: 0, pending: 0 },
+      buildings: buildingTileRetry?.getStats() ?? { errors: 0, retries: 0, finalUnloaded: 0, pending: 0 },
+    };
+  }
+
+  function publishKiegTileStats() {
+    const stats = readKiegTileStats();
+    parcelTileStatus.textContent = "Kontury działek: " + stats.parcels.finalUnloaded + " kafelków niezaładowanych";
+    buildingTileStatus.textContent = "Kontury budynków: " + stats.buildings.finalUnloaded + " kafelków niezaładowanych";
+    if (typeof window !== "undefined") window.__DZIALKI_KIEG_TILE_STATS__ = stats;
+    try { options.onKiegTileStats?.(stats); } catch { /* Diagnostyka nie może przerwać mapy. */ }
+  }
+
+  function retryLayerVisible(event, layer) {
+    if (!map?.hasLayer(layer)) return false;
+    const coords = event?.coords;
+    if (!coords || !layer._tiles) return true;
+    const key = typeof layer._tileCoordsToKey === "function"
+      ? layer._tileCoordsToKey(coords)
+      : String(coords.x) + ":" + String(coords.y) + ":" + String(coords.z);
+    const record = layer._tiles[key];
+    return record ? record.current !== false : true;
+  }
+
+  function attachKiegTileRetries() {
+    const config = resolveTileRetryConfig(typeof window === "undefined" ? undefined : window.__DZIALKI_TILE_RETRY__);
+    const shared = {
+      ...config,
+      setTimeoutImpl: options.setTimeoutFn ?? globalThis.setTimeout,
+      clearTimeoutImpl: options.clearTimeoutFn ?? globalThis.clearTimeout,
+      random: options.retryRandom ?? Math.random,
+      isVisible: retryLayerVisible,
+      onStats: publishKiegTileStats,
+    };
+    parcelTileRetry = attachTileRetry(parcelWms, shared);
+    buildingTileRetry = attachTileRetry(buildingWms, shared);
+    publishKiegTileStats();
+  }
 
   function setStatus(message, state = "idle", canRetry = false) {
     if (disposed) return;
@@ -591,6 +644,7 @@ export function mountEgibLayers(container, options = {}) {
       keepBuffer: 1,
       className: "dzialki-egib-buildings-tile",
     });
+    attachKiegTileRetries();
     map.on("moveend", scheduleRefresh);
     map.on("zoomend", applyVisibility);
     map.on("click", handleMapClick);
@@ -630,6 +684,11 @@ export function mountEgibLayers(container, options = {}) {
       if (parcelWms && map.hasLayer(parcelWms)) map.removeLayer(parcelWms);
       if (buildingWms && map.hasLayer(buildingWms)) map.removeLayer(buildingWms);
     }
+    parcelTileRetry?.cancel();
+    buildingTileRetry?.cancel();
+    parcelTileRetry = null;
+    buildingTileRetry = null;
+    if (typeof window !== "undefined") delete window.__DZIALKI_KIEG_TILE_STATS__;
     selected.clear();
   }
 
@@ -640,6 +699,12 @@ export function mountEgibLayers(container, options = {}) {
     updateSearchSelection,
     restoreSelections,
     refresh: () => scheduleRefresh(true),
+    retryFailedTiles() {
+      const parcels = parcelTileRetry?.retryVisible() ?? false;
+      const buildings = buildingTileRetry?.retryVisible() ?? false;
+      return parcels || buildings;
+    },
+    getKiegTileStats: readKiegTileStats,
     inputs,
     group,
     status,
