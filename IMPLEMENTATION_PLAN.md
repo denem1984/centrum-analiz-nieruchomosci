@@ -1,6 +1,6 @@
 # IMPLEMENTATION_PLAN.md — plan M0–M10
 
-**Status na 2026-11-13:** M0 wykonane; M1 wykonane warunkowo, D2/D9 pozostają otwarte i wracają w M3b/M8; M2 wykonane; M3a wykonane; M4a/M4b/M4b.2 wykonane; M4c/M4c.1 scalone; M4d.1 w trakcie w PR. M4d.1c dodało monitor i sweep kompletności KIEG; V0 dał 0/12, 11/12 i 12/12, natomiast V1–V3 nie zmieściły się w limicie uruchomień przeglądarki. Żaden zmierzony wariant nie potwierdza 100% w trzech z trzech prób do 20 s; nie scalać przed uzupełnieniem pomiaru. Właściciel dostarczył baseline D1 poza repozytorium. Każde twierdzenie o produkcji należy oznaczać [FAKT] albo [HIP]. Pięć repozytoriów źródłowych pozostaje tylko do odczytu.
+**Status na 2026-11-13:** M0 wykonane; M1 wykonane warunkowo, D2/D9 pozostają otwarte i wracają w M3b/M8; M2 wykonane; M3a wykonane; M4a/M4b/M4b.2 wykonane; M4c/M4c.1 scalone; M4d.1 w trakcie w PR. M4d.1c dodało monitor i sweep kompletności KIEG; cztery z pięciu uruchomień zakończyły się przed CDP, a V0 dał 0/12, 11/12 i 12/12. Próba V1 headed nie doszła do CDP; V2 i V3 nie uruchomiono po wyczerpaniu limitu startów. Żaden zmierzony wariant nie potwierdza 100% w trzech z trzech prób do 20 s; nie scalać przed uzupełnieniem pomiaru. Właściciel dostarczył baseline D1 poza repozytorium. Każde twierdzenie o produkcji należy oznaczać [FAKT] albo [HIP]. Pięć repozytoriów źródłowych pozostaje tylko do odczytu.
 
 ## Etapy i zależności
 
