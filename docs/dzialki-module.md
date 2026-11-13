@@ -131,6 +131,28 @@ W obu uruchomieniach liczba wysłanych żądań wyniosła 100; liczby w kolumnie
 
 Ostatnie dwa uruchomienia narzędzia wysłały łącznie dokładnie 200 żądań KIEG. Wcześniejsze przerwane uruchomienie miało limit 300 i nie pozostawiło raportu; rzeczywistej liczby w nim nie da się odzyskać. Łączny ruch pozostaje więc ograniczony od góry do 500. Nie uruchomiono dalszych pomiarów w ramach tej zgody. Wcześniejszy, pojedynczy przebieg M4d.1 odnotował 56 odpowiedzi GetMap HTTP 302, po czym 27 odpowiedzi HTTP 200 `image/png` przez `integracja02` i 29 błędów ORB przez `integracja01`; nie jest to wariant bazowy M4d.1b.
 
+### Kompletność konturów KIEG — M4d.1c
+
+Wymaganie właściciela: „Kontury działek muszą wczytywać się w CAŁOŚCI. Skuteczność (kompletność) ma pierwszeństwo przed szybkością. Niepełne kontury są nieakceptowalne.” Moduł liczy widoczne, bieżące kafelki IMG w warstwach KIEG; obraz uznaje za wczytany po zakończonym dekodowaniu i wymiarach większych niż 1×1. Status „Kontury kompletne” pojawia się tylko, gdy co najmniej jeden widoczny kafelek istnieje i wszystkie widoczne obrazy spełniają tę kontrolę. W innym przypadku panel pokazuje `x/y`; po 40 s pokazuje liczbę brakujących kafelków i udostępnia „Spróbuj ponownie”. Do 40 s moduł co 3 s ponawia widoczne obrazy bez poprawnego obrazu, z ograniczeniem współbieżności istniejącego retry. Aktywnych żądań nie dubluje. [FAKT z kodu: `app/js/modules/dzialki/egib-layers.js`, `app/js/modules/dzialki/tile-retry.js`]
+
+Nie zmieniono konfiguracji domyślnego retry K0 (2 próby, 1500/4000 ms, jitter do 250 ms, do 6 retry jednocześnie na warstwę). Sweep kompletności jest dodatkowym ponawianiem tego samego URL bez parametru cache-busting. Konfiguracja wzmocniona V2 i bezpośrednie przełączenie węzła V3 nie zostały wdrożone.
+
+Eksperyment M4d.1c zebrał tylko trzy wczytania V0 (obecny kod, headless) w widoku testowym. Uruchomienie wykonano w Chrome 157 jako fallback po błędach startu Edge; User-Agent z CDP zawiera `HeadlessChrome/157.0.0.0`. Wyniki końcowego widoku po 40 s:
+
+| Wczytanie V0 | Kafelki | Frakcja | Czas do 100% | Żądania KIEG | ORB |
+|---|---:|---:|---:|---:|---:|
+| 1 | 0/12 | 0,0% | nieosiągnięto | 51 | 24 |
+| 2 | 11/12 | 91,7% | nieosiągnięto | 28 | 1 |
+| 3 | 12/12 | 100,0% | 8256 ms | 33 | 4 |
+
+Min/mediana/maks frakcji V0 wyniosły 0,0%/91,7%/100,0%; łącznie wysłano 112 żądań KIEG i zarejestrowano 29 błędów ORB. W odpowiedziach przekierowujących 32 wskazały węzeł `integracja01.gugik.gov.pl`, a 27 — `integracja02.gugik.gov.pl`; zarejestrowano 29 końcowych żądań do węzła 01 i 24 do węzła 02. Wszystkie 29 końcowych żądań do 01 zakończyły się ORB w tym pomiarze headless. To obserwacja współwystępowania w V0, nie dowód przyczyny.
+
+Pierwsze cztery uruchomienia przeglądarki zakończyły się przed zestawieniem CDP; piąte zebrało V0. Wobec limitu pięciu uruchomień nie zebrano poprawnego V1 (headed), V2 ani V3. Żaden zmierzony wariant nie spełnił kryterium 100% w każdym z trzech wczytań do 20 s. Nie wybrano więc zwycięskiego wariantu ani nie zmieniono domyślnego K0; monitor i sweep z 3-sekundowym interwałem wdrożono jako wymagany mechanizm obserwacji i ponawiania, ale efekt sweepu nie został zmierzony w browser-smoke. Wynik pozostaje niepełny i nie jest podstawą do uznania niezawodności za potwierdzoną.
+
+#### Możliwość awaryjnego rysowania z WFS
+
+WFS `/api/wfs` zwraca GeoJSON geometrii działek dla bbox bieżącego widoku; aplikacja już rysuje z tych geometrii przerywane obrysy i etykiety numerów. Ciągłe, rasterowe linie konturów działek pochodzą z KIEG WMS `dzialki`, a kontury budynków — z KIEG WMS `budynki`. WFS może więc służyć jako częściowy, wektorowy fallback dla geometrii działek obecnych w jego odpowiedzi. Nie potwierdzono, że zasięg i kompletność danych WFS pokrywają wszystkie kontury prezentowane przez KIEG. WFS nie dostarcza w obecnej implementacji konturów budynków ani rasterowego wyglądu linii KIEG; tych elementów nie zastąpi. Rekomendacja: traktować WFS jako wyraźnie oznaczony fallback tylko dla obiektów z bieżącego GeoJSON, a pełny parytet danych KIEG potwierdzić osobnym porównaniem przed uznaniem fallbacku za równoważny. [FAKT z kodu: `app/js/modules/dzialki/egib-layers.js`; kompletność pokrycia WFS względem KIEG [HIP]]
+
 ## Diagnostyka M4b.1
 
 `node scripts/browser-smoke.mjs` uruchamia lokalny serwer i przeglądarkę headless, przechodzi przez podkłady oraz lata archiwum, zapisuje PNG i raport JSON do ignorowanego `.local-results/`. Narzędzie dopuszcza wyłącznie localhost, skonfigurowane health-checki GET oraz wskazane usługi kafelków i pojedyncze WMS GetMap Raster. Testy pomocników są bez sieci; skrypt nie jest uruchamiany w CI. Instrukcja właściciela: `scripts/README-run.md`.

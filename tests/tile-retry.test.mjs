@@ -154,6 +154,82 @@ test("kafelek otrzymuje dwie próby, licznik błędów i ręczne ponowienie", ()
   assert.equal(layer.listenerCount("tileerror"), 0);
 });
 
+test("monitor kompletności ponawia tylko widoczny kafelek po wyczerpaniu standardowych prób", () => {
+  const clock = createClock();
+  const layer = new FakeTileLayer("tiles");
+  let retryCount = 0;
+  const event = { ...tile(8), tile: { src: "old", removeAttribute(name) { if (name === "src") this.src = ""; } } };
+  layer.getTileUrl = (coords) => `tile://${coords.z}/${coords.x}/${coords.y}`;
+  const controller = createTileRetryController(layer, {
+    setTimeoutImpl: clock.setTimeout,
+    clearTimeoutImpl: clock.clearTimeout,
+    random: () => 0,
+    retryTile: (retryEvent) => { retryCount += 1; retryEvent.tile.src = layer.getTileUrl(retryEvent.coords); },
+  });
+  layer.fire("tileerror", event);
+  clock.runNext();
+  layer.fire("tileerror", event);
+  clock.runNext();
+  layer.fire("tileerror", event);
+  assert.equal(controller.getStats().finalUnloaded, 1);
+  assert.equal(controller.retryIncompleteVisible(), 1);
+  assert.equal(retryCount, 3);
+  assert.equal(event.tile.src, "tile://8/8/2");
+  assert.equal(controller.getStats().retries, 3);
+  layer.fire("tileload", { ...event, tile: { naturalWidth: 256, naturalHeight: 256 } });
+  assert.equal(controller.getStats().finalUnloaded, 0);
+  assert.equal(controller.retryIncompleteVisible(), 0);
+  controller.cancel();
+});
+
+test("sweep ponawia widoczne kafelki, nie dubluje żądań w toku i ogranicza równoległość", () => {
+  const layer = new FakeTileLayer("tiles");
+  const images = Array.from({ length: 8 }, () => ({ complete: false, naturalWidth: 0, naturalHeight: 0 }));
+  images.forEach((image, x) => {
+    layer._tiles[`${x}:2:8`] = { current: true, coords: { x, y: 2, z: 8 }, el: image };
+  });
+  let retryCount = 0;
+  const controller = createTileRetryController(layer, {
+    retryTile: () => { retryCount += 1; },
+    maxConcurrent: 6,
+  });
+  assert.equal(controller.retryIncompleteVisible(), 6);
+  assert.equal(retryCount, 6);
+  assert.equal(controller.retryIncompleteVisible(), 0, "kolejny sweep pomija kafelki z żądaniami w toku");
+  assert.equal(retryCount, 6);
+  images[0].complete = true;
+  images[0].naturalWidth = 256;
+  images[0].naturalHeight = 256;
+  layer.fire("tileload", { coords: { x: 0, y: 2, z: 8 }, tile: images[0] });
+  assert.equal(controller.retryIncompleteVisible(), 1, "po zakończeniu jednego kafelka wolne miejsce może pobrać kolejny");
+  assert.equal(retryCount, 7);
+  controller.cancel();
+});
+
+test("sweep uwzględnia również zaplanowane retry w limicie współbieżności", () => {
+  const layer = new FakeTileLayer("tiles");
+  const images = Array.from({ length: 3 }, () => ({ complete: false, naturalWidth: 0, naturalHeight: 0 }));
+  images.forEach((image, x) => {
+    layer._tiles[`${x}:2:8`] = { current: true, coords: { x, y: 2, z: 8 }, el: image };
+  });
+  const clock = createClock();
+  let retryCount = 0;
+  const controller = createTileRetryController(layer, {
+    setTimeoutImpl: clock.setTimeout,
+    clearTimeoutImpl: clock.clearTimeout,
+    random: () => 0,
+    jitterMs: 0,
+    maxConcurrent: 2,
+    retryTile: () => { retryCount += 1; },
+  });
+  layer.fire("tileerror", { coords: { x: 0, y: 2, z: 8 }, tile: images[0] });
+  layer.fire("tileerror", { coords: { x: 1, y: 2, z: 8 }, tile: images[1] });
+  assert.equal(clock.timers.size, 2);
+  assert.equal(controller.retryIncompleteVisible(), 0);
+  assert.equal(retryCount, 0);
+  controller.cancel();
+});
+
 test("retry poza widocznym obszarem i timer odłączonego kafelka są anulowane", () => {
   const clock = createClock();
   const layer = new FakeTileLayer("tiles");

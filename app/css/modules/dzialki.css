@@ -139,11 +139,21 @@
 }
 
 [data-module="dzialki"] .dzialki-egib-status,
+[data-module="dzialki"] .dzialki-egib-completeness,
 [data-module="dzialki"] .dzialki-upcoming-note {
   margin: 0.25rem 0 0;
   color: var(--dzialki-muted);
   font-size: 0.82rem;
   line-height: 1.4;
+}
+
+[data-module="dzialki"] .dzialki-egib-completeness[data-state="incomplete"] {
+  color: #9d2e2e;
+  font-weight: 650;
+}
+
+[data-module="dzialki"] .dzialki-egib-completeness[data-state="complete"] {
+  color: #176b38;
 }
 
 [data-module="dzialki"] .dzialki-egib-status[data-state="error"] {

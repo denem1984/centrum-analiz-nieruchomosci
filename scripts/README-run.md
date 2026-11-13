@@ -85,3 +85,18 @@ node scripts/browser-smoke.mjs --kieg-reliability --kieg-variant after --max-kie
 `before` wyłącza retry w nowym kodzie przed załadowaniem strony (0 prób ponownych), aby odtworzyć porównanie bez kompensacji. `after` używa bieżącego K0: dwie próby po 1500/4000 ms, równoległość 6. Oba warianty używają widoku testowego w Pile, zoomu 17,6 i trzech niezależnych przeładowań. W podsumowaniu porównaj dla każdego wczytania frakcję załadowanych kafelków, hosty przekierowań, odpowiedzi HTTP, błędy ORB i łączną liczbę żądań. `before` ponadto testuje do sześciu tych samych błędnych URL-i ponownie po 1,5 i 4 s; te diagnostyczne GET-y wchodzą do twardego limitu. Kod i adresy szczegółowe pozostają w ignorowanym `.local-results/browser-smoke-<czas>/report.json`; PNG są obok raportu.
 
 Allowlista ogranicza żądania do tras zdrowia, WFS i dokładnych żądań GetMap KIEG dla warstw `dzialki`/`budynki`, wraz z zatwierdzonymi hostami przekierowań. Skrypt blokuje niedozwolone hosty, ścieżki, query i metody przed wysłaniem. Nie zmieniaj `Origin`/`Referer` i nie dopisuj parametru cache-busting. Wynik diagnostyczny nie jest pomiarem na środowisku wdrożonym.
+
+### Eksperyment kompletności KIEG M4d.1c
+
+Każdy wariant uruchamia jedną przeglądarkę i wykonuje trzy niezależne wczytania tego samego widoku w Pile, zoom 17,6. Domyślne ustalenie końcowego widoku trwa 40 s; można je zmienić parametrem `--kieg-experiment-settle-ms`. `V1` automatycznie otwiera Edge z oknem; `--headed` jest też dostępne dla zwykłego smoke. Warianty uruchamia się osobno, w kolejności V0, V1, V2, V3:
+
+```powershell
+node scripts/browser-smoke.mjs --kieg-experiment V0
+node scripts/browser-smoke.mjs --kieg-experiment V1
+node scripts/browser-smoke.mjs --kieg-experiment V2
+node scripts/browser-smoke.mjs --kieg-experiment V3
+```
+
+V0 i V1 mierzą bieżące K0 bez cyklicznego sweepu, by zachować punkt odniesienia; V2 ustawia osiem rosnących opóźnień i sweep co 3 s; V3 mierzy bezpośrednie przejście na węzeł 02 po pierwszym błędzie ORB z węzła 01. Tylko V3 może wysyłać bezpośredni GET do hostów integracja01/integracja02. Pozostałe żądania muszą przechodzić zwykłą trasą i allowlistą KIEG. Skrypt nie zmienia User-Agent ani nagłówków Origin/Referer.
+
+Przed wysłaniem każdego dopuszczonego żądania KIEG skrypt zapisuje przyrost licznika do `.local-results/m4d1c-kieg-budget.json` (pliku ignorowanego przez Git). Licznik jest trwały po przerwaniu procesu: limit wynosi 5 uruchomień i 900 prób żądań łącznie. Nie usuwaj ani nie edytuj tego pliku w trakcie zadania; uszkodzony stan blokuje żądania. Przy osiągnięciu limitu dalsze wczytania i warianty są pomijane lub blokowane. Tabela pokaże ułamek końcowy, czas do 100%, żądania, błędy ORB oraz zgodność monitora z widocznymi kafelkami. `report.json`, `summary.txt` i PNG są w osobnym `.local-results/browser-smoke-<czas>/`.

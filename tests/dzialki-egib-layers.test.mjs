@@ -6,7 +6,9 @@ import {
   buildKiegGetMapUrl,
   buildMapClickFeatureInfoUrl,
   buildParcelWfsUrl,
+  countVisibleKiegTiles,
   EGiB_MIN_ZOOM,
+  isLoadedKiegTileImage,
   mountEgibLayers,
   PARCEL_WFS_URL,
 } from "../app/js/modules/dzialki/egib-layers.js";
@@ -30,6 +32,78 @@ const bounds = {
   getNorth: () => 53.2,
   getEast: () => 16.9,
 };
+
+test("monitor liczy tylko widoczne obrazy KIEG z poprawnym wymiarem", () => {
+  const loaded = { complete: true, naturalWidth: 256, naturalHeight: 256 };
+  const empty = { complete: true, naturalWidth: 1, naturalHeight: 1 };
+  assert.equal(isLoadedKiegTileImage(loaded), true);
+  assert.equal(isLoadedKiegTileImage(empty), false);
+  const layer = { _tiles: {
+    loaded: { current: true, el: loaded },
+    empty: { current: true, el: empty },
+    stale: { current: false, el: loaded },
+  } };
+  const state = countVisibleKiegTiles([layer], { hasLayer: () => true });
+  assert.deepEqual(state, { active: true, total: 2, loaded: 1, missing: 1 });
+  assert.deepEqual(countVisibleKiegTiles([], { hasLayer: () => true }), {
+    active: false, total: 0, loaded: 0, missing: 0,
+  });
+});
+
+test("monitor kompletnych konturów aktualizuje status, wyczerpuje okno i pokazuje ponowienie", () => {
+  resetDzialkiState();
+  const fake = createFakeDom();
+  const leaflet = createFakeLeaflet();
+  const container = fake.document.createElement("aside");
+  const clock = createClock();
+  const retries = [];
+  let now = 0;
+  const controller = mountEgibLayers(container, {
+    ...readyOptions(async () => ({ ok: true, status: 200, json: async () => ({ features: [] }) })),
+    onKiegTileStats: (stats) => retries.push(stats.parcels.retries),
+    retryRandom: () => 0,
+    setTimeoutFn: clock.setTimeout,
+    clearTimeoutFn: clock.clearTimeout,
+    nowFn: () => now,
+    completenessSweepMs: 3000,
+    completenessWindowMs: 9000,
+  });
+  const map = leaflet.L.map(container, {});
+  map.setZoom(17);
+  controller.attach(map, leaflet.L);
+  const parcels = leaflet.layers.find((layer) => layer.isWms && layer.options.layers === "dzialki");
+  const image = { complete: true, naturalWidth: 1, naturalHeight: 1 };
+  parcels._tiles["1:2:17"] = { current: true, coords: { x: 1, y: 2, z: 17 }, el: image };
+  parcels.fire("tileerror", { coords: { x: 1, y: 2, z: 17 }, tile: image });
+  assert.equal(container.querySelector("#dzialki-egib-completeness").textContent,
+    "Wczytywanie konturów: 0/1");
+  now = 1500;
+  clock.runDelay(1500);
+  parcels.fire("tileerror", { coords: { x: 1, y: 2, z: 17 }, tile: image });
+  now = 5500;
+  clock.runDelay(4000);
+  parcels.fire("tileerror", { coords: { x: 1, y: 2, z: 17 }, tile: image });
+  now = 5500;
+  clock.runDelay(3000);
+  const retriesAfterFirstSweep = Math.max(...retries);
+  assert.ok(retriesAfterFirstSweep > 0);
+  now = 8500;
+  clock.runDelay(3000);
+  now = 9000;
+  clock.runDelay(500);
+  assert.equal(Math.max(...retries), retriesAfterFirstSweep, "po wyczerpaniu okna monitor nie inicjuje kolejnego sweepu");
+  assert.equal(container.querySelector("#dzialki-egib-completeness").textContent,
+    "Nie udało się wczytać części konturów (1 kafelków)");
+  assert.equal(container.querySelector("#dzialki-egib-retry").hidden, false);
+  image.naturalWidth = 256;
+  image.naturalHeight = 256;
+  parcels.fire("tileload", { coords: { x: 1, y: 2, z: 17 }, tile: image });
+  assert.equal(container.querySelector("#dzialki-egib-completeness").textContent, "Kontury kompletne");
+  controller.cleanup();
+  assert.equal(parcels.listenerCount("tileload"), 0);
+  assert.equal(parcels.listenerCount("tileerror"), 0);
+  resetDzialkiState();
+});
 
 function readyOptions(fetchImpl) {
   return {

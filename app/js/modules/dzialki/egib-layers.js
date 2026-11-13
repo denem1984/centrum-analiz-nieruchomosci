@@ -8,6 +8,36 @@ export const PARCEL_WFS_URL = BACKENDS.Dzialki.baseUrl + "/api/wfs";
 export const EGiB_MIN_ZOOM = 13;
 export const EGiB_REFRESH_DEBOUNCE_MS = 180;
 export const EGiB_RETRY_DELAY_MS = 500;
+export const KIEG_COMPLETENESS_SWEEP_MS = 3000;
+export const KIEG_COMPLETENESS_WINDOW_MS = 40000;
+
+export function isLoadedKiegTileImage(image) {
+  return Boolean(image?.complete && Number(image.naturalWidth) > 1 && Number(image.naturalHeight) > 1);
+}
+
+export function countVisibleKiegTiles(layers = [], map = null) {
+  const activeLayers = layers.filter((layer) => layer && (!map || map.hasLayer?.(layer)));
+  const bounds = map?.getContainer?.()?.getBoundingClientRect?.()
+    ?? map?.container?.getBoundingClientRect?.()
+    ?? null;
+  let total = 0;
+  let loaded = 0;
+  for (const layer of activeLayers) {
+    for (const record of Object.values(layer._tiles ?? {})) {
+      if (record?.current === false) continue;
+      const image = record?.el ?? record?.tile ?? null;
+      if (bounds && image?.getBoundingClientRect) {
+        const rect = image.getBoundingClientRect();
+        if (!rect || rect.width <= 0 || rect.height <= 0
+            || rect.right <= bounds.left || rect.left >= bounds.right
+            || rect.bottom <= bounds.top || rect.top >= bounds.bottom) continue;
+      }
+      total += 1;
+      if (isLoadedKiegTileImage(image)) loaded += 1;
+    }
+  }
+  return Object.freeze({ active: activeLayers.length > 0, total, loaded, missing: total - loaded });
+}
 
 function withParams(url, values) {
   for (const [key, value] of values) url.searchParams.set(key, value);
@@ -211,6 +241,11 @@ export function mountEgibLayers(container, options = {}) {
   retry.type = "button";
   retry.hidden = true;
   body.append(retry);
+  const completenessStatus = element(document, "p", "Kontury nie są jeszcze widoczne.", "dzialki-egib-completeness");
+  completenessStatus.id = "dzialki-egib-completeness";
+  completenessStatus.setAttribute("role", "status");
+  completenessStatus.setAttribute("aria-live", "polite");
+  body.append(completenessStatus);
   group.append(body);
   container.append(group);
 
@@ -227,6 +262,10 @@ export function mountEgibLayers(container, options = {}) {
   let selected = new Map();
   let debounceHandle = null;
   let retryDelayHandle = null;
+  let completenessTimer = null;
+  let completenessStartedAt = null;
+  let statusRetryVisible = false;
+  let completenessRetryVisible = false;
   let activeController = null;
   let activePromise = null;
   let clickController = null;
@@ -237,6 +276,9 @@ export function mountEgibLayers(container, options = {}) {
   const clearTimeoutFn = options.clearTimeoutFn ?? globalThis.clearTimeout;
   const setIntervalFn = options.setIntervalFn ?? globalThis.setInterval;
   const clearIntervalFn = options.clearIntervalFn ?? globalThis.clearInterval;
+  const nowFn = options.nowFn ?? Date.now;
+  const sweepIntervalMs = options.completenessSweepMs ?? KIEG_COMPLETENESS_SWEEP_MS;
+  const completenessWindowMs = options.completenessWindowMs ?? KIEG_COMPLETENESS_WINDOW_MS;
   const getStatus = options.getBackendStatus ?? getBackendStatus;
   const check = options.checkBackend ?? checkBackend;
   const delay = options.retryDelayMs ?? EGiB_RETRY_DELAY_MS;
@@ -249,12 +291,85 @@ export function mountEgibLayers(container, options = {}) {
     };
   }
 
+  function activeKiegLayers() {
+    return [parcelWms, buildingWms].filter((layer) => layer && map?.hasLayer(layer));
+  }
+
+  function readVisibleKiegTiles() {
+    return countVisibleKiegTiles(activeKiegLayers(), map);
+  }
+
+  function syncRetryButton() {
+    retry.hidden = !(statusRetryVisible || completenessRetryVisible);
+  }
+
+  function clearCompletenessTimer() {
+    if (completenessTimer !== null) clearTimeoutFn(completenessTimer);
+    completenessTimer = null;
+  }
+
+  function updateCompleteness() {
+    if (disposed) return;
+    const tiles = readVisibleKiegTiles();
+    const elapsed = completenessStartedAt === null ? 0 : Math.max(0, nowFn() - completenessStartedAt);
+    if (!tiles.active) {
+      completenessStatus.textContent = "Kontury nie są aktywne.";
+      completenessStatus.dataset.state = "inactive";
+      completenessRetryVisible = false;
+      syncRetryButton();
+      clearCompletenessTimer();
+      return;
+    }
+    if (tiles.total > 0 && tiles.missing === 0) {
+      completenessStatus.textContent = "Kontury kompletne";
+      completenessStatus.dataset.state = "complete";
+      completenessStatus.dataset.loaded = String(tiles.loaded);
+      completenessStatus.dataset.total = String(tiles.total);
+      completenessRetryVisible = false;
+      syncRetryButton();
+      clearCompletenessTimer();
+      return;
+    }
+    completenessStatus.dataset.loaded = String(tiles.loaded);
+    completenessStatus.dataset.total = String(tiles.total);
+    if (elapsed >= completenessWindowMs) {
+      completenessStatus.textContent = "Nie udało się wczytać części konturów (" + tiles.missing + " kafelków)";
+      completenessStatus.dataset.state = "incomplete";
+      completenessRetryVisible = true;
+      syncRetryButton();
+      clearCompletenessTimer();
+      return;
+    }
+    completenessStatus.textContent = "Wczytywanie konturów: " + tiles.loaded + "/" + tiles.total;
+    completenessStatus.dataset.state = "loading";
+    completenessRetryVisible = false;
+    syncRetryButton();
+    if (completenessTimer === null) {
+      completenessTimer = setTimeoutFn(() => {
+        completenessTimer = null;
+        const shouldSweep = typeof window === "undefined" || window.__DZIALKI_KIEG_SWEEP__ !== false;
+        if (shouldSweep && nowFn() - completenessStartedAt < completenessWindowMs) {
+          parcelTileRetry?.retryIncompleteVisible();
+          buildingTileRetry?.retryIncompleteVisible();
+        }
+        updateCompleteness();
+      }, Math.min(sweepIntervalMs, Math.max(0, completenessWindowMs - elapsed)));
+    }
+  }
+
+  function resetCompletenessWindow() {
+    clearCompletenessTimer();
+    completenessStartedAt = nowFn();
+    updateCompleteness();
+  }
+
   function publishKiegTileStats() {
     const stats = readKiegTileStats();
     parcelTileStatus.textContent = "Kontury działek: " + stats.parcels.finalUnloaded + " kafelków niezaładowanych";
     buildingTileStatus.textContent = "Kontury budynków: " + stats.buildings.finalUnloaded + " kafelków niezaładowanych";
     if (typeof window !== "undefined") window.__DZIALKI_KIEG_TILE_STATS__ = stats;
     try { options.onKiegTileStats?.(stats); } catch { /* Diagnostyka nie może przerwać mapy. */ }
+    updateCompleteness();
   }
 
   function retryLayerVisible(event, layer) {
@@ -287,7 +402,8 @@ export function mountEgibLayers(container, options = {}) {
     if (disposed) return;
     status.textContent = message;
     status.dataset.state = state;
-    retry.hidden = !canRetry;
+    statusRetryVisible = canRetry;
+    syncRetryButton();
   }
 
   function readLayerOptions() {
@@ -320,6 +436,7 @@ export function mountEgibLayers(container, options = {}) {
       clearDataLayers();
       setStatus("Warstwy EGiB są wyłączone.");
     }
+    resetCompletenessWindow();
   }
 
   function clearDataLayers() {
@@ -646,8 +763,14 @@ export function mountEgibLayers(container, options = {}) {
     });
     attachKiegTileRetries();
     map.on("moveend", scheduleRefresh);
+    map.on("moveend", resetCompletenessWindow);
     map.on("zoomend", applyVisibility);
     map.on("click", handleMapClick);
+    for (const layer of [parcelWms, buildingWms]) {
+      layer.on("tileload", updateCompleteness);
+      layer.on("tileerror", updateCompleteness);
+      layer.on("tileunload", updateCompleteness);
+    }
     healthUnsubscribe = (options.subscribeBackendStatus ?? subscribeBackendStatus)("Dzialki", (next) => {
       if (next.state === "ready" && (readLayerOptions().numbers || readLayerOptions().parcels)) scheduleRefresh();
     });
@@ -664,7 +787,13 @@ export function mountEgibLayers(container, options = {}) {
   group.addEventListener("toggle", () => {
     updateDzialkiState({ layerGroups: { ...getDzialkiState().layerGroups, egib: group.open } });
   });
-  retry.addEventListener("click", () => scheduleRefresh(true));
+  retry.addEventListener("click", () => {
+    completenessRetryVisible = false;
+    syncRetryButton();
+    resetCompletenessWindow();
+    retryFailedTiles();
+    scheduleRefresh(true);
+  });
 
   function cleanup() {
     if (disposed) return;
@@ -672,11 +801,13 @@ export function mountEgibLayers(container, options = {}) {
     generation += 1;
     if (debounceHandle !== null) clearTimeoutFn(debounceHandle);
     if (retryDelayHandle !== null) clearTimeoutFn(retryDelayHandle);
+    clearCompletenessTimer();
     activeController?.abort();
     clickController?.abort();
     healthUnsubscribe();
     if (map) {
       map.off("moveend", scheduleRefresh);
+      map.off("moveend", resetCompletenessWindow);
       map.off("zoomend", applyVisibility);
       map.off("click", handleMapClick);
       clearDataLayers();
@@ -686,6 +817,11 @@ export function mountEgibLayers(container, options = {}) {
     }
     parcelTileRetry?.cancel();
     buildingTileRetry?.cancel();
+    for (const layer of [parcelWms, buildingWms]) {
+      layer?.off("tileload", updateCompleteness);
+      layer?.off("tileerror", updateCompleteness);
+      layer?.off("tileunload", updateCompleteness);
+    }
     parcelTileRetry = null;
     buildingTileRetry = null;
     if (typeof window !== "undefined") delete window.__DZIALKI_KIEG_TILE_STATS__;
@@ -705,6 +841,7 @@ export function mountEgibLayers(container, options = {}) {
       return parcels || buildings;
     },
     getKiegTileStats: readKiegTileStats,
+    getVisibleKiegTiles: readVisibleKiegTiles,
     inputs,
     group,
     status,

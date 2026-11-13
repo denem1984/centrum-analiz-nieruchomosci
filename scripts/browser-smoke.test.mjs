@@ -1,9 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Script } from "node:vm";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   aggregateRequests,
   buildKiegRetryOverrideSource,
+  buildKiegExperimentOverrideSource,
+  buildKiegDirectUrl,
   buildEgibStateExpression,
   buildKiegReliabilityStateExpression,
   buildParcelSearchAssertions,
@@ -13,6 +18,7 @@ import {
   chooseBrowserPath,
   compareProblemCoordinateSets,
   DEFAULT_TILE_EXPERIMENT_SETTLE_MS,
+  KIEG_EXPERIMENT_VARIANTS,
   EMPTY_TILE_BYTE_THRESHOLD,
   formatSearchOptionError,
   isAllowedArchiveRepeatRequest,
@@ -24,6 +30,7 @@ import {
   parseSearchArguments,
   parseEgibBackendRequestLimit,
   parseKiegReliabilityArguments,
+  parseKiegExperimentArguments,
   parseExpectedAssertionArguments,
   parseTileExperimentArguments,
   parseCdpLoadingFailed,
@@ -44,6 +51,13 @@ import {
   TILE_EXPERIMENT_CONFIGS,
   TILE_EXPERIMENT_REPEATS,
   tileCoordinateKey,
+  readM4d1cKiegBudget,
+  summarizeM4d1cKiegRuns,
+  isKiegCompletenessMonitorConsistent,
+  reserveM4d1cBrowserLaunch,
+  reserveM4d1cKiegRequest,
+  M4D1C_MAX_BROWSER_LAUNCHES,
+  M4D1C_MAX_KIEG_REQUESTS,
 } from "./browser-smoke.mjs";
 import {
   buildCommunesUrl,
@@ -118,6 +132,87 @@ test("wariant przed wyłącza retry przed nawigacją, a wariant po zachowuje K0"
   assert.equal(buildKiegRetryOverrideSource("before"),
     "window.__DZIALKI_TILE_RETRY__ = { attempts: 0, delaysMs: [], maxConcurrent: 1, jitterMs: 0 };");
   assert.equal(buildKiegRetryOverrideSource("after"), null);
+});
+
+test("warianty M4d.1c wybierają tryb i czas ustalenia bez przypadkowego łączenia scenariuszy", () => {
+  assert.deepEqual(KIEG_EXPERIMENT_VARIANTS.map(({ id }) => id), ["V0", "V1", "V2", "V3"]);
+  assert.deepEqual(parseKiegExperimentArguments(["--kieg-experiment", "V0"]), {
+    id: "V0", label: "obecny kod, headless", mode: "headless", retry: "default", sweep: false, settleMs: 40000,
+  });
+  assert.equal(parseKiegExperimentArguments(["--kieg-experiment=V1"]).mode, "headed");
+  assert.equal(parseKiegExperimentArguments(["--kieg-experiment", "V3", "--kieg-experiment-settle-ms", "60000"]).settleMs, 60000);
+  assert.throws(() => parseKiegExperimentArguments(["--kieg-experiment", "V0", "--headed"]), /tylko wariant V1/);
+  assert.throws(() => parseKiegExperimentArguments(["--kieg-experiment", "V9"]), /V0, V1, V2 albo V3/);
+  assert.throws(() => parseKiegExperimentArguments(["--kieg-experiment", "V2", "--kieg-experiment-settle-ms", "999"]), /1000–120000/);
+});
+
+test("podsumowanie M4d.1c pokazuje liczbę prób osiągnięcia 100%", () => {
+  const summary = summarizeM4d1cKiegRuns([
+    { finalFraction: 0, timeTo100Ms: null, kiegRequestsSent: 51, orbErrors: 24 },
+    { finalFraction: 11 / 12, timeTo100Ms: null, kiegRequestsSent: 28, orbErrors: 1 },
+    { finalFraction: 1, timeTo100Ms: 8256, kiegRequestsSent: 33, orbErrors: 4 },
+  ]);
+  assert.equal(summary.timeTo100ReachedRuns, 1);
+  assert.equal(summary.expectedRuns, 3);
+  assert.deepEqual(summary.timeTo100Ms, { min: 8256, median: 8256, max: 8256 });
+  assert.equal(summary.requests, 112);
+  assert.equal(summary.allRuns100Within20s, false);
+});
+
+test("asercja monitora KIEG porównuje liczniki i wymaga komunikatu kompletności przy 100%", () => {
+  assert.equal(isKiegCompletenessMonitorConsistent({ monitorLoaded: 2, monitorTotal: 3, monitor: "Wczytywanie konturów: 2/3" }, 2, 3), true);
+  assert.equal(isKiegCompletenessMonitorConsistent({ monitorLoaded: 3, monitorTotal: 3, monitor: "Kontury kompletne" }, 3, 3), true);
+  assert.equal(isKiegCompletenessMonitorConsistent({ monitorLoaded: 3, monitorTotal: 3, monitor: "Wczytywanie konturów: 3/3" }, 3, 3), false);
+  assert.equal(isKiegCompletenessMonitorConsistent({ monitorLoaded: 1, monitorTotal: 3 }, 2, 3), false);
+});
+
+test("V2 ustawia wyłącznie walidowalną politykę retry, a pozostałe warianty zachowują K0", () => {
+  assert.equal(buildKiegExperimentOverrideSource("V0"), "window.__DZIALKI_KIEG_SWEEP__ = false;");
+  assert.equal(buildKiegExperimentOverrideSource("V1"), "window.__DZIALKI_KIEG_SWEEP__ = false;");
+  const v2 = buildKiegExperimentOverrideSource("V2");
+  assert.match(v2, /attempts":8/);
+  assert.match(v2, /300,600,1200,2000,3000,4000,5000,6000/);
+  assert.equal(buildKiegExperimentOverrideSource("V3"), "window.__DZIALKI_KIEG_SWEEP__ = false;");
+  assert.throws(() => buildKiegExperimentOverrideSource("V9"), /Nieznany wariant/);
+});
+
+test("bezpośrednie węzły KIEG są dozwolone wyłącznie w wariancie V3 i zachowują parametry GetMap", () => {
+  const base = buildKiegGetMapUrl({ layer: "dzialki", bbox: [1800000, 6800000, 1800256, 6800256] });
+  const direct = buildKiegDirectUrl(base, "integracja02.gugik.gov.pl");
+  assert.equal(isAllowedBrowserRequest(direct, "GET", { appOrigin: "http://127.0.0.1:8080" }), false);
+  assert.equal(isAllowedBrowserRequest(direct, "GET", { allowDirectKiegHosts: true }), true);
+  const before = new URL(base);
+  const after = new URL(direct);
+  assert.equal(after.pathname, before.pathname);
+  assert.equal(after.search, before.search);
+  assert.equal(after.hostname, "integracja02.gugik.gov.pl");
+  assert.throws(() => buildKiegDirectUrl(base, "integracja03.gugik.gov.pl"), /Niedozwolony węzeł/);
+});
+
+test("licznik budżetu M4d.1c zachowuje stan po wznowieniu i blokuje limit globalny", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "m4d1c-budget-test-"));
+  const statePath = join(directory, "budget.json");
+  try {
+    const first = await reserveM4d1cBrowserLaunch(statePath, () => "t1");
+    assert.equal(first.launches, 1);
+    const resumed = await readM4d1cKiegBudget(statePath);
+    assert.equal(resumed.launches, 1, "odczyt po wznowieniu widzi zapisany licznik");
+    const seeded = { ...resumed, launches: M4D1C_MAX_BROWSER_LAUNCHES, requestsSent: M4D1C_MAX_KIEG_REQUESTS - 1 };
+    await writeFile(statePath, JSON.stringify(seeded), "utf8");
+    const last = await reserveM4d1cKiegRequest(statePath, () => "t2");
+    assert.equal(last.allowed, true);
+    const blocked = await reserveM4d1cKiegRequest(statePath, () => "t3");
+    assert.equal(blocked.allowed, false);
+    assert.equal(blocked.state.requestsSent, M4D1C_MAX_KIEG_REQUESTS);
+    const launchCapPath = join(directory, "launch-cap.json");
+    await writeFile(launchCapPath, JSON.stringify({ ...blocked.state, requestsSent: 0 }), "utf8");
+    await assert.rejects(reserveM4d1cBrowserLaunch(launchCapPath), /limit 5 uruchomień/);
+    const final = await readM4d1cKiegBudget(statePath);
+    assert.equal(final.launches, M4D1C_MAX_BROWSER_LAUNCHES);
+    assert.equal(final.requestsSent, M4D1C_MAX_KIEG_REQUESTS);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("frakcja kafelków KIEG i agregacja hostów rozróżniają odpowiedzi, ORB i render", () => {
@@ -510,6 +605,7 @@ test("allowlista M4d.1 dopuszcza wyłącznie WFS i KIEG EGiB starego frontu oraz
   const parcelMap = buildKiegGetMapUrl({ layer: "dzialki", bbox: [1800000, 6800000, 1800256, 6800256] });
   const buildingMap = buildKiegGetMapUrl({ layer: "budynki", bbox: [1800000, 6800000, 1800256, 6800256] });
   const clickInfo = buildMapClickFeatureInfoUrl({ lat: 53.2, lng: 16.9 });
+  const redirectOptions = { ...options, allowRedirectKiegHosts: true };
   for (const url of [wfs, parcelMap, buildingMap, clickInfo]) {
     assert.equal(isAllowedBrowserRequest(url, "GET", options), true, url);
     assert.equal(isAllowedBrowserRequest(url, "POST", options), false, url);
@@ -521,12 +617,13 @@ test("allowlista M4d.1 dopuszcza wyłącznie WFS i KIEG EGiB starego frontu oraz
   assert.equal(isAllowedBrowserRequest(clickInfo + "&EXTRA=1", "GET", options), false);
   for (const host of ["integracja01.gugik.gov.pl", "integracja02.gugik.gov.pl"]) {
     const redirect = parcelMap.replace("integracja.gugik.gov.pl", host);
-    assert.equal(isAllowedBrowserRequest(redirect, "GET", options), true);
-    assert.equal(isAllowedBrowserRequest(redirect.replace("layers=dzialki", "layers=admin"), "GET", options), false);
-    assert.equal(isAllowedBrowserRequest(redirect + "&EXTRA=1", "GET", options), false);
-    assert.equal(isAllowedBrowserRequest("https://" + host + "/cgi-bin/KrajowaIntegracjaEwidencjiGruntow", "GET", options), false);
-    assert.equal(isAllowedBrowserRequest(redirect + "/other", "GET", options), false);
-    assert.equal(isAllowedBrowserRequest(redirect, "POST", options), false);
+    assert.equal(isAllowedBrowserRequest(redirect, "GET", redirectOptions), true);
+    assert.equal(isAllowedBrowserRequest(redirect, "GET", options), false, "bez potwierdzenia 302 host przekierowania jest odrzucony");
+    assert.equal(isAllowedBrowserRequest(redirect.replace("layers=dzialki", "layers=admin"), "GET", redirectOptions), false);
+    assert.equal(isAllowedBrowserRequest(redirect + "&EXTRA=1", "GET", redirectOptions), false);
+    assert.equal(isAllowedBrowserRequest("https://" + host + "/cgi-bin/KrajowaIntegracjaEwidencjiGruntow", "GET", redirectOptions), false);
+    assert.equal(isAllowedBrowserRequest(redirect + "/other", "GET", redirectOptions), false);
+    assert.equal(isAllowedBrowserRequest(redirect, "POST", redirectOptions), false);
   }
   assert.equal(isAllowedBrowserRequest(
     "https://integracja03.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow", "GET", options,
