@@ -116,7 +116,7 @@
 
 ## D18 — Wyszukiwanie działki M4c
 
-- **Status:** implementacja M4c/M4c.1 w toku; właściciel przekazał baseline D1 poza repozytorium 2026-11-02, a porównanie po zmianach wykonuje właściciel.
+- **Status:** implementacja M4c/M4c.1 scalona w PR #10; porównanie z baseline D1 po zmianach wykonuje właściciel.
 - **Decyzja implementacyjna:** zależne listy administracyjne korzystają z publicznego PRG, a wybór obrębu i działki z publicznego ULDK. Żądania są GET, a ich pełne adresy są sprawdzane testami jednostkowymi.
 - **Kontekst:** `parcel.id` zachowuje identyfikator z odpowiedzi; `point` jest punktem wewnątrz geometrii WKT w EPSG:4326; kody województwa/powiatu pochodzą z prefiksu identyfikatora jednostki i nazw wybranych list PRG. Rodzaj 1/2/3 daje odpowiadający kod TERC7; rodzaj 4/5 mapuje się na rodzaj 3 [HIP z definicji TERYT do weryfikacji na pełnym TERC w M3b]; pozostałe rodzaje nie ustawiają gminy. `obrebTeryt` jest pomijane bez niezależnego potwierdzenia.
 - **Dane EGiB:** stary front pobiera geometrię do EGiB z ULDK, a następnie odpytuje KIEG WMS GetFeatureInfo bezpośrednio z przeglądarki; nie jest to trasa backendu Działek. Nowe adresy i parametry są porównane z `index.html` rewizji `a1aa39d` i testowane na atrapach. [FAKT z kodu: `reports/m4a-dzialki-analysis.md`, `docs/dzialki-module.md`]
@@ -135,6 +135,14 @@
 - **Pomiar skorygowany:** po trzy wczytania każdej konfiguracji K0–K3, stan po 35 s, widok testowy Piły, zoom 17,6. Mediana końcowej frakcji: K0 75,0%, K1 66,7%, K2 50,0%, K3 33,3%; każda konfiguracja wysłała 36 żądań GetMap. Żadna konfiguracja K1–K3 nie poprawiła K0 o co najmniej 10 p.p. w dwóch z trzech odpowiadających sobie wczytań. Czasy 90% i 95% nie zostały osiągnięte w żadnym z 12 wczytań skorygowanego przebiegu.
 - **Odpowiedzi:** 77 z 144 żądań GetMap otrzymało HTTP 200 i `image/png`; 67 nie miało statusu HTTP po 35 s i nie wygenerowało zdarzenia błędu ani anulowania. Nie zaobserwowano obrazu 1×1, błędu kafelka ani ponowienia. Dwa uruchomienia narzędzia wysłały łącznie 288 żądań ortofotomapy; limit 800 nie został przekroczony. [FAKT z przebiegu browser-smoke]
 - **Wniosek:** nie ma podstaw z tego pomiaru, by zwiększyć liczbę prób, wydłużyć backoff ani zmienić równoległość. Brak statusu HTTP w chwili pomiaru jest zgodny z opóźnieniem usługi lub sieci, ale jego źródło pozostaje niezweryfikowane [HIP]. UI zachowuje licznik, a po wyczerpaniu prób pokazuje komunikat z prośbą o ponowienie później lub zmianę roku.
+
+## D21 — EGiB i kliknięcia mapy (2026-11-13)
+
+- **Status:** M4d.1 jest w trakcie realizacji; kontrakty zewnętrzne sprawdzane są względem starego publicznego frontu `a1aa39d` i testowane z pełnymi adresami w testach offline.
+- **Implementacja:** panel mapy dzieli pracę na numerowane sekcje 1–3 i pamięta w module stan grup oraz warstw. Numery i kontury działek są domyślnie włączone, kontury budynków wyłączone. WFS GeoJSON odświeża widok od zoomu 13; KIEG WMS dostarcza kontury działek i budynków, a GetFeatureInfo dostarcza pola popupu. Żądania są GET, a odświeżenie WFS debounced i poprzednie żądanie jest anulowane.
+- **DenemContext:** kliknięcie działki na mapie nie zmienia kontekstu; wyszukiwanie pozostaje jego źródłem w tym etapie.
+- **Pytanie otwarte do właściciela:** czy kliknięcie działki na mapie ma ustawiać kontekst lokalizacji?
+- **Ograniczenie:** M4d.1 nie implementuje planowania przestrzennego, inwestycji, infrastruktury ani M4b.3. Zakres M4d.2/M4d.3 pozostaje osobny.
 
 ## Zasady repozytorium
 

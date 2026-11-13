@@ -14,6 +14,10 @@ const initialState = Object.freeze({
     obreby: Object.freeze([]),
   }),
   selectedParcel: null,
+  selectedMapParcels: Object.freeze([]),
+  mapSelectionInitialized: false,
+  egibLayers: Object.freeze({ numbers: true, parcels: true, buildings: false }),
+  layerGroups: Object.freeze({ base: true, egib: true, planning: false, investments: false, infrastructure: false, tools: false }),
 });
 
 function copyPlain(value) {
@@ -32,6 +36,9 @@ export function getDzialkiState() {
     center: [...current.center],
     search: copyPlain(current.search),
     selectedParcel: copyPlain(current.selectedParcel),
+    selectedMapParcels: copyPlain(current.selectedMapParcels),
+    egibLayers: copyPlain(current.egibLayers),
+    layerGroups: copyPlain(current.layerGroups),
   };
 }
 
@@ -56,6 +63,18 @@ export function updateDzialkiState(patch) {
   if (patch.selectedParcel === null || (patch.selectedParcel && typeof patch.selectedParcel === "object")) {
     current.selectedParcel = copyPlain(patch.selectedParcel);
   }
+  if (Array.isArray(patch.selectedMapParcels)) {
+    current.selectedMapParcels = copyPlain(patch.selectedMapParcels);
+  }
+  if (typeof patch.mapSelectionInitialized === "boolean") {
+    current.mapSelectionInitialized = patch.mapSelectionInitialized;
+  }
+  if (patch.egibLayers && typeof patch.egibLayers === "object" && !Array.isArray(patch.egibLayers)) {
+    current.egibLayers = { ...current.egibLayers, ...copyPlain(patch.egibLayers) };
+  }
+  if (patch.layerGroups && typeof patch.layerGroups === "object" && !Array.isArray(patch.layerGroups)) {
+    current.layerGroups = { ...current.layerGroups, ...copyPlain(patch.layerGroups) };
+  }
   return getDzialkiState();
 }
 
@@ -64,5 +83,6 @@ export function resetDzialkiState() {
     ...initialState,
     center: [...initialState.center],
     search: copyPlain(initialState.search),
+    selectedMapParcels: [],
   };
 }

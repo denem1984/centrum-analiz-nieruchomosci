@@ -1,10 +1,11 @@
-import { getBackendStatus } from "../../health.js";
+import { checkBackend, getBackendStatus } from "../../health.js";
 import { contextStore } from "../../context.js";
 import { attachTileRetry, resolveTileRetryConfig } from "./tile-retry.js";
 import { archiveTimeForYear, createBaseLayers, createMap, BASE_LAYER_OPTIONS } from "./layers-base.js";
 import { loadLeaflet } from "./leaflet-loader.js";
 import { getDzialkiState, updateDzialkiState } from "./state.js";
 import { mountParcelSearch } from "./search-ui.js";
+import { mountEgibLayers } from "./egib-layers.js";
 
 const STATUS_LABELS = Object.freeze({
   idle: "Nie sprawdzono",
@@ -47,8 +48,8 @@ export function mountDzialki(container, ctx = {}) {
   let map = null;
   let leaflet = null;
   let activeLayer = null;
-  let selectedParcelLayer = null;
-  let updateSelectedParcelDetails = () => {};
+  let egibLayerController = null;
+  let pendingSearchSelection = null;
   let retryController = null;
   let unmountSearch = () => {};
   let unsubscribeHealth = () => {};
@@ -69,80 +70,18 @@ export function mountDzialki(container, ctx = {}) {
   const layout = element("div", undefined, "dzialki-layout");
   const controls = element("aside", undefined, "dzialki-controls");
   controls.setAttribute("aria-label", "Ustawienia mapy Działki");
-
-  function popupForSelection(selection, toggled = false, hasInteracted = false) {
-    const popup = element("div", undefined, "dzialki-parcel-popup");
-    popup.append(element("strong", "Działka " + selection.parcel?.id));
-    popup.append(element("p", "Powierzchnia: " + (selection.egib?.area || "brak danych")));
-    const group = selection.egib?.group;
-    const groupDescription = selection.egib?.groupDescription;
-    popup.append(element("p", "Grupa rejestrowa: "
-      + (group ? group + (groupDescription ? " – " + groupDescription : "") : "brak danych")));
-    const classes = selection.egib?.classUse?.map((item) => item.code).join(", ") || "brak danych o użytkach w ewidencji powiatu (KIEG)";
-    popup.append(element("p", "Klasoużytki: " + classes));
-    popup.append(element("small", toggled
-      ? "✓ Zaznaczono tę działkę (klik ponownie, aby odznaczyć)."
-      : hasInteracted ? "Odznaczono tę działkę." : "Kliknij działkę, aby ją zaznaczyć."));
-    return popup;
-  }
+  const searchArea = element("section", undefined, "dzialki-search-area");
+  searchArea.setAttribute("aria-label", "Wyszukiwanie i raport działki");
+  controls.append(searchArea);
 
   function showSelectedParcel(selection) {
-    if (!selection || !map || !leaflet?.geoJSON) return;
-    if (selectedParcelLayer) map.removeLayer(selectedParcelLayer);
-    const color = typeof getComputedStyle === "function"
-      ? getComputedStyle(root).getPropertyValue("--dzialki-selection-stroke").trim()
-      : "";
-    const fill = typeof getComputedStyle === "function"
-      ? getComputedStyle(root).getPropertyValue("--dzialki-selection-fill").trim()
-      : "";
-    selectedParcelLayer = leaflet.geoJSON(selection.geometry, {
-      pane: "overlayPane",
-      style: {
-        color: color || "#b42355",
-        fillColor: fill || "#f04472",
-        weight: 4,
-        fillOpacity: 0.18,
-        className: "dzialki-selected-parcel",
-      },
-    });
-    selectedParcelLayer.addTo(map);
-    let toggled = false;
-    let hasInteracted = false;
-    let currentSelection = selection;
-    const baseSelectionStyle = {
-      color: color || "#b42355",
-      fillColor: fill || "#f04472",
-      weight: 4,
-      fillOpacity: 0.18,
-    };
-    function updatePopup() {
-      const content = popupForSelection(currentSelection, toggled, hasInteracted);
-      const popup = selectedParcelLayer.getPopup?.();
-      if (popup?.setContent) popup.setContent(content);
-      else selectedParcelLayer.bindPopup(content);
+    if (!selection) return;
+    if (!map || !egibLayerController) {
+      pendingSearchSelection = selection;
+      return;
     }
-    selectedParcelLayer.bindPopup(popupForSelection(currentSelection, toggled, hasInteracted));
-    selectedParcelLayer.on("click", () => {
-      toggled = !toggled;
-      hasInteracted = true;
-      selectedParcelLayer.setStyle({
-        ...baseSelectionStyle,
-        weight: toggled ? 5 : baseSelectionStyle.weight,
-        fillOpacity: toggled ? 0.42 : baseSelectionStyle.fillOpacity,
-      });
-      updatePopup();
-    });
-    updateSelectedParcelDetails = (nextSelection) => {
-      currentSelection = nextSelection;
-      updatePopup();
-    };
-    const label = element("span", selection.parcel?.number || selection.parcel?.id, "dzialki-parcel-label");
-    selectedParcelLayer.bindTooltip(label, {
-      permanent: true,
-      direction: "center",
-      className: "dzialki-parcel-label-tooltip",
-    });
-    map.fitBounds(selectedParcelLayer.getBounds(), { padding: [28, 28], maxZoom: 20 });
+    const selectionLayer = egibLayerController.addSearchSelection(selection);
+    if (!selectionLayer) return;
     const center = map.getCenter();
     if (center && Number.isFinite(center.lat) && Number.isFinite(center.lng)) {
       updateDzialkiState({
@@ -155,14 +94,60 @@ export function mountDzialki(container, ctx = {}) {
     }
   }
 
-  unmountSearch = mountParcelSearch(controls, {
+  unmountSearch = mountParcelSearch(searchArea, {
     setContext: ctx.setContext,
     onSelect: showSelectedParcel,
-    onEgib: (selection) => updateSelectedParcelDetails(selection),
+    onEgib: (selection) => egibLayerController?.updateSearchSelection(selection),
   });
 
-  const baseHeading = element("h3", "Podkład mapy");
-  controls.append(baseHeading);
+  const mapLayersPanel = element("section", undefined, "dzialki-map-layers");
+  mapLayersPanel.setAttribute("aria-labelledby", "dzialki-map-layers-heading");
+  const layersHeading = element("h3", "3. Warstwy mapy");
+  layersHeading.id = "dzialki-map-layers-heading";
+  mapLayersPanel.append(layersHeading);
+
+  function addGroupIcon(name) {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "1.8");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    const paths = {
+      base: "M4 5h16v14H4zM4 10h16M9 5v5m6-5v5",
+      planning: "M4 20V5l8-2 8 2v15l-8-2zM12 3v15",
+      investments: "M4 20l5-7 4 3 7-10M15 6h5v5",
+      infrastructure: "M3 12h18M12 3v18M5 5l14 14M19 5L5 19",
+      tools: "M4 7h16M4 12h16M4 17h16M8 5v4m8 1v4m-5 1v4",
+    };
+    path.setAttribute("d", paths[name] ?? paths.base);
+    svg.append(path);
+    return svg;
+  }
+
+  function createGroup(id, label, iconName, open) {
+    const details = element("details", undefined, "dzialki-layer-group");
+    details.dataset.layerGroup = id;
+    details.open = open;
+    const summary = element("summary", undefined, "dzialki-layer-group-summary");
+    summary.append(addGroupIcon(iconName), element("span", label));
+    const arrow = element("span", "⌄", "dzialki-layer-chevron");
+    arrow.setAttribute("aria-hidden", "true");
+    summary.append(arrow);
+    const body = element("div", undefined, "dzialki-layer-group-body");
+    details.append(summary, body);
+    details.addEventListener("toggle", () => {
+      const state = getDzialkiState().layerGroups;
+      updateDzialkiState({ layerGroups: { ...state, [id]: details.open } });
+    });
+    return { details, body };
+  }
+
+  const groups = getDzialkiState().layerGroups;
+  const baseGroup = createGroup("base", "Podkłady mapowe", "base", groups.base);
+  mapLayersPanel.append(baseGroup.details);
   const baseFieldset = element("fieldset", undefined, "dzialki-base-options");
   const baseLegend = element("legend", "Wybierz jeden podkład");
   baseFieldset.append(baseLegend);
@@ -180,7 +165,7 @@ export function mountDzialki(container, ctx = {}) {
     baseFieldset.append(row);
     baseInputs.set(id, input);
   }
-  controls.append(baseFieldset);
+  baseGroup.body.append(baseFieldset);
 
   const archiveControls = element("div", undefined, "dzialki-archive-controls");
   const yearLabel = element("label", undefined, "dzialki-year-label");
@@ -203,7 +188,26 @@ export function mountDzialki(container, ctx = {}) {
     "Dostępne lata: 1995–2025. W danym miejscu może brakować zdjęcia z wybranego roku.",
     "dzialki-help",
   ));
-  controls.append(archiveControls);
+  baseGroup.body.append(archiveControls);
+
+  egibLayerController = mountEgibLayers(mapLayersPanel, {
+    getBackendStatus: ctx.getBackendStatus ?? getBackendStatus,
+    checkBackend: ctx.checkBackend ?? checkBackend,
+    subscribeBackendStatus: ctx.subscribeBackendStatus,
+  });
+
+  const upcomingGroups = [
+    ["planning", "Planowanie przestrzenne", "planning"],
+    ["investments", "Inwestycje i zagrożenia", "investments"],
+    ["infrastructure", "Infrastruktura i własność", "infrastructure"],
+    ["tools", "Wygląd i narzędzia działek", "tools"],
+  ];
+  for (const [id, label, iconName] of upcomingGroups) {
+    const upcoming = createGroup(id, label, iconName, groups[id]);
+    const note = element("p", "w kolejnych etapach", "dzialki-upcoming-note");
+    upcoming.body.append(note);
+    mapLayersPanel.append(upcoming.details);
+  }
 
   const zoomGroup = element("section", undefined, "dzialki-zoom-controls");
   zoomGroup.setAttribute("aria-label", "Przybliżenie mapy");
@@ -225,7 +229,7 @@ export function mountDzialki(container, ctx = {}) {
   const zoomValue = element("output", Number(getDzialkiState().zoom).toFixed(1));
   zoomRow.append(zoomOut, zoomInput, zoomIn, zoomValue);
   zoomGroup.append(zoomRow);
-  controls.append(zoomGroup);
+  mapLayersPanel.append(zoomGroup);
 
   const retryStatus = element("p", "Niezaładowane kafelki: 0", "dzialki-tile-status");
   retryStatus.setAttribute("role", "status");
@@ -240,23 +244,8 @@ export function mountDzialki(container, ctx = {}) {
   retryButton.addEventListener("click", () => {
     retryController?.retryVisible();
   });
-  controls.append(retryStatus, exhaustedTileStatus, retryButton);
-
-  const futureHeading = element("h3", "Dostępne w kolejnych etapach");
-  controls.append(futureHeading);
-  const futureFeatures = [
-    "EGiB",
-    "Planowanie przestrzenne",
-    "Inwestycje i zagrożenia",
-    "Infrastruktura i własność",
-  ];
-  for (const feature of futureFeatures) {
-    const row = element("p", undefined, "dzialki-future-row");
-    const badge = element("span", "w kolejnych etapach");
-    const label = element("span", feature);
-    row.append(label, badge);
-    controls.append(row);
-  }
+  mapLayersPanel.append(retryStatus, exhaustedTileStatus, retryButton);
+  controls.append(mapLayersPanel);
 
   const mapFrame = element("div", undefined, "dzialki-map-frame");
   const mapContainer = element("div", undefined, "dzialki-map");
@@ -388,6 +377,7 @@ export function mountDzialki(container, ctx = {}) {
       activeLayer = buildLayer(selectedBase);
       map.addLayer(activeLayer);
       attachRetry(activeLayer);
+      egibLayerController.attach(map, L);
       map.on("zoomend", syncZoom);
       map.on("moveend", () => {
         if (!map || disposed) return;
@@ -400,8 +390,12 @@ export function mountDzialki(container, ctx = {}) {
       mapStatus.textContent = "";
       mapStatus.hidden = true;
       syncZoom();
-      const savedParcel = getDzialkiState().selectedParcel;
-      if (savedParcel) showSelectedParcel(savedParcel);
+      const savedState = getDzialkiState();
+      if (savedState.mapSelectionInitialized) {
+        egibLayerController.restoreSelections(savedState.selectedMapParcels);
+      } else if (savedState.selectedParcel) showSelectedParcel(savedState.selectedParcel);
+      else if (pendingSearchSelection) showSelectedParcel(pendingSearchSelection);
+      pendingSearchSelection = null;
     } catch {
       mapStatus.textContent = "Nie udało się uruchomić mapy. Odśwież stronę i spróbuj ponownie.";
     }
@@ -415,6 +409,7 @@ export function mountDzialki(container, ctx = {}) {
     unsubscribeHealth();
     unmountSearch();
     detachRetry();
+    egibLayerController?.cleanup();
     if (map) {
       map.off("zoomend", syncZoom);
       map.remove();

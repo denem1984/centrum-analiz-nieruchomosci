@@ -112,7 +112,7 @@ export function mountParcelSearch(container, options = {}) {
   const document = container.ownerDocument;
   const root = makeElement(document, "section", undefined, "dzialki-search-panel");
   root.setAttribute("aria-labelledby", "dzialki-search-heading");
-  const heading = makeElement(document, "h3", "Szukaj działki");
+  const heading = makeElement(document, "h3", "1. Wyszukiwanie działki");
   heading.id = "dzialki-search-heading";
   root.append(heading);
   root.append(makeElement(

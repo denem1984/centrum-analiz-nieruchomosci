@@ -84,6 +84,9 @@ export class FakeGeoJsonLayer extends FakeEventTarget {
     };
     return { getCenter: () => center };
   }
+  clearLayers() { this.data = { type: "FeatureCollection", features: [] }; return this; }
+  addData(data) { this.data = data; return this; }
+  eachLayer(callback) { callback(this); return this; }
 
   bindPopup(content) {
     this.popup = content;
@@ -119,6 +122,15 @@ export class FakeMap extends FakeEventTarget {
 
   getCenter() { return { ...this.center }; }
   getZoom() { return this.zoom; }
+  getBounds() {
+    const span = this.zoom >= 13 ? 0.02 : 1;
+    return {
+      getSouth: () => this.center.lat - span / 2,
+      getWest: () => this.center.lng - span / 2,
+      getNorth: () => this.center.lat + span / 2,
+      getEast: () => this.center.lng + span / 2,
+    };
+  }
 
   setZoom(zoom) {
     this.zoom = Number(zoom);
@@ -158,6 +170,19 @@ export class FakeMap extends FakeEventTarget {
     this.events.clear();
     return this;
   }
+  openPopup(popup) { this.popup = popup; return this; }
+}
+
+class FakeMarker extends FakeEventTarget {
+  constructor(latlng, options = {}) { super(); this.latlng = latlng; this.options = options; }
+  addTo(map) { map.addLayer(this); return this; }
+}
+
+class FakePopup {
+  constructor(options = {}) { this.options = options; }
+  setLatLng(latlng) { this.latlng = latlng; return this; }
+  setContent(content) { this.content = content; return this; }
+  openOn(map) { map.openPopup(this); return this; }
 }
 
 export function createFakeLeaflet() {
@@ -181,6 +206,13 @@ export function createFakeLeaflet() {
       geoJsonLayers.push(layer);
       return layer;
     },
+    marker(latlng, options) {
+      const marker = new FakeMarker(latlng, options);
+      layers.push(marker);
+      return marker;
+    },
+    divIcon(options) { return { ...options }; },
+    popup(options) { return new FakePopup(options); },
     control: {
       scale(options) {
         return {

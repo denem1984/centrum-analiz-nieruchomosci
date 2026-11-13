@@ -59,7 +59,7 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
   assert.equal(firstMap.options.zoomDelta, 0.1);
   assert.deepEqual(firstMap.getCenter(), { lat: 52.07, lng: 19.48 });
   assert.equal(firstMap.getZoom(), 6);
-  assert.equal(firstMap.layers.size, 1);
+  assert.equal(firstMap.layers.size, 2, "podkład oraz domyślna warstwa konturów EGiB są aktywne");
   assert.equal([...firstMap.layers][0].options.attribution,
     '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>');
   assert.equal(firstMap.controls[0].type, "scale");
@@ -77,20 +77,25 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
 
   const esriRadio = fake.document.querySelectorAll("[data-base-layer]")
     .find((input) => input.dataset.baseLayer === "esri");
-  const osmLayer = [...firstMap.layers][0];
+  const baseLayer = (map) => [...map.layers].find((layer) =>
+    layer.options?.attribution?.includes("OpenStreetMap")
+    || layer.options?.attribution?.includes("Esri — Source")
+    || layer.options?.time,
+  );
+  const osmLayer = baseLayer(firstMap);
   esriRadio.checked = true;
   esriRadio.dispatch("change");
   assert.equal(osmLayer.listenerCount("tileerror"), 0, "zmiana podkładu odłącza retry poprzedniej warstwy");
-  assert.equal(firstMap.layers.size, 1);
-  assert.match([...firstMap.layers][0].url, /server\.arcgisonline\.com/);
+  assert.equal(firstMap.layers.size, 2);
+  assert.match(baseLayer(firstMap).url, /server\.arcgisonline\.com/);
 
   const archiveRadio = fake.document.querySelectorAll("[data-base-layer]")
     .find((input) => input.dataset.baseLayer === "archive");
-  const esriLayer = [...firstMap.layers][0];
+  const esriLayer = baseLayer(firstMap);
   archiveRadio.checked = true;
   archiveRadio.dispatch("change");
   assert.equal(esriLayer.listenerCount("tileerror"), 0);
-  let archiveLayer = [...firstMap.layers][0];
+  let archiveLayer = baseLayer(firstMap);
   assert.equal(archiveLayer.isWms, true);
   assert.equal(archiveLayer.options.time, "2025-11-01");
   archiveLayer.fire("tileload", {
@@ -115,7 +120,7 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
   yearInput.dispatch("input");
   yearInput.dispatch("change");
   assert.equal(archiveLayer.listenerCount("tileerror"), 0, "zmiana roku odłącza retry poprzedniej warstwy");
-  archiveLayer = [...firstMap.layers][0];
+  archiveLayer = baseLayer(firstMap);
   assert.equal(archiveLayer.options.time, "2023-12-01");
   assert.match(fake.document.getElementById("module-view").textContent, /2023/);
 
@@ -139,8 +144,8 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(leaflet.maps.length, 2);
   const secondMap = leaflet.maps[1];
-  assert.equal([...secondMap.layers][0].isWms, true);
-  assert.equal([...secondMap.layers][0].options.time, "2023-12-01");
+  assert.equal(baseLayer(secondMap).isWms, true);
+  assert.equal(baseLayer(secondMap).options.time, "2023-12-01");
   assert.deepEqual(secondMap.getCenter(), { lat: 52.07, lng: 19.48 });
   assert.equal(secondMap.getZoom(), 8.4);
 

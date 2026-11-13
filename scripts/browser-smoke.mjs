@@ -19,10 +19,16 @@ export const TILE_EXPERIMENT_REPEATS = 3;
 // Empty detection prefers body Content-Length / Network.dataReceived bytes; transfer length is retained too.
 export const EMPTY_TILE_BYTE_THRESHOLD = 128;
 export const MAX_ARCHIVE_REPEAT_TILES = 6;
+export const MAX_EGIB_BACKEND_REQUESTS = 400;
 export const ARCHIVE_REPEAT_DELAYS_MS = Object.freeze([1500, 4000]);
 const MIN_SETTLE_MS = 6000;
 const ARCHIVE_WMS_HOST = "mapy.geoportal.gov.pl";
 const ARCHIVE_WMS_PATH = "/wss/service/PZGIK/ORTO/WMS/StandardResolutionTime";
+const KIEG_WMS_HOST = "integracja.gugik.gov.pl";
+const KIEG_WMS_PATH = "/cgi-bin/KrajowaIntegracjaEwidencjiGruntow";
+const KIEG_WMS_REDIRECT_HOSTS = Object.freeze(["integracja01.gugik.gov.pl", "integracja02.gugik.gov.pl"]);
+const DZIALKI_BACKEND_HOST = "analizator-nieruchomosci.onrender.com";
+const DZIALKI_WFS_PATH = "/api/wfs";
 const RELEVANT_ARCHIVE_HEADERS = Object.freeze({
   "access-control-allow-origin": "Access-Control-Allow-Origin",
   "timing-allow-origin": "Timing-Allow-Origin",
@@ -104,6 +110,18 @@ export function parseTileExperimentArguments(argv = []) {
     throw new Error("--settle-ms musi być liczbą całkowitą z zakresu 1000–300000.");
   }
   return { maxOrthophotoRequests, settleMs };
+}
+
+export function parseEgibBackendRequestLimit(argv = []) {
+  const provided = argv.some((value) => value === "--max-egib-backend-requests"
+    || value.startsWith("--max-egib-backend-requests="));
+  if (!provided) return MAX_EGIB_BACKEND_REQUESTS;
+  const raw = getArg(argv, "--max-egib-backend-requests");
+  const limit = Number(raw);
+  if (!raw || !Number.isInteger(limit) || limit < 1 || limit > MAX_EGIB_BACKEND_REQUESTS) {
+    throw new Error("--max-egib-backend-requests musi być liczbą całkowitą z zakresu 1–400.");
+  }
+  return limit;
 }
 
 export function shouldAllowOrthophotoRequest(sent, limit) {
@@ -567,6 +585,69 @@ function exactQueryKeys(params, keys) {
     && keys.every((key) => params.has(key));
 }
 
+function validBbox(value, { minWidth = 0, exactWidth = null } = {}) {
+  const bbox = String(value ?? "").split(",").map(Number);
+  if (bbox.length !== 4 || !bbox.every(Number.isFinite)
+      || bbox[0] < -10000000 || bbox[2] > 10000000
+      || bbox[1] < -10000000 || bbox[3] > 10000000
+      || bbox[0] >= bbox[2] || bbox[1] >= bbox[3]) return false;
+  const width = bbox[2] - bbox[0];
+  const height = bbox[3] - bbox[1];
+  return exactWidth === null
+    ? width >= minWidth && height >= minWidth
+    : Math.abs(width - exactWidth) < 0.000001 && Math.abs(height - exactWidth) < 0.000001;
+}
+
+export function isAllowedDzialkiEgibRequest(url, method = "GET") {
+  if (method !== "GET" || url.protocol !== "https:" || url.port || url.username || url.password || url.hash) return false;
+  if (url.hostname === DZIALKI_BACKEND_HOST && url.pathname === DZIALKI_WFS_PATH) {
+    const params = new URLSearchParams(url.search);
+    const bbox = (params.get("bbox") ?? "").split(",").map(Number);
+    return exactQueryKeys(params, ["bbox"]) && validBbox(params.get("bbox"))
+      && bbox[0] >= -90 && bbox[2] <= 90 && bbox[1] >= -180 && bbox[3] <= 180;
+  }
+  const isKiegHost = url.hostname === KIEG_WMS_HOST || KIEG_WMS_REDIRECT_HOSTS.includes(url.hostname);
+  if (!isKiegHost || url.pathname !== KIEG_WMS_PATH) return false;
+  const isRedirectHost = url.hostname !== KIEG_WMS_HOST;
+  const params = new URLSearchParams(url.search);
+  const mapKeys = ["service", "request", "layers", "styles", "format", "transparent", "version", "width", "height", "srs", "bbox"];
+  if (exactQueryKeys(params, mapKeys)
+      && params.get("service")?.toUpperCase() === "WMS"
+      && params.get("request")?.toUpperCase() === "GETMAP"
+      && ["dzialki", "budynki"].includes(params.get("layers"))
+      && params.get("styles") === ""
+      && params.get("format") === "image/png"
+      && params.get("transparent")?.toLowerCase() === "true"
+      && params.get("version") === "1.1.1"
+      && params.get("width") === "256" && params.get("height") === "256"
+      && params.get("srs") === "EPSG:3857" && validBbox(params.get("bbox"))) return true;
+
+  if (isRedirectHost) return false;
+
+  const infoKeys = ["SERVICE", "VERSION", "REQUEST", "SRS", "BBOX", "WIDTH", "HEIGHT", "X", "Y", "LAYERS", "QUERY_LAYERS", "INFO_FORMAT", "FORMAT", "TRANSPARENT"];
+  if (!exactQueryKeys(params, infoKeys)) return false;
+  const bbox = (params.get("BBOX") ?? "").split(",").map(Number);
+  return params.get("SERVICE") === "WMS" && params.get("VERSION") === "1.1.1"
+    && params.get("REQUEST") === "GetFeatureInfo" && params.get("SRS") === "EPSG:4326"
+    && bbox.length === 4 && bbox.every(Number.isFinite)
+    && Math.abs((bbox[2] - bbox[0]) - 0.0024) < 0.000001
+    && Math.abs((bbox[3] - bbox[1]) - 0.0024) < 0.000001
+    && params.get("WIDTH") === "1000" && params.get("HEIGHT") === "1000"
+    && params.get("X") === "500" && params.get("Y") === "500"
+    && params.get("LAYERS") === "dzialki" && params.get("QUERY_LAYERS") === "dzialki"
+    && params.get("INFO_FORMAT") === "text/xml" && params.get("FORMAT") === "image/png"
+    && params.get("TRANSPARENT") === "TRUE";
+}
+
+export function shouldAllowEgibBackendRequest(sent, limit = MAX_EGIB_BACKEND_REQUESTS) {
+  return Number.isInteger(sent) && sent >= 0 && Number.isInteger(limit)
+    && limit >= 1 && limit <= MAX_EGIB_BACKEND_REQUESTS && sent < limit;
+}
+
+export function isDzialkiBackendHostRequest(url) {
+  return url instanceof URL && url.hostname === DZIALKI_BACKEND_HOST;
+}
+
 export function isAllowedSearchServiceRequest(url) {
   if (url.protocol !== "https:" || url.port || url.username || url.password || url.hash) return false;
   const rule = SEARCH_SERVICE_RULES.find((item) => item.host === url.hostname && item.path === url.pathname);
@@ -629,7 +710,8 @@ function isHealthRequest(url, method, healthRoutes = []) {
 function isObservedExternalRequest(url, method, healthRoutes = []) {
   return method === "GET" && (isHealthRequest(url, method, healthRoutes)
     || isTileHostAllowed(url)
-    || isAllowedSearchServiceRequest(url));
+    || isAllowedSearchServiceRequest(url)
+    || isAllowedDzialkiEgibRequest(url, method));
 }
 
 export function isAllowedBrowserRequest(rawUrl, method, options = {}) {
@@ -645,6 +727,7 @@ export function isAllowedBrowserRequest(rawUrl, method, options = {}) {
   if (url.protocol !== "https:" || url.port || url.username || url.password) return false;
 
   if (isHealthRequest(url, requestMethod, options.healthRoutes ?? [])) return true;
+  if (isAllowedDzialkiEgibRequest(url, requestMethod)) return true;
   if (isTileHostAllowed(url)) {
     const matchingRule = TILE_HOST_RULES.find((rule) => {
       const hostMatches = rule.subdomains
@@ -847,6 +930,31 @@ export function buildStateExpression() {
   ].join("\n");
 }
 
+export function buildEgibStateExpression() {
+  return [
+    "(() => {",
+    "const status = document.querySelector('#dzialki-egib-status');",
+    "const service = document.querySelector('.dzialki-service-status');",
+    "const popup = document.querySelector('.leaflet-popup-content');",
+    "return {",
+    "numbersChecked: Boolean(document.querySelector('#dzialki-layer-numbers')?.checked),",
+    "parcelsChecked: Boolean(document.querySelector('#dzialki-layer-parcels')?.checked),",
+    "buildingsChecked: Boolean(document.querySelector('#dzialki-layer-buildings')?.checked),",
+    "egibState: status?.dataset.state || 'missing',",
+    "egibStatus: status?.textContent || '',",
+    "backendState: service?.dataset.state || 'missing',",
+    "outlineCount: document.querySelectorAll('path.dzialki-egib-outline').length,",
+    "labelCount: document.querySelectorAll('[data-egib-label]').length,",
+    "buildingTiles: document.querySelectorAll('.dzialki-egib-buildings-tile .leaflet-tile-loaded').length,",
+    "selectedCount: document.querySelectorAll('path.dzialki-selected-parcel').length,",
+    "popupText: popup?.textContent || '',",
+    "base: document.querySelector('[data-base-layer]:checked')?.value || '',",
+    "zoom: document.querySelector('input[aria-label=\\\"Przybliżenie mapy\\\"]')?.value || ''",
+    "};",
+    "})()",
+  ].join("\n");
+}
+
 export function buildSearchAssertionStateExpression() {
   return [
     "(() => {",
@@ -867,6 +975,10 @@ async function runBrowserSmoke() {
 
   const argv = process.argv.slice(2);
   const requestedPort = getArg(argv, "--port");
+  const egibLayersMode = argv.includes("--egib-layers");
+  const egibRequestLimitProvided = argv.some((value) => value === "--max-egib-backend-requests"
+    || value.startsWith("--max-egib-backend-requests="));
+  const egibBackendRequestLimit = parseEgibBackendRequestLimit(argv);
   const searchArgs = parseSearchArguments(argv);
   const expectedAssertions = parseExpectedAssertionArguments(argv);
   const tileExperimentArgs = parseTileExperimentArguments(argv);
@@ -878,6 +990,12 @@ async function runBrowserSmoke() {
     throw new Error("Nieprawidłowa wartość --before-ref.");
   }
   const compareBefore = Boolean(beforeRef);
+  if (egibLayersMode && (tileExperimentArgs || searchArgs || expectedAssertions || compareBefore)) {
+    throw new Error("--egib-layers działa samodzielnie, bez wyszukiwania ani porównania baseline.");
+  }
+  if (egibRequestLimitProvided && !egibLayersMode) {
+    throw new Error("--max-egib-backend-requests jest dostępny tylko z --egib-layers.");
+  }
   if (tileExperimentArgs && (searchArgs || expectedAssertions || compareBefore)) {
     throw new Error("--experiment-tiles działa osobno i nie łączy się z wyszukiwaniem M4c ani porównaniem --before-ref.");
   }
@@ -931,6 +1049,8 @@ async function runBrowserSmoke() {
   let orthophotoRequestCount = 0;
   let orthophotoBudgetExceeded = false;
   let orthophotoBudgetBlockedCount = 0;
+  let egibBackendRequestCount = 0;
+  let egibBackendBudgetExceeded = false;
 
   try {
     if (compareBefore) {
@@ -1115,9 +1235,22 @@ async function runBrowserSmoke() {
       if (event === "Fetch.requestPaused") {
         const request = params.request ?? {};
         const isArchiveRepeatScenario = currentScenario.startsWith("stability-2025-repeat-attempt-");
-        const allowed = isArchiveRepeatScenario
+        let allowed = isArchiveRepeatScenario
           ? isAllowedArchiveRepeatRequest(request.url, request.method, archiveRepeatAllowlist)
           : isAllowedBrowserRequest(request.url, request.method, { appOrigins, healthRoutes });
+        let isEgibBackendRequest = false;
+        try {
+          const parsedRequestUrl = new URL(request.url);
+          isEgibBackendRequest = isDzialkiBackendHostRequest(parsedRequestUrl);
+        } catch {}
+        if (allowed && isEgibBackendRequest) {
+          if (!shouldAllowEgibBackendRequest(egibBackendRequestCount, egibBackendRequestLimit)) {
+            allowed = false;
+            egibBackendBudgetExceeded = true;
+          } else {
+            egibBackendRequestCount += 1;
+          }
+        }
         if (!allowed) {
           let address = request.url;
           try {
@@ -1330,6 +1463,107 @@ async function runBrowserSmoke() {
         requests: requestDetails,
       };
       return screenshot;
+    }
+
+    async function runEgibLayersScenario(origin) {
+      const scenarioName = "egib-layers";
+      currentScenario = scenarioName;
+      const startedAt = Date.now();
+      await pageCdp.command("Page.navigate", {
+        url: origin + "/?browserSmoke=egib-layers#/dzialki?ctx=" + contextEncoded,
+      });
+      await waitForMap(origin);
+      await setZoomForTest();
+      const initial = await evaluate(buildEgibStateExpression());
+      const sawWaking = initial.egibState === "waking" || /Usługa się budzi/.test(initial.egibStatus);
+      const dataDeadline = Date.now() + 120000;
+      let dataState = initial;
+      let timeToDataMs = /^Warstwy EGiB wczytane\./.test(initial.egibStatus)
+        ? Date.now() - startedAt
+        : null;
+      let coldStartObserved = sawWaking;
+      while (Date.now() < dataDeadline) {
+        dataState = await evaluate(buildEgibStateExpression()).catch(() => dataState);
+        if (dataState.egibState === "waking" || /Usługa się budzi/.test(dataState.egibStatus)) coldStartObserved = true;
+        const dataLoaded = /^Warstwy EGiB wczytane\./.test(dataState.egibStatus);
+        if (dataLoaded && timeToDataMs === null) timeToDataMs = Date.now() - startedAt;
+        if (dataLoaded || dataState.egibState === "error") break;
+        await sleep(200);
+      }
+
+      const buildingToggle = await evaluate("(() => { const input = document.querySelector('#dzialki-layer-buildings'); if (!input) return false; input.checked = true; input.dispatchEvent(new Event('change', { bubbles: true })); return true; })()");
+      if (!buildingToggle) throw new Error("Nie znaleziono przełącznika konturów budynków.");
+      const buildingsDeadline = Date.now() + 15000;
+      let afterBuildings = await evaluate(buildEgibStateExpression()).catch(() => dataState);
+      while (Date.now() < buildingsDeadline && afterBuildings.buildingTiles === 0) {
+        await sleep(250);
+        afterBuildings = await evaluate(buildEgibStateExpression()).catch(() => afterBuildings);
+      }
+
+      const clickCenter = "(() => { const map = document.querySelector('.dzialki-map'); if (!map) return false;"
+        + " const r = map.getBoundingClientRect(); const e = new MouseEvent('click', { bubbles: true, cancelable: true,"
+        + " clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }); map.dispatchEvent(e); return true; })()";
+      const clickStarted = Date.now();
+      const firstClickSent = await evaluate(clickCenter);
+      if (!firstClickSent) throw new Error("Nie udało się kliknąć środka widoku mapy.");
+      const popupDeadline = Date.now() + 15000;
+      let popupState = await evaluate(buildEgibStateExpression()).catch(() => null);
+      while (Date.now() < popupDeadline && !/Powierzchnia:/.test(popupState?.popupText ?? "")) {
+        await sleep(200);
+        popupState = await evaluate(buildEgibStateExpression()).catch(() => popupState);
+      }
+      const popupTimeMs = Date.now() - clickStarted;
+
+      const secondClickSent = await evaluate(clickCenter);
+      if (!secondClickSent) throw new Error("Nie udało się wykonać drugiego kliknięcia mapy.");
+      const deselectDeadline = Date.now() + 15000;
+      let finalState = await evaluate(buildEgibStateExpression()).catch(() => popupState);
+      while (Date.now() < deselectDeadline && !/Odznaczono tę działkę\./.test(finalState?.egibStatus ?? "")) {
+        await sleep(200);
+        finalState = await evaluate(buildEgibStateExpression()).catch(() => finalState);
+      }
+
+      const scenarioRequests = externalRequests.filter((request) => request.scenario === scenarioName);
+      const egibRequests = scenarioRequests.filter((request) => {
+        const url = new URL(request.url);
+        return url.hostname === DZIALKI_BACKEND_HOST
+          || ((url.hostname === KIEG_WMS_HOST || KIEG_WMS_REDIRECT_HOSTS.includes(url.hostname))
+            && url.pathname === KIEG_WMS_PATH);
+      }).map(({ url, method, status, mimeType, elapsedMs, errorText, resourceType }) => ({
+        url, method, status, mimeType, elapsedMs, errorText, resourceType,
+      }));
+      const scenarioErrors = consoleErrors.filter((item) => item.scenario === scenarioName);
+      const assertions = [
+        { name: "Numery i kontury działek domyślnie włączone", pass: initial.numbersChecked && initial.parcelsChecked },
+        { name: "Kontury budynków domyślnie wyłączone", pass: !initial.buildingsChecked },
+        { name: "Po włączeniu konturów budynków pojawiły się kafelki", pass: afterBuildings.buildingTiles > 0 },
+        { name: "Komunikat zimnego startu", pass: coldStartObserved || initial.backendState === "ready", observed: coldStartObserved },
+        { name: "Popup zawiera powierzchnię, grupę i klasoużytki", pass: ["Powierzchnia:", "Grupa rejestrowa:", "Klasoużytki:"].every((part) => popupState?.popupText.includes(part)) },
+        { name: "Drugie kliknięcie odznacza działkę", pass: /Odznaczono tę działkę\./.test(finalState?.egibStatus ?? "") },
+        { name: "Brak błędów konsoli", pass: scenarioErrors.length === 0 },
+      ];
+      const screenshot = await pageCdp.command("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
+      const screenshotPath = join(resultDir, scenarioName + ".png");
+      await writeFile(screenshotPath, Buffer.from(screenshot.data, "base64"));
+      return {
+        name: scenarioName,
+        durationMs: Date.now() - startedAt,
+        timeToDataMs,
+        timeToPopupMs: popupState?.popupText ? popupTimeMs : null,
+        initial,
+        afterBuildings,
+        popupState,
+        finalState,
+        coldStartObserved,
+        egibRequests,
+        backendRequestCount: egibRequests.filter((request) => request.url.includes("/api/wfs?")).length,
+        httpStatuses: [...new Set(egibRequests.map((request) => request.status)
+          .filter((status) => status !== null))].sort((left, right) => left - right),
+        assertions,
+        consoleErrorCount: scenarioErrors.length,
+        screenshot: screenshotPath,
+        passed: assertions.every((assertion) => assertion.pass),
+      };
     }
 
     async function runArchiveStability(origin) {
@@ -1637,20 +1871,21 @@ async function runBrowserSmoke() {
       return { scenarios, retryScenario, statePreserved };
     }
 
-    const tileExperiment = tileExperimentArgs ? await runTileExperiment(appOrigin) : null;
-    const beforeRun = !tileExperiment && baselineOrigin ? await runScenarios("before", baselineOrigin) : null;
-    const afterRun = !tileExperiment ? await runScenarios("after", appOrigin) : null;
-    const stability = !tileExperiment ? await runArchiveStability(appOrigin) : null;
-    const parcelSearch = !tileExperiment && searchArgs ? await runParcelSearchScenario(appOrigin) : null;
-    const scenarios = tileExperiment ? tileExperiment.runs : [
+    const egibScenario = egibLayersMode ? await runEgibLayersScenario(appOrigin) : null;
+    const tileExperiment = !egibLayersMode && tileExperimentArgs ? await runTileExperiment(appOrigin) : null;
+    const beforeRun = !egibLayersMode && !tileExperiment && baselineOrigin ? await runScenarios("before", baselineOrigin) : null;
+    const afterRun = !egibLayersMode && !tileExperiment ? await runScenarios("after", appOrigin) : null;
+    const stability = !egibLayersMode && !tileExperiment ? await runArchiveStability(appOrigin) : null;
+    const parcelSearch = !egibLayersMode && !tileExperiment && searchArgs ? await runParcelSearchScenario(appOrigin) : null;
+    const scenarios = egibScenario ? [egibScenario] : tileExperiment ? tileExperiment.runs : [
       ...(beforeRun?.scenarios ?? []),
       ...afterRun.scenarios,
       ...stability.runs,
       ...(parcelSearch ? [parcelSearch] : []),
     ];
-    const retryScenarios = tileExperiment ? [] : [beforeRun?.retryScenario, afterRun.retryScenario,
+    const retryScenarios = egibLayersMode || tileExperiment ? [] : [beforeRun?.retryScenario, afterRun.retryScenario,
       stability.repeat.skipped ? null : stability.repeat].filter(Boolean);
-    const statePreserved = tileExperiment
+    const statePreserved = egibLayersMode || tileExperiment
       ? null
       : (!beforeRun || beforeRun.statePreserved) && afterRun.statePreserved;
 
@@ -1675,6 +1910,10 @@ async function runBrowserSmoke() {
       },
       archive2025EmptyTileRetry: stability?.repeat ?? null,
       parcelSearch,
+      egibScenario,
+      egibBackendRequestCount,
+      egibBackendRequestLimit,
+      egibBackendBudgetExceeded,
       tileExperiment,
       orthophotoRequestsSent: orthophotoRequestCount,
       orthophotoRequestLimit: tileExperimentArgs?.maxOrthophotoRequests ?? null,
@@ -1694,14 +1933,30 @@ async function runBrowserSmoke() {
     runReport = report;
     await writeFile(join(resultDir, "report.json"), JSON.stringify(report, null, 2), "utf8");
 
-    const lines = tileExperiment ? [
+    const lines = egibScenario ? [
+      "Asercja EGiB | wynik | szczegół",
+      "------------- | ----- | --------",
+    ] : tileExperiment ? [
       "Konfiguracja | końcowa frakcja załadowanych min/mediana/maks | żądania ortofotomapy | GetMap bez statusu | czas do 90% | czas do 95%",
       "------------ | --------------------------------------------- | --------------------- | ------------------ | ----------- | -----------",
     ] : [
       "Scenariusz | kafelki załadowane/puste/błędne/anulowane | kody HTTP | przykładowe błędne adresy",
       "---------- | ----------------------------------------- | ---------- | -------------------------",
     ];
-    if (tileExperiment) {
+    if (egibScenario) {
+      for (const assertion of egibScenario.assertions) {
+        lines.push(assertion.name + " | " + (assertion.pass ? "PASS" : "FAIL")
+          + " | " + (assertion.observed === false ? "nie zaobserwowano (usługa była już gotowa)" : ""));
+      }
+      lines.push("Dane EGiB po " + (egibScenario.timeToDataMs ?? "brak") + " ms; popup po "
+        + (egibScenario.timeToPopupMs ?? "brak") + " ms; widoczne kontury/etykiety: "
+        + egibScenario.finalState.outlineCount + "/" + egibScenario.finalState.labelCount + ".");
+      lines.push("Żądania EGiB | " + egibScenario.egibRequests.length
+        + " (GET /api/wfs: " + egibScenario.backendRequestCount + "; backend łącznie: "
+        + egibBackendRequestCount + "/" + egibBackendRequestLimit + ") | HTTP "
+        + (egibScenario.httpStatuses.join(",") || "brak statusu"));
+      lines.push("Zrzut ekranu: " + egibScenario.screenshot);
+    } else if (tileExperiment) {
       const percent = (value) => Number.isFinite(value) ? (value * 100).toFixed(1) + "%" : "brak";
       const threshold = (value) => value.reached
         ? `${Math.round(value.medianMs)} ms (${value.reached}/${value.total})`
@@ -1775,12 +2030,14 @@ async function runBrowserSmoke() {
     process.stdout.write("Wyniki zapisano w .local-results/browser-smoke-" + timestamp + "/\n");
     process.stdout.write("Hosty: " + [...new Set(tileRequests.map((request) => request.host))].join(", ") + "\n");
     process.stdout.write(summary);
-    if (!tileExperiment) process.stdout.write("Zachowanie stanu po powrocie z RCN: " + (statePreserved ? "TAK" : "NIE") + "\n");
+    if (!tileExperiment && !egibLayersMode) process.stdout.write("Zachowanie stanu po powrocie z RCN: " + (statePreserved ? "TAK" : "NIE") + "\n");
     process.stdout.write("Żądania zablokowane przez allowlistę: " + blockedRequests.length + "\n");
     const assertionFailed = parcelSearch?.search?.assertions?.some((assertion) => !assertion.pass) ?? false;
+    const egibAssertionFailed = egibScenario ? !egibScenario.passed : false;
     if (blockedRequests.length > 0) process.exitCode = 3;
     else if (orthophotoBudgetExceeded) process.exitCode = 4;
-    else if (!tileExperiment && (!statePreserved || assertionFailed)) process.exitCode = 1;
+    else if (egibBackendBudgetExceeded) process.exitCode = 5;
+    else if (egibAssertionFailed || (!tileExperiment && !egibLayersMode && (!statePreserved || assertionFailed))) process.exitCode = 1;
   } catch (error) {
     runError = error;
     if (!runReport) {

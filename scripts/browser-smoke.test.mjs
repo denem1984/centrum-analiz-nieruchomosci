@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { Script } from "node:vm";
 import {
   aggregateRequests,
+  buildEgibStateExpression,
   buildParcelSearchAssertions,
   buildSearchAssertionStateExpression,
   buildTileExperimentStateExpression,
@@ -14,17 +15,22 @@ import {
   formatSearchOptionError,
   isAllowedArchiveRepeatRequest,
   isAllowedBrowserRequest,
+  isAllowedDzialkiEgibRequest,
+  isDzialkiBackendHostRequest,
   matchSearchOption,
   normalizeSearchLabel,
   parseSearchArguments,
+  parseEgibBackendRequestLimit,
   parseExpectedAssertionArguments,
   parseTileExperimentArguments,
   parseCdpLoadingFailed,
   parseCdpMessage,
   MAX_TILE_EXPERIMENT_ORTHO_REQUESTS,
+  MAX_EGIB_BACKEND_REQUESTS,
   selectRelevantResponseHeaders,
   selectRepeatableArchiveRequests,
   shouldAllowOrthophotoRequest,
+  shouldAllowEgibBackendRequest,
   summarizeArchiveRetry,
   summarizeArchiveStability,
   summarizeTileExperiment,
@@ -39,6 +45,7 @@ import {
   buildRegionsUrl,
 } from "../app/js/modules/dzialki/search.js";
 import { buildEgibGeometryUrl, buildKiegFeatureInfoUrl } from "../app/js/modules/dzialki/egib.js";
+import { buildKiegGetMapUrl, buildMapClickFeatureInfoUrl, buildParcelWfsUrl } from "../app/js/modules/dzialki/egib-layers.js";
 
 const healthRoutes = [
   { origin: "https://rcn-web-app.onrender.com", path: "/", method: "GET" },
@@ -72,6 +79,7 @@ test("wyrażenie odczytu stanu kafelków ma poprawną składnię JavaScript", ()
   assert.doesNotThrow(() => new Script(buildStateExpression()));
   assert.doesNotThrow(() => new Script(buildSearchAssertionStateExpression()));
   assert.doesNotThrow(() => new Script(buildTileExperimentStateExpression()));
+  assert.doesNotThrow(() => new Script(buildEgibStateExpression()));
 });
 
 test("tryb eksperymentu wymaga jawnego limitu i waliduje czas ustalenia", () => {
@@ -94,6 +102,18 @@ test("tryb eksperymentu wymaga jawnego limitu i waliduje czas ustalenia", () => 
   assert.equal(shouldAllowOrthophotoRequest(799, 800), true);
   assert.equal(shouldAllowOrthophotoRequest(800, 800), false);
   assert.equal(shouldAllowOrthophotoRequest(0, 801), false);
+});
+
+test("limit żądań backendu EGiB można obniżyć, ale nigdy przekroczyć 400", () => {
+  assert.equal(parseEgibBackendRequestLimit([]), 400);
+  assert.equal(parseEgibBackendRequestLimit(["--max-egib-backend-requests", "397"]), 397);
+  assert.equal(parseEgibBackendRequestLimit(["--max-egib-backend-requests=1"]), 1);
+  for (const args of [
+    ["--max-egib-backend-requests"],
+    ["--max-egib-backend-requests", "0"],
+    ["--max-egib-backend-requests", "401"],
+    ["--max-egib-backend-requests", "1.5"],
+  ]) assert.throws(() => parseEgibBackendRequestLimit(args), /1–400/);
 });
 
 test("macierz K0–K3 i agregacja eksperymentu liczą frakcje oraz czasy", () => {
@@ -407,6 +427,45 @@ test("allowlista M4c dopuszcza tylko dokładne trasy wyszukiwania przez GET", ()
     "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&SRS=EPSG%3A2180&BBOX=1%2C1%2C201%2C201&WIDTH=1000&HEIGHT=1000&X=500&Y=500&LAYERS=dzialki&QUERY_LAYERS=dzialki&INFO_FORMAT=text%2Fxml&FORMAT=image%2Fpng&TRANSPARENT=TRUE&EXTRA=1",
     "GET", options,
   ), false);
+});
+
+test("allowlista M4d.1 dopuszcza wyłącznie WFS i KIEG EGiB starego frontu oraz limituje backend", () => {
+  const options = { appOrigin: "http://127.0.0.1:8080", healthRoutes };
+  const bounds = { getSouth: () => 53, getWest: () => 16.5, getNorth: () => 53.2, getEast: () => 16.9 };
+  const wfs = buildParcelWfsUrl(bounds);
+  const parcelMap = buildKiegGetMapUrl({ layer: "dzialki", bbox: [1800000, 6800000, 1800256, 6800256] });
+  const buildingMap = buildKiegGetMapUrl({ layer: "budynki", bbox: [1800000, 6800000, 1800256, 6800256] });
+  const clickInfo = buildMapClickFeatureInfoUrl({ lat: 53.2, lng: 16.9 });
+  for (const url of [wfs, parcelMap, buildingMap, clickInfo]) {
+    assert.equal(isAllowedBrowserRequest(url, "GET", options), true, url);
+    assert.equal(isAllowedBrowserRequest(url, "POST", options), false, url);
+  }
+  assert.equal(isAllowedDzialkiEgibRequest(new URL(wfs), "GET"), true);
+  assert.equal(isAllowedBrowserRequest(wfs + "&extra=1", "GET", options), false);
+  assert.equal(isAllowedBrowserRequest(wfs.replace("/api/wfs", "/api/debug"), "GET", options), false);
+  assert.equal(isAllowedBrowserRequest(parcelMap.replace("layers=dzialki", "layers=admin"), "GET", options), false);
+  assert.equal(isAllowedBrowserRequest(clickInfo + "&EXTRA=1", "GET", options), false);
+  for (const host of ["integracja01.gugik.gov.pl", "integracja02.gugik.gov.pl"]) {
+    const redirect = parcelMap.replace("integracja.gugik.gov.pl", host);
+    assert.equal(isAllowedBrowserRequest(redirect, "GET", options), true);
+    assert.equal(isAllowedBrowserRequest(redirect.replace("layers=dzialki", "layers=admin"), "GET", options), false);
+    assert.equal(isAllowedBrowserRequest(redirect + "&EXTRA=1", "GET", options), false);
+    assert.equal(isAllowedBrowserRequest("https://" + host + "/cgi-bin/KrajowaIntegracjaEwidencjiGruntow", "GET", options), false);
+    assert.equal(isAllowedBrowserRequest(redirect + "/other", "GET", options), false);
+    assert.equal(isAllowedBrowserRequest(redirect, "POST", options), false);
+  }
+  assert.equal(isAllowedBrowserRequest(
+    "https://integracja03.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow", "GET", options,
+  ), false);
+  assert.equal(isAllowedBrowserRequest("http://analizator-nieruchomosci.onrender.com/api/wfs?bbox=53,16,54,17", "GET", options), false);
+  assert.equal(shouldAllowEgibBackendRequest(0), true);
+  assert.equal(shouldAllowEgibBackendRequest(MAX_EGIB_BACKEND_REQUESTS - 1), true);
+  assert.equal(shouldAllowEgibBackendRequest(MAX_EGIB_BACKEND_REQUESTS), false);
+  assert.equal(shouldAllowEgibBackendRequest(0, MAX_EGIB_BACKEND_REQUESTS + 1), false);
+  assert.equal(isDzialkiBackendHostRequest(new URL("https://analizator-nieruchomosci.onrender.com/health")), true,
+    "health-check także zużywa budżet requestów backendu Działek");
+  assert.equal(isDzialkiBackendHostRequest(new URL("https://analizator-nieruchomosci.onrender.com/api/wfs?bbox=1,2,3,4")), true);
+  assert.equal(isDzialkiBackendHostRequest(new URL("https://example.org/health")), false);
 });
 
 test("parsuje argumenty scenariusza i normalizuje polskie nazwy", () => {

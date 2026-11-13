@@ -4,7 +4,7 @@ Samodzielna aplikacja do pracy z modułami analiz nieruchomości: Działki, RCN,
 
 ## Status
 
-**M3a — wykonane. M4b — mapa Działek wykonana. M4c — wyszukiwanie, raport EGiB i parytet w trakcie.** M2 dostarczył statyczną powłokę; M3a dodaje DenemContext v1 i wyszukiwanie na jawnie fikcyjnych danych. M4b dodaje lokalny Leaflet, podkłady mapowe i kontrolki mapy. M4c dodaje zależne listy lokalizacji, wyszukanie działki, obrys, raport EGiB i przekazanie kontekstu. Na stronie Start aplikacja sprawdza lekkie trasy zdrowia czterech usług metodą GET.
+**M3a — wykonane. M4b — mapa Działek wykonana. M4c — scalone. M4d.1 — EGiB, zaznaczanie i panel warstw w trakcie.** M2 dostarczył statyczną powłokę; M3a dodaje DenemContext v1 i wyszukiwanie na jawnie fikcyjnych danych. M4b dodaje lokalny Leaflet, podkłady mapowe i kontrolki mapy. M4c dodaje zależne listy lokalizacji, wyszukanie działki, obrys, raport EGiB i przekazanie kontekstu. M4d.1 rozbudowuje panel warstw i dodaje EGiB. Na stronie Start aplikacja sprawdza lekkie trasy zdrowia czterech usług metodą GET.
 
 [FAKT: ustalenie właściciela 2026-10-27] Moduł Gminy ma korzystać z pliku danych, bez zależności od Supabase ani logowania modułu. Logowanie całej aplikacji pozostaje osobną decyzją D5 przed M8.
 
