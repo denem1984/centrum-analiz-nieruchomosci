@@ -91,6 +91,11 @@ test("parsuje odpowiedź EGiB/KIEG z syntetycznej atrapy", () => {
       { code: "B", description: "tereny mieszkaniowe" },
     ],
   });
+  assert.equal(parseKiegFeatureInfo(
+    '<Attribute Name="Identyfikator działki">998877_6.0001.12/3</Attribute>'
+      + '<Attribute Name="Pole pow. w ewidencji gruntów">0,4449 ha</Attribute>',
+    "998877_6.0001.12/3", null,
+  ).area, "0,4449 ha");
   assert.throws(() => parseKiegFeatureInfo('<Attribute Name="Identyfikator działki">other</Attribute>', "expected", geometry), /inną działkę/);
   assert.throws(() => parseEgibGeometryText("1\nno data", parseWktGeometry), /nie zwróciła geometrii/);
 });

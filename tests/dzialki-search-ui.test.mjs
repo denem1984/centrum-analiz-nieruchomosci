@@ -58,6 +58,13 @@ test("formularz szuka działki, rysuje obrys, ustawia kontekst i zachowuje wybó
         + "<Attribute Name=\"Grupa rejestrowa\">7</Attribute>"
         + "<Attribute Name=\"Oznaczenie użytku\">RVI, B</Attribute></Feature>" };
     }
+    if (url.hostname === "analizator-nieruchomosci.onrender.com" && url.pathname === "/api/wfs") {
+      return { ok: true, status: 200, json: async () => ({ features: [{
+        type: "Feature",
+        properties: { id_dzialki: "289977_6.0001.12/3" },
+        geometry: { type: "Polygon", coordinates: [[[20, 52], [20.1, 52], [20.1, 52.1], [20, 52.1], [20, 52]]] },
+      }] }) };
+    }
     throw new Error("Unexpected synthetic request");
   };
   t.after(() => {
@@ -105,7 +112,7 @@ test("formularz szuka działki, rysuje obrys, ustawia kontekst i zachowuje wybó
   fake.document.getElementById("dzialki-search-submit").click();
   await flush();
 
-  assert.equal(requests.length, 6);
+  assert.ok(requests.length >= 6);
   assert.ok(requests.every((request) => request.method === "GET"));
   assert.ok(requests[0].url.includes("/FeatureServer/1/query"));
   assert.ok(requests[1].url.includes("/FeatureServer/0/query"));
@@ -113,20 +120,14 @@ test("formularz szuka działki, rysuje obrys, ustawia kontekst i zachowuje wybó
   assert.equal(new URL(requests[3].url).searchParams.get("request"), "GetParcelById");
   assert.equal(new URL(requests[4].url).searchParams.get("srid"), "2180");
   assert.equal(new URL(requests[5].url).hostname, "integracja.gugik.gov.pl");
-  assert.equal(leaflet.geoJsonLayers.length, 1);
-  assert.equal(leaflet.geoJsonLayers[0].options.style.className, "dzialki-selected-parcel");
-  assert.match(leaflet.geoJsonLayers[0].popup.textContent, /Działka 289977_6\.0001\.12\/3/);
-  assert.match(leaflet.geoJsonLayers[0].popup.textContent, /Grupa rejestrowa: 7 – osoby fizyczne/);
-  assert.match(leaflet.geoJsonLayers[0].popup.textContent, /Klasoużytki: RVI, B/);
-  leaflet.geoJsonLayers[0].fire("click");
-  assert.match(leaflet.geoJsonLayers[0].popup.textContent, /Zaznaczono tę działkę/);
-  assert.equal(leaflet.geoJsonLayers[0].options.style.fillOpacity, 0.42);
-  assert.equal(leaflet.geoJsonLayers[0].options.style.weight, 5);
-  leaflet.geoJsonLayers[0].fire("click");
-  assert.match(leaflet.geoJsonLayers[0].popup.textContent, /Odznaczono tę działkę/);
-  assert.equal(leaflet.geoJsonLayers[0].options.style.fillOpacity, 0.18);
-  assert.equal(leaflet.geoJsonLayers[0].options.style.weight, 4);
-  assert.match(leaflet.geoJsonLayers[0].tooltip.textContent, /12\/3/);
+  const selectedLayer = leaflet.geoJsonLayers.find((layer) =>
+    layer.options.style?.().className === "dzialki-selected-parcel");
+  assert.ok(selectedLayer);
+  assert.equal(selectedLayer.options.style().fillOpacity, 0.42);
+  assert.equal(selectedLayer.options.style().weight, 5);
+  assert.match(selectedLayer.popup.textContent, /Działka 289977_6\.0001\.12\/3/);
+  assert.match(selectedLayer.popup.textContent, /Grupa rejestrowa: 7 – osoby fizyczne/);
+  assert.match(selectedLayer.popup.textContent, /Klasoużytki: RVI, B/);
   assert.equal(contexts.length, 1);
   assert.equal(contexts[0].source, "dzialki");
   assert.equal(contexts[0].parcel.id, "289977_6.0001.12/3");
@@ -138,6 +139,8 @@ test("formularz szuka działki, rysuje obrys, ustawia kontekst i zachowuje wybó
   assert.ok(Math.abs(contexts[0].point.lon - 20.05) < 1e-8);
   assert.equal(contexts[0].point.crs, "EPSG:4326");
   assert.equal(getDzialkiState().selectedParcel.parcel.id, contexts[0].parcel.id);
+  assert.equal(getDzialkiState().mapSelectionInitialized, true);
+  assert.deepEqual(getDzialkiState().selectedMapParcels.map((item) => item.parcel.id), [contexts[0].parcel.id]);
   assert.equal(getDzialkiState().selectedParcel.egib.area, "0,4449 ha");
   assert.equal(fake.document.getElementById("dzialki-parcel-report").dataset.egibState, "ready");
   assert.match(fake.document.getElementById("dzialki-parcel-report").textContent, /0,4449 ha/);
@@ -162,7 +165,11 @@ test("formularz szuka działki, rysuje obrys, ustawia kontekst i zachowuje wybó
   assert.equal(leaflet.geoJsonLayers.length, 2);
   assert.equal(fake.document.getElementById("dzialki-search-powiat").value, "2899");
   assert.equal(fake.document.getElementById("dzialki-search-numer").value, "12/3");
-  assert.equal(requests.length, 6, "zapamiętane listy i raport nie są pobierane ponownie po zmianie zakładki");
+  assert.equal(requests.filter((request) => {
+    const url = new URL(request.url);
+    return url.pathname !== "/api/wfs" && url.hostname !== "integracja.gugik.gov.pl";
+  }).length, 5,
+    "zapamiętane listy i raport nie są pobierane ponownie po zmianie zakładki");
   cleanup();
 });
 

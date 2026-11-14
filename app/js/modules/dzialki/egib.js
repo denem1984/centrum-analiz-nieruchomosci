@@ -136,7 +136,7 @@ function formatLandUses(raw) {
 }
 
 function formatArea(raw) {
-  const value = String(raw ?? "").trim().replace(",", ".");
+  const value = String(raw ?? "").trim().replace(/\s*ha$/i, "").replace(",", ".");
   if (!/^\d+(?:\.\d+)?$/.test(value)) return "";
   const [whole, decimal = ""] = value.split(".");
   return whole + "," + decimal.padEnd(4, "0") + " ha";
@@ -168,7 +168,9 @@ export function parseKiegFeatureInfo(xml, expectedParcelId, geometry) {
   const rawClasses = xmlField(xml, "Oznaczenie użytku", true)
     || xmlField(xml, "Oznaczenie konturu", true) || xmlField(xml, "Klasoużyt", true);
   const exactArea = formatArea(rawArea);
-  const calculated = exactArea ? null : geometryArea(geometry);
+  const calculated = exactArea || !geometry || !["Polygon", "MultiPolygon"].includes(geometry.type)
+    ? null
+    : geometryArea(geometry);
   return {
     area: exactArea || (calculated
       ? `ok. ${Math.round(calculated)} m² (${(calculated / 10000).toFixed(4).replace(".", ",")} ha), obliczona z geometrii`

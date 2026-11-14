@@ -64,6 +64,10 @@ function isEmptyImageTile(event) {
     && (image.naturalWidth <= 1 || image.naturalHeight <= 1);
 }
 
+function isLoadedImage(image) {
+  return Boolean(image?.complete && image.naturalWidth > 1 && image.naturalHeight > 1);
+}
+
 export function createTileRetryController(layer, options = {}) {
   const config = resolveTileRetryConfig({
     attempts: options.attempts ?? options.maxAttempts ?? TILE_RETRY_CONFIG.attempts,
@@ -95,6 +99,7 @@ export function createTileRetryController(layer, options = {}) {
   const states = new Map();
   const scheduled = new Map();
   const active = new Set();
+  const sweepActive = new Set();
   const queue = [];
   const redrawing = new Set();
   const listeners = new Set();
@@ -131,6 +136,7 @@ export function createTileRetryController(layer, options = {}) {
       scheduled.delete(key);
     }
     active.delete(key);
+    sweepActive.delete(key);
     const queueIndex = queue.indexOf(key);
     if (queueIndex !== -1) queue.splice(queueIndex, 1);
     states.delete(key);
@@ -203,6 +209,7 @@ export function createTileRetryController(layer, options = {}) {
     }
     state.lastEvent = event;
     active.delete(key);
+    sweepActive.delete(key);
     if (!isVisible(event, layer)) {
       clearState(key);
       drainQueue();
@@ -230,6 +237,7 @@ export function createTileRetryController(layer, options = {}) {
 
   function onTileUnload(event) {
     const key = tileKey(event);
+    sweepActive.delete(key);
     if (!redrawing.has(key)) clearState(key);
     drainQueue();
   }
@@ -260,6 +268,53 @@ export function createTileRetryController(layer, options = {}) {
       if (typeof layer.redraw === "function") layer.redraw();
       return true;
     },
+    retryIncompleteVisible() {
+      if (disposed) return 0;
+      let retried = 0;
+      const candidates = new Map();
+      for (const [key, state] of states) {
+        if (state.lastEvent && state.failed && state.timer === null
+            && !scheduled.has(key) && isVisible(state.lastEvent, layer)) candidates.set(key, state.lastEvent);
+      }
+      for (const [tileKeyValue, record] of Object.entries(layer._tiles ?? {})) {
+        if (record?.current === false || !record?.coords || !record?.el
+            || isLoadedImage(record.el)) continue;
+        const event = { coords: record.coords, tile: record.el };
+        if (!isVisible(event, layer)) continue;
+        const key = tileKey(event);
+        const state = states.get(key);
+        if (active.has(key) || state && (state.timer !== null || scheduled.has(key))) continue;
+        candidates.set(key, event);
+      }
+      for (const [key, event] of candidates) {
+        if (active.has(key)) continue;
+        if (active.size + scheduled.size >= maxConcurrent) break;
+        let state = states.get(key);
+        if (!state) {
+          state = { attempts: Math.max(0, attemptsLimit - 1), timer: null, failed: false, lastEvent: event };
+          states.set(key, state);
+        }
+        state.lastEvent = event;
+        if (state.failed) {
+          state.failed = false;
+          failedCount = Math.max(0, failedCount - 1);
+        }
+        active.add(key);
+        sweepActive.add(key);
+        retryCount += 1;
+        retried += 1;
+        publishCount();
+        try {
+          retryTile(event, layer);
+        } catch {
+          active.delete(key);
+          sweepActive.delete(key);
+          markFailed(key, state);
+        }
+      }
+      drainQueue();
+      return retried;
+    },
     cancel() {
       if (disposed) return;
       disposed = true;
@@ -269,6 +324,7 @@ export function createTileRetryController(layer, options = {}) {
       states.clear();
       scheduled.clear();
       active.clear();
+      sweepActive.clear();
       queue.length = 0;
       failedCount = 0;
       layer.off("tileerror", onTileError);

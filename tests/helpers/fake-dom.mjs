@@ -133,6 +133,9 @@ export function createFakeDom() {
     createElement(tagName) {
       return new FakeElement(tagName, document);
     },
+    createElementNS(_namespace, tagName) {
+      return new FakeElement(tagName, document);
+    },
     getElementById(id) {
       if (!document.body) return null;
       const visit = (node) => {

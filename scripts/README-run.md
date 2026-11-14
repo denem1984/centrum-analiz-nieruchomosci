@@ -60,3 +60,43 @@ Wartość powiatu może być początkiem pełnej etykiety listy. Skrypt porównu
 Możesz dopisać `--browser "C:\Program Files\Microsoft\Edge\Application\msedge.exe"` lub `--port 8090`. Skrypt sam uruchomi lokalną aplikację i przejdzie do formularza, wybierze podane jednostki, wykona wyszukiwanie oraz zapisze czas do obrysu i danych EGiB, kody odpowiedzi, adresy żądań, obecność tekstów raportu/statusu, liczbę obrysów i zrzut ekranu. Dodatkowe GET-y raportu to geometria ULDK `result=id,geom_wkt&srid=2180` oraz dokładne zapytanie WMS GetFeatureInfo do KIEG opisane w `docs/dzialki-module.md`. Dozwolone są wyłącznie GET-y do list PRG, dwóch wariantów zapytań ULDK używanych w wyszukiwaniu/raporcie, tego jednego zapytania KIEG, adresy lokalne, skonfigurowane trasy zdrowia i kafelki mapy. Inne hosty, ścieżki i metody są blokowane przed wysłaniem.
 
 Wynik terminala pokazuje czas wyszukiwania, czas do odpowiedzi EGiB, stan raportu, liczbę obrysów i lokalizację raportu. Szczegóły adresów/kodów oraz zrzut są w `.local-results/browser-smoke-<czas>/report.json` i pliku `m4c-search.png`. Katalog jest ignorowany przez Git; nie commituj go. Argumenty właściciela mogą zawierać rzeczywiste dane nieruchomości: podawaj je wyłącznie w terminalu, nigdy w repo, raporcie PR ani zgłoszeniu. Porównaj rezultat ze swoim baseline D1 i przekaż do raportu wyłącznie zanonimizowane wyniki.
+
+### Scenariusz warstw EGiB M4d.1
+
+Scenariusz sprawdza domyślne warstwy „Numery działek” i „Kontury działek”, włącza „Kontury budynków”, klika środek mapy dwa razy i zapisuje zrzut. Używa ogólnego widoku testowego w Pile przy zoomie 17,6; nie wymaga danych przypadku właściciela.
+
+1. Otwórz terminal w katalogu głównym repozytorium i uruchom `node scripts/browser-smoke.mjs --egib-layers`.
+2. Skrypt sam uruchamia lokalny serwer i Edge headless. Wysyła wyłącznie GET do lokalnej aplikacji, czterech tras zdrowia z konfiguracji, kafelków OSM/Esri, trasy WFS używanej przez stary front oraz KIEG WMS GetMap/GetFeatureInfo dla EGiB. Dla przekierowań KIEG dopuszcza też hosty `integracja01.gugik.gov.pl` i `integracja02.gugik.gov.pl`, tylko ścieżkę `/cgi-bin/KrajowaIntegracjaEwidencjiGruntow` i dokładny zestaw parametrów GetMap warstw EGiB; pozostałe hosty, ścieżki, query i metody blokuje. To ograniczenie wynika ze zgody właściciela dla M4d.1. Każde żądanie do hosta backendu Działek podlega limitowi ustawionemu w uruchomieniu (maksymalnie 400).
+3. W tabeli terminala sprawdź asercje PASS/FAIL, czas do pierwszych danych, czas do popupu, liczbę żądań i kody HTTP. Jeśli zimny start nie wystąpi, raport zaznaczy, że usługa była już gotowa.
+4. Otwórz najnowszy katalog `.local-results/browser-smoke-<czas>/`. `summary.txt` zawiera tabelę; `report.json` listę adresów, statusy i czasy; `egib-layers.png` zrzut końcowego widoku. Katalog jest ignorowany przez Git.
+5. Porównaj ręcznie z baseline M4d zapisanym przez właściciela. Wklej do odbioru asercje, liczniki, kody HTTP i zrzut; usuń z raportu identyfikatory działek, jeśli wystąpią.
+
+Tryb `--egib-layers` działa niezależnie od scenariuszy wyszukiwania i nie przyjmuje numeru działki ani obrębu jako argumentu. Nie rozszerzaj allowlisty o dalsze hosty, ścieżki, parametry ani metody bez odrębnej zgody właściciela.
+
+### Pomiar niezawodności kafelków KIEG
+
+Właściciel może porównać trzy wczytania bez automatycznego ponawiania z trzema wczytaniami K0. Każde polecenie uruchamia jedną przeglądarkę headless i czeka domyślnie 25 s na każde wczytanie. Narzędzie samo wyłącza cache przeglądarki na czas pomiaru. Uruchamiaj tylko w ramach limitu żądań zatwierdzonego dla danego zadania; każdy argument `--max-kieg-requests` jest twardym limitem dla jednego uruchomienia i nie może przekraczać 500.
+
+```powershell
+node scripts/browser-smoke.mjs --kieg-reliability --kieg-variant before --max-kieg-requests 100
+node scripts/browser-smoke.mjs --kieg-reliability --kieg-variant after --max-kieg-requests 100
+```
+
+`before` wyłącza retry w nowym kodzie przed załadowaniem strony (0 prób ponownych), aby odtworzyć porównanie bez kompensacji. `after` używa bieżącego K0: dwie próby po 1500/4000 ms, równoległość 6. Oba warianty używają widoku testowego w Pile, zoomu 17,6 i trzech niezależnych przeładowań. W podsumowaniu porównaj dla każdego wczytania frakcję załadowanych kafelków, hosty przekierowań, odpowiedzi HTTP, błędy ORB i łączną liczbę żądań. `before` ponadto testuje do sześciu tych samych błędnych URL-i ponownie po 1,5 i 4 s; te diagnostyczne GET-y wchodzą do twardego limitu. Kod i adresy szczegółowe pozostają w ignorowanym `.local-results/browser-smoke-<czas>/report.json`; PNG są obok raportu.
+
+Allowlista ogranicza żądania do tras zdrowia, WFS i dokładnych żądań GetMap KIEG dla warstw `dzialki`/`budynki`, wraz z zatwierdzonymi hostami przekierowań. Skrypt blokuje niedozwolone hosty, ścieżki, query i metody przed wysłaniem. Nie zmieniaj `Origin`/`Referer` i nie dopisuj parametru cache-busting. Wynik diagnostyczny nie jest pomiarem na środowisku wdrożonym.
+
+### Eksperyment kompletności KIEG M4d.1c
+
+Każdy wariant uruchamia jedną przeglądarkę i wykonuje trzy niezależne wczytania tego samego widoku w Pile, zoom 17,6. Domyślne ustalenie końcowego widoku trwa 40 s; można je zmienić parametrem `--kieg-experiment-settle-ms`. `V1` automatycznie otwiera Edge z oknem; `--headed` jest też dostępne dla zwykłego smoke. Warianty uruchamia się osobno, w kolejności V0, V1, V2, V3:
+
+```powershell
+node scripts/browser-smoke.mjs --kieg-experiment V0
+node scripts/browser-smoke.mjs --kieg-experiment V1
+node scripts/browser-smoke.mjs --kieg-experiment V2
+node scripts/browser-smoke.mjs --kieg-experiment V3
+```
+
+V0 i V1 mierzą bieżące K0 bez cyklicznego sweepu, by zachować punkt odniesienia; V2 ustawia osiem rosnących opóźnień i sweep co 3 s; V3 mierzy bezpośrednie przejście na węzeł 02 po pierwszym błędzie ORB z węzła 01. Tylko V3 może wysyłać bezpośredni GET do hostów integracja01/integracja02. Pozostałe żądania muszą przechodzić zwykłą trasą i allowlistą KIEG. Skrypt nie zmienia User-Agent ani nagłówków Origin/Referer.
+
+Przed wysłaniem każdego dopuszczonego żądania KIEG skrypt zapisuje przyrost licznika do `.local-results/m4d1c-kieg-budget.json` (pliku ignorowanego przez Git). Licznik jest trwały po przerwaniu procesu: limit wynosi 5 uruchomień i 900 prób żądań łącznie. Nie usuwaj ani nie edytuj tego pliku w trakcie zadania; uszkodzony stan blokuje żądania. Przy osiągnięciu limitu dalsze wczytania i warianty są pomijane lub blokowane. Tabela pokaże ułamek końcowy, czas do 100%, żądania, błędy ORB oraz zgodność monitora z widocznymi kafelkami. `report.json`, `summary.txt` i PNG są w osobnym `.local-results/browser-smoke-<czas>/`.

@@ -116,7 +116,7 @@
 
 ## D18 — Wyszukiwanie działki M4c
 
-- **Status:** implementacja M4c/M4c.1 w toku; właściciel przekazał baseline D1 poza repozytorium 2026-11-02, a porównanie po zmianach wykonuje właściciel.
+- **Status:** implementacja M4c/M4c.1 scalona w PR #10; porównanie z baseline D1 po zmianach wykonuje właściciel.
 - **Decyzja implementacyjna:** zależne listy administracyjne korzystają z publicznego PRG, a wybór obrębu i działki z publicznego ULDK. Żądania są GET, a ich pełne adresy są sprawdzane testami jednostkowymi.
 - **Kontekst:** `parcel.id` zachowuje identyfikator z odpowiedzi; `point` jest punktem wewnątrz geometrii WKT w EPSG:4326; kody województwa/powiatu pochodzą z prefiksu identyfikatora jednostki i nazw wybranych list PRG. Rodzaj 1/2/3 daje odpowiadający kod TERC7; rodzaj 4/5 mapuje się na rodzaj 3 [HIP z definicji TERYT do weryfikacji na pełnym TERC w M3b]; pozostałe rodzaje nie ustawiają gminy. `obrebTeryt` jest pomijane bez niezależnego potwierdzenia.
 - **Dane EGiB:** stary front pobiera geometrię do EGiB z ULDK, a następnie odpytuje KIEG WMS GetFeatureInfo bezpośrednio z przeglądarki; nie jest to trasa backendu Działek. Nowe adresy i parametry są porównane z `index.html` rewizji `a1aa39d` i testowane na atrapach. [FAKT z kodu: `reports/m4a-dzialki-analysis.md`, `docs/dzialki-module.md`]
@@ -135,6 +135,32 @@
 - **Pomiar skorygowany:** po trzy wczytania każdej konfiguracji K0–K3, stan po 35 s, widok testowy Piły, zoom 17,6. Mediana końcowej frakcji: K0 75,0%, K1 66,7%, K2 50,0%, K3 33,3%; każda konfiguracja wysłała 36 żądań GetMap. Żadna konfiguracja K1–K3 nie poprawiła K0 o co najmniej 10 p.p. w dwóch z trzech odpowiadających sobie wczytań. Czasy 90% i 95% nie zostały osiągnięte w żadnym z 12 wczytań skorygowanego przebiegu.
 - **Odpowiedzi:** 77 z 144 żądań GetMap otrzymało HTTP 200 i `image/png`; 67 nie miało statusu HTTP po 35 s i nie wygenerowało zdarzenia błędu ani anulowania. Nie zaobserwowano obrazu 1×1, błędu kafelka ani ponowienia. Dwa uruchomienia narzędzia wysłały łącznie 288 żądań ortofotomapy; limit 800 nie został przekroczony. [FAKT z przebiegu browser-smoke]
 - **Wniosek:** nie ma podstaw z tego pomiaru, by zwiększyć liczbę prób, wydłużyć backoff ani zmienić równoległość. Brak statusu HTTP w chwili pomiaru jest zgodny z opóźnieniem usługi lub sieci, ale jego źródło pozostaje niezweryfikowane [HIP]. UI zachowuje licznik, a po wyczerpaniu prób pokazuje komunikat z prośbą o ponowienie później lub zmianę roku.
+
+## D21 — EGiB i kliknięcia mapy (2026-11-13)
+
+- **Status:** M4d.1 jest w trakcie realizacji; kontrakty zewnętrzne sprawdzane są względem starego publicznego frontu `a1aa39d` i testowane z pełnymi adresami w testach offline.
+- **Implementacja:** panel mapy dzieli pracę na numerowane sekcje 1–3 i pamięta w module stan grup oraz warstw. Numery i kontury działek są domyślnie włączone, kontury budynków wyłączone. WFS GeoJSON odświeża widok od zoomu 13; KIEG WMS dostarcza kontury działek i budynków, a GetFeatureInfo dostarcza pola popupu. Żądania są GET, a odświeżenie WFS debounced i poprzednie żądanie jest anulowane.
+- **DenemContext:** kliknięcie działki na mapie nie zmienia kontekstu; wyszukiwanie pozostaje jego źródłem w tym etapie.
+- **Pytanie otwarte do właściciela:** czy kliknięcie działki na mapie ma ustawiać kontekst lokalizacji?
+- **Ograniczenie:** M4d.1 nie implementuje planowania przestrzennego, inwestycji, infrastruktury ani M4b.3. Zakres M4d.2/M4d.3 pozostaje osobny.
+
+## D22 — Ponawianie kafelków KIEG (2026-11-13)
+
+- **Status:** M4d.1b częściowo zmierzone; konfiguracja domyślna pozostaje K0, bo nie uzyskano trzech porównywalnych przebiegów dla każdego wariantu.
+- **Stary front:** w `index.html` rewizji `a1aa39d` obie definicje WMS KIEG (`dzialki` i `budynki`) są na jednej fizycznej linii 211. Obie używają 256 px (domyślny rozmiar Leaflet), `image/png`, przezroczystości, opacity 0,95, `maxZoom:22`, `updateWhenZooming:false`, `updateWhenIdle:true` i `keepBuffer:1`; warstwy mają osobne pane. Nie znaleziono obsługi KIEG `tileerror`/`tileload`, ponowienia, `errorTileUrl`, `setUrl`, `redraw` ani cache-bustingu. [FAKT z kodu: `index.html:211`]
+- **Decyzja implementacyjna:** nowa aplikacja obejmuje oba kafelkowe overlaye KIEG polityką K0: dwa ponowienia po 1500 i 4000 ms, jitter do 250 ms, równoległość do 6 na warstwę; statystyki KIEG pozostają oddzielone od podkładów. Nie dodaje się query parametru do URL, bo stary front go nie wysyła, a zgodność usługi z dodatkowymi parametrami nie została potwierdzona.
+- **Pochodzenie strony:** hipoteza wpływu różnicy `localhost`/hostingu nie jest sprawdzana przez zmianę nagłówków ani podszywanie się pod domenę. Do sprawdzenia po wdrożeniu podglądowym (M10).
+- **Wynik przed/po:** wariant bez retry wysłał 100 żądań KIEG, a limit zatrzymał 14 dalszych; selektor DOM w tej wersji narzędzia nie odczytał kafelków IMG, więc końcowej frakcji „przed” nie da się wiarygodnie odtworzyć. Wariant K0 wysłał 100 żądań i zatrzymał 81 dalszych prób; pierwszy 25-sekundowy przebieg osiągnął 2/12 kafelków (16,7%), a kolejne dwa były ograniczone wyczerpaniem limitu. Nie ma podstaw do zmiany K0 na podstawie tych wyników. Pełny łączny budżet nie został przekroczony: przerwane wcześniejsze uruchomienie miało limit 300, a dwa późniejsze wysłały po maksymalnie 100; dokładnej sumy pierwszego uruchomienia nie da się odzyskać.
+
+## D23 — Wymagana kompletność konturów KIEG (2026-11-14)
+
+- **Wymaganie właściciela:** „Kontury działek muszą wczytywać się w CAŁOŚCI. Skuteczność (kompletność) ma pierwszeństwo przed szybkością. Niepełne kontury są nieakceptowalne.” Stara aplikacja według właściciela finalnie ładowała pełne kontury.
+- **Mechanizm M4d.1c:** panel liczy widoczne kafelki IMG KIEG i ogłasza kompletność wyłącznie dla niepustego widoku, gdy każdy widoczny obraz zakończy dekodowanie i ma wymiary większe niż 1×1. Przez maksymalnie 40 s wykonuje sweep co 3 s dla widocznych obrazów bez poprawnego obrazu; pomija żądania w toku. Po oknie pokazuje liczbę niezaładowanych i przycisk ponowienia. [FAKT z kodu: `egib-layers.js`, `tile-retry.js`]
+- **Polityka retry:** konfiguracja K0 pozostaje domyślna (2 próby, 1500/4000 ms, jitter do 250 ms, do 6 równoległych retry na warstwę); dodatkowy sweep powtarza ten sam URL bez nowych parametrów. Nie wdrożono V2 ani V3, ponieważ eksperyment nie objął tych wariantów.
+- **Pomiar:** V0 headless w Chrome 157, User-Agent z CDP `HeadlessChrome/157.0.0.0`; trzy końcowe frakcje wyniosły 0/12 (0%), 11/12 (91,7%) i 12/12 (100%, po 8256 ms). Wysłano 112 żądań KIEG, odnotowano 29 ORB. Odpowiedzi 302 rozdzieliły się 32→01 i 27→02; 29 końcowych żądań do 01 zakończyło się ORB (29/29), a 24 trafiły do 02. Korelacja dotyczy wyłącznie V0 headless i nie rozstrzyga przyczyny.
+- **Ograniczenie pomiaru:** cztery uruchomienia przeglądarki zakończyły się przed CDP; piąte zebrało V0. W granicy zgody (5 uruchomień, 900 żądań) V1 headed, V2 i V3 nie zostały zbadane. Żaden dostępny wynik nie spełnia kryterium trzech z trzech wczytań do 20 s; wariant zwycięski nie został wybrany. Wpływ trybu przeglądarki, zachowanie sweepu oraz przełączenie węzła pozostają niezweryfikowane [HIP].
+- **Fallback WFS [HIP]:** GeoJSON `/api/wfs` daje geometrię parcel dla zwróconego bbox, z której aplikacja rysuje przerywane obrysy i etykiety. Może być częściowym fallbackiem dla tych działek, lecz nie potwierdzono równoważności pokrycia z KIEG; nie zastępuje konturów budynków ani stylu WMS. Nie wdrażać jako pełnego zastępstwa bez porównania.
+- **Pochodzenie strony:** hipoteza różnicy localhost/hostingu pozostaje do sprawdzenia po wdrożeniu podglądowym (M10), bez zmiany nagłówków ani podszywania się pod domenę.
 
 ## Zasady repozytorium
 
