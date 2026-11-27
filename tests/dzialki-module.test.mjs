@@ -40,6 +40,13 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
     };
   };
   t.after(() => {
+    // Unmount while the fake DOM is still installed, also when an assertion fails.
+    // Otherwise the last map keeps its 40-second completeness timer alive.
+    fake.window.location.hash = "#/gminy";
+    fake.window.dispatch("hashchange");
+    resetHealthCache();
+    resetDzialkiState();
+    contextStore.clear();
     if (previous.document === undefined) delete globalThis.document;
     else globalThis.document = previous.document;
     if (previous.window === undefined) delete globalThis.window;
@@ -177,4 +184,12 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
   assert.ok(pointMap.getZoom() >= 16);
   assert.deepEqual(contextStore.get().point, pointContext.point, "mapa nie modyfikuje wspólnego kontekstu");
   assert.equal(requests.length, 5);
+
+  fake.window.location.hash = "#/gminy";
+  fake.window.dispatch("hashchange");
+  assert.ok(leaflet.maps.every((map) => map.removed), "każda mapa została odmontowana");
+  for (const layer of leaflet.layers.filter((layer) => layer.isWms && layer.options.layers === "dzialki")) {
+    assert.equal(layer.listenerCount("tileload"), 0, "monitor konturów został odłączony");
+    assert.equal(layer.listenerCount("tileerror"), 0, "ponawianie konturów zostało odłączone");
+  }
 });
