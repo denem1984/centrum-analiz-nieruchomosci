@@ -1,8 +1,8 @@
 # RAPORT dla kierownika — M4d.2
 
 1. **Status: WYKONANE w zakresie implementacji M4d.2 i punktowego smoke.** Odbiór wszystkich przypadków baseline właściciela nie został wykonany; cała roadmapa pozostaje częściowo zrealizowana.
-2. **Repozytorium i rewizje:** `denem1984/centrum-analiz-nieruchomosci`, gałąź `feat/m4d2-planning-layers`, baza `a240d95adbd5e28e7babdd4419cd80e4e02738f1` (PR #16). Końcowe SHA i link PR zostaną dopisane po utworzeniu. Kolejność: #13 → #14 → #15 → #16 → M4d.2. Nie scalono i nie wdrożono.
-3. **Zmienione pliki:** nowy klient, panel, renderer i projekcja planowania; integracja z popupem EGiB i powłoką; stan pięciu warstw; lokalny proj4 z licencją i atrybuty vendor; testy, allowlista, atrapy i scenariusz smoke; numer etapu M4d2; macierz parytetu, stan, instrukcje i plan nowszego podkładu dodany przez właściciela. Dokładny wykaz +/- linii w statystyce PR.
+2. **Repozytorium i rewizje:** `denem1984/centrum-analiz-nieruchomosci`, gałąź `feat/m4d2-planning-layers`, baza `a240d95adbd5e28e7babdd4419cd80e4e02738f1` → implementacja `6ff32621639d074b866f6b1a93dd5d64db81d610`, następnie aktualizacja metadanych raportu. [PR #17](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/17) zawiera aktualny końcowy SHA. Kolejność: #13 → #14 → #15 → #16 → #17. Nie scalono i nie wdrożono.
+3. **Zmienione pliki:** implementacja `6ff3262`: 29 plików **+1398/-18**, następnie metadane raportu w dwóch dokumentach. Nowy klient, panel, renderer i projekcja planowania; integracja z popupem EGiB i powłoką; stan pięciu warstw; lokalny proj4 z licencją i atrybuty vendor; testy, allowlista, atrapy i scenariusz smoke; numer etapu M4d2; macierz parytetu, stan, instrukcje i plan nowszego podkładu dodany przez właściciela. Dokładny wykaz każdego pliku +/- linii w statystyce PR.
 4. **Kryteria akceptacji i dowody:**
 
 | Kryterium | Wynik | Dowód |

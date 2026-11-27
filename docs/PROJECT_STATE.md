@@ -34,7 +34,7 @@ Agent wykonuje plan, implementację, testy, dokumentację i PR-y. Właściciel p
 | 2 | `fix/edge-headed-cdp` | Osobny profil, port z DevToolsActivePort, lokalny sprawdzian Edge | [PR #14](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/14); baza #13 |
 | 3 | `docs/handover` | Stan, zasady autonomii, aktualna D5, plan i procedury | [PR #15](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/15); baza #14 |
 | 4 | `fix/smoke-task-budgets` | Trwały wspólny licznik 4/400/300, blokowanie przekroczeń | [PR #16](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/16); baza #15 |
-| 5 | `feat/m4d2-planning-layers` | Pięć warstw planowania, gminny POG, popupy, monitory i smoke | PR do utworzenia; baza #16 |
+| 5 | `feat/m4d2-planning-layers` | Pięć warstw planowania, gminny POG, popupy, monitory i smoke | [PR #17](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/17); baza #16 |
 
 Scalaj od góry. PR-y zależne porównują zmianę z gałęzią poprzednika; po scaleniu poprzednika ich bazą powinno zostać `main`. Agent nie scala i nie uruchamia wdrożeń.
 
@@ -56,7 +56,7 @@ Sprawdzenie właściciela (opcjonalne dla tej poprawki): w PowerShell w folderze
 
 ## Następna praca
 
-1. Zamknąć weryfikację i PR implementacji M4d.2; poprzednie poprawki i handover są już w kolejce akceptacji.
+1. M4d.2 jest w PR #17: 139 testów PASS, rzeczywisty smoke 11/11, offline + mobile 12/12. Szczegółowy [RAPORT](../reports/m4d2-planning.md) i instrukcja baseline pozostają do odbioru właściciela.
 2. Zrealizować dodany plan nowszego podkładu: porównanie źródeł i rekomendacja, bez usuwania opcji.
 3. Kontynuować M4d.3 → M4e → M4f, następnie M3b i dalszą roadmapę; każdy podetap osobnym PR, bez scalania i wdrożeń.
 
@@ -113,14 +113,14 @@ Poniższy inwentarz pochodzi z odczytu frontów we wskazanych rewizjach i histor
 
 ## RAPORT dla kierownika — przejęcie (stan bieżący)
 
-1. Status: CZĘŚCIOWO — dwa problemy techniczne poprawione; dokumentacja i plan przygotowane; roadmapa pozostaje w realizacji.
-2. Repozytorium: centrum-analiz-nieruchomosci; początek `3ebed06`; PR #13 (`f49444d`), PR #14 (`a1f8221`), następnie `docs/handover`. Końcowe SHA i statystyki są w PR-ach, nie przewidujemy identyfikatora własnego commitu.
-3. Zmiany #13: dwa pliki, +45/-0. #14: cztery pliki, +170/-44. Dokumentacja przejęcia: lista i statystyki w jej PR.
-4. Kryteria: testy <5 s — TAK (119/119, 0,69 s); Edge headed/CDP — TAK (lokalny sprawdzian i obejrzany PNG); pełny smoke KIEG — NIE, nie był celem sprawdzianu CDP; handover/plan — przygotowane; M4d.2–M10 — NIE.
+1. Status: CZĘŚCIOWO — dwie poprawki techniczne, handover, licznik budżetów i M4d.2 są w otwartych PR-ach; dalsza roadmapa w realizacji.
+2. Repozytorium: centrum-analiz-nieruchomosci; początek `3ebed06`; PR #13 (`f49444d`), #14 (`a1f8221`), #15 (`f4ca961`), #16 (`a240d95`), implementacja #17 (`6ff3262`). Końcowe SHA i statystyki aktualnych głów są w PR-ach.
+3. Zmiany #13: dwa pliki +45/-0; #14: cztery +170/-44; #15: osiem +152/-23; #16: pięć +203/-4; implementacja #17: 29 +1398/-18, plus aktualizacja metadanych raportu po utworzeniu PR. Szczegóły #17 w reports/m4d2-planning.md i statystyce PR.
+4. Kryteria: testy <5 s — TAK (aktualnie 139/139, 0,74 s); Edge headed/CDP — TAK; handover i plan — TAK; M4d.2 — implementacja i punktowy smoke TAK, baseline właściciela NIE; M4d.3–M10 — NIE. Nowy smoke nie zamyka historycznych ograniczeń EGiB/KIEG.
 5. Uruchomiono: odczyty dokumentów/kodu, `git clone --bare` i odtworzenie metadanych bez nadpisania plików, status/log/branch/diff, testy, oba skany, `node --check scripts/browser-smoke.mjs`, lokalny `--headed --check-browser`, commity i push dwóch gałęzi; utworzono dwa otwarte PR-y. Weryfikacja dokumentacji dopisywana w jej PR.
 6. [FAKT] Załącznik nie odpowiadał w pełni plikom (brak .git i .gitattributes, brak SRI loadera). [HIP] Przyczyna ORB pozostaje niepotwierdzona.
 7. Zakazane obszary: NIE — bez zmian źródeł, portalu, usług i wdrożeń.
 8. Sekrety: nie odczytywano ani nie zapisywano sekretów lub wartości środowiska. Publiczna konfiguracja starego frontu pojawiła się w odpowiedzi narzędzia; nie utrwalono ani nie używano jej.
 9. Otwarte: pełne dane D2/D9, D10 i produktowe kwestie wyżej. D5 zamknięte: aplikacja zawsze bez logowania.
 10. Test ręczny: opcjonalnie polecenia testów i `--headed --check-browser` opisane w scripts/README-run.md; mapowe scenariusze wymagają osobnego przebiegu po wdrożeniu nowych limitów.
-11. Następny krok: M4d.2 z pełną macierzą żądań, lokalną biblioteką projekcji dla uzupełniającego POG, monitorami i scenariuszem smoke.
+11. Następny krok: porównanie aktualniejszych podkładów według nowego planu właściciela oraz M4d.3. Nie wykonywać dodatkowego smoke m4d2 po 4/4 startach.
