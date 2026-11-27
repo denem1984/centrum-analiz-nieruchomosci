@@ -2,7 +2,7 @@
 
 1. **Status: WYKONANE w zakresie implementacji i punktowego smoke.** Pełny odbiór baseline D6 właściciela pozostaje do wykonania.
 2. **Repozytorium:** `denem1984/centrum-analiz-nieruchomosci`, gałąź `feat/m4d3-risks-infrastructure`, baza `e68603853c507d5306f1a7e6275c8bf5e2c92aa0` → końcowy SHA w PR wskazanym w `docs/PROJECT_STATE.md`. Zależność od PR #19; kolejność #13 → #14 → #15 → #16 → #17 → #18 → #19 → M4d.3. Bez scalania i wdrożenia.
-3. **Pliki:** klient tematyczny, panel i monitor rasterów; integracja popupów, pane i stanu; CSS; dokładna allowlista i scenariusz headed; atrapy i testy; wersja M4d3, dokumentacja i macierz. Pełne +/- linii według plików w statystyce PR.
+3. **Pliki:** implementacja `86b9226`: 27 plików **+948/-27**; klient tematyczny, panel i monitor rasterów; integracja popupów, pane i stanu; CSS; dokładna allowlista i scenariusz headed; atrapy i testy; wersja M4d3, dokumentacja i macierz. Następnie metadane raportu i linku PR. Pełne +/- linii według plików w statystyce [PR #20](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/20).
 4. **Kryteria akceptacji:**
 
 | Kryterium | Wynik | Dowód |
@@ -18,7 +18,7 @@
 | Testy <5 s, nowe zasoby HTTP 200 | TAK | 149/149 PASS, 761,26 ms; trzy nowe pliki JS: GET 200 |
 | Pełna zgodność danych baseline D6 i pokrycie kraju | NIE | Jeden publiczny punkt nie zastępuje odbioru właściciela |
 
-5. **Faktycznie uruchomione komendy:** `node --check scripts/browser-smoke.mjs`; ukierunkowane `node --test` klienta, panelu, allowlisty i licznika; pełne `node --test --test-reporter=tap scripts/*.test.mjs tests/*.test.mjs` (ostatnio 149 PASS / 761,26 ms); lokalny `createStaticServer` i GET trzech nowych JS (200); cztery polecenia browser-smoke poniżej. Oba skany sekretów i staged diff --check przed commitem; wynik w PR i kolejce. Test startowy aplikacji jest częścią pełnego zestawu.
+5. **Faktycznie uruchomione komendy:** `node --check scripts/browser-smoke.mjs`; ukierunkowane `node --test` klienta, panelu, allowlisty i licznika; pełne `node --test --test-reporter=tap scripts/*.test.mjs tests/*.test.mjs` (ostatnio 149 PASS / 761,26 ms); lokalny `createStaticServer` i GET trzech nowych JS (200); cztery polecenia browser-smoke poniżej. `node scripts/check-no-secrets.mjs` PASS (105 plików), `--history` PASS (67 commitów), `git diff --cached --check` PASS przed commitem. Test startowy aplikacji jest częścią pełnego zestawu.
 
 | Start w liczniku m4d3 | Polecenie po `node scripts/browser-smoke.mjs` | Wynik / katalog lokalny |
 |---|---|---|
