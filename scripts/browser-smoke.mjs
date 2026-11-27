@@ -11,6 +11,8 @@ import { createStaticServer } from "./serve.mjs";
 import { openSmokeBudget, validateSmokeTask } from "./smoke-budget.mjs";
 import { isAllowedPlanningRequest } from "./planning-allowlist.mjs";
 import { planningSmokeFixture } from "./planning-smoke-fixtures.mjs";
+import { isAllowedThematicRequest } from "./thematic-allowlist.mjs";
+import { runThematicSmoke } from "./thematic-smoke.mjs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, "..");
@@ -1004,6 +1006,7 @@ function isHealthRequest(url, method, healthRoutes = []) {
 function isObservedExternalRequest(url, method, healthRoutes = []) {
   return method === "GET" && (isHealthRequest(url, method, healthRoutes)
     || isAllowedPlanningRequest(url, method)
+    || isAllowedThematicRequest(url, method, { allowRedirectKiutHosts:true })
     || isTileHostAllowed(url)
     || isAllowedSearchServiceRequest(url)
     || isAllowedDzialkiEgibRequest(url, method));
@@ -1023,6 +1026,7 @@ export function isAllowedBrowserRequest(rawUrl, method, options = {}) {
 
   if (isHealthRequest(url, requestMethod, options.healthRoutes ?? [])) return true;
   if (options.planningLayers && isAllowedPlanningRequest(url, requestMethod)) return true;
+  if (options.thematicLayers && isAllowedThematicRequest(url, requestMethod, { allowRedirectKiutHosts:options.allowRedirectKiutHosts })) return true;
   if (KIEG_WMS_REDIRECT_HOSTS.includes(url.hostname)
       && url.pathname === KIEG_WMS_PATH
       && options.allowDirectKiegHosts !== true
@@ -1342,8 +1346,11 @@ async function runBrowserSmoke() {
   const requestedPort = getArg(argv, "--port");
   const egibLayersMode = argv.includes("--egib-layers");
   const planningLayersMode = argv.includes("--planning-layers");
+  const thematicLayersMode = argv.includes("--thematic-layers");
   const offlinePlanning = argv.includes("--offline-planning");
+  const offlineThematic = argv.includes("--offline-thematic");
   if (offlinePlanning && !planningLayersMode) throw new Error("--offline-planning wymaga --planning-layers.");
+  if (offlineThematic && !thematicLayersMode) throw new Error("--offline-thematic wymaga --thematic-layers.");
   const egibRequestLimitProvided = argv.some((value) => value === "--max-egib-backend-requests"
     || value.startsWith("--max-egib-backend-requests="));
   const egibBackendRequestLimit = parseEgibBackendRequestLimit(argv);
@@ -1364,6 +1371,9 @@ async function runBrowserSmoke() {
     throw new Error("Nieprawidłowa wartość --before-ref.");
   }
   const compareBefore = Boolean(beforeRef);
+  if (thematicLayersMode && (planningLayersMode || egibLayersMode || kiegReliabilityMode || kiegExperimentMode || tileExperimentArgs || searchArgs || compareBefore)) {
+    throw new Error("--thematic-layers działa jako osobny scenariusz.");
+  }
   if (planningLayersMode && (egibLayersMode || kiegReliabilityMode || kiegExperimentMode || tileExperimentArgs || searchArgs || compareBefore)) {
     throw new Error("--planning-layers działa jako osobny scenariusz.");
   }
@@ -1663,6 +1673,8 @@ async function runBrowserSmoke() {
               appOrigins,
               healthRoutes,
               planningLayers: planningLayersMode,
+              thematicLayers: thematicLayersMode,
+              allowRedirectKiutHosts: isRedirectDestination,
               allowDirectKiegHosts: kiegExperimentArgs?.id === "V3",
               allowRedirectKiegHosts: isRedirectDestination,
             });
@@ -1738,7 +1750,7 @@ async function runBrowserSmoke() {
             }
             orthophotoRequestCount += 1;
           }
-          if (offlinePlanning && parsedRequestUrl && !appOrigins.includes(parsedRequestUrl.origin)) {
+          if ((offlinePlanning || offlineThematic) && parsedRequestUrl && !appOrigins.includes(parsedRequestUrl.origin)) {
             if (networkRecord) networkRecord.mocked = true;
             await pageCdp.command("Fetch.fulfillRequest", { requestId: params.requestId, ...planningSmokeFixture(requestUrl) });
             return;
@@ -2649,6 +2661,27 @@ async function runBrowserSmoke() {
       return { scenarios, retryScenario, statePreserved };
     }
 
+    if (thematicLayersMode) {
+      currentScenario = "m4d3-thematic";
+      const capture = async (filename) => {
+        const shot = await pageCdp.command("Page.captureScreenshot", {format:"png",captureBeyondViewport:true});
+        await writeFile(join(resultDir,filename),Buffer.from(shot.data,"base64"));
+      };
+      const result = await runThematicSmoke({evaluate,command:(method,params)=>pageCdp.command(method,params),sleep,origin:appOrigin,
+        context:contextEncoded,waitForMap,setZoom:setZoomForTest,offline:offlineThematic,capture});
+      result.assertions.push({name:"Brak wyjątków JavaScript",pass:pageExceptions.length===0});
+      await Promise.all([...pendingFetchHandlers]);
+      if (runError) throw runError;
+      const passed = result.assertions.every(assertion=>assertion.pass)&&blockedRequests.length===0;
+      runReport = {scenario:currentScenario,browserMode:headed?"headed":"headless",offline:offlineThematic,passed,...result,
+        externalRequests,blockedRequests,consoleErrors,pageExceptions,budget:taskBudget.snapshot()};
+      await writeFile(join(resultDir,"report.json"),JSON.stringify(runReport,null,2),"utf8");
+      const summary = result.assertions.map(assertion=>(assertion.pass?"PASS":"FAIL")+" | "+assertion.name).join("\n")
+        +"\nŻądania zablokowane: "+blockedRequests.length+"\nWyniki: "+resultDir+"\n";
+      await writeFile(join(resultDir,"summary.txt"),summary,"utf8"); process.stdout.write(summary);
+      if (!passed) process.exitCode=1;
+      return;
+    }
     if (planningLayersMode) {
       currentScenario = "m4d2-planning";
       await pageCdp.command("Page.navigate", { url: appOrigin + "/#/dzialki?ctx=" + contextEncoded });
@@ -2662,14 +2695,14 @@ async function runBrowserSmoke() {
       const initial = await evaluate(`(() => ({
         count: document.querySelectorAll('[data-planning-layer]').length,
         allOff: [...document.querySelectorAll('[data-planning-layer]')].every(el => !el.checked),
-        helpCount: document.querySelectorAll('.dzialki-layer-help-button').length
+        helpCount: document.querySelector('[data-layer-group="planning"]').querySelectorAll('.dzialki-layer-help-button').length
       }))()`);
       await evaluate(`(() => {
         document.querySelector('[data-layer-group="planning"]').open = true;
         for (const input of document.querySelectorAll('[data-planning-layer]')) {
           input.checked = true; input.dispatchEvent(new Event('change', { bubbles:true }));
         }
-        for (const button of document.querySelectorAll('.dzialki-layer-help-button')) button.click();
+        for (const button of document.querySelector('[data-layer-group="planning"]').querySelectorAll('.dzialki-layer-help-button')) button.click();
       })()`);
       const monitorExpression = `(() => [...document.querySelectorAll('[data-planning-status]')].map(el => ({
         id: el.dataset.planningStatus, state: el.dataset.state, loaded: Number(el.dataset.loaded),

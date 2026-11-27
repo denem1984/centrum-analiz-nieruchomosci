@@ -250,7 +250,8 @@ export function mountPlanningLayers(container, options = {}) {
   }
   const cancelPopupRequests = () => popupController?.abort();
   function updatePopupLayout() {
-    if (activePopup?.getContent?.() === activePopupRoot) activePopup.update?.();
+    const content = activePopup?.getContent?.();
+    if (content === activePopupRoot || content?.contains?.(activePopupRoot)) activePopup.update?.();
   }
   const unsubscribe = (options.subscribeBackendStatus ?? subscribeBackendStatus)("Dzialki", (status) => {
     if (popupBackendStatus && status.state === "waking") popupBackendStatus.textContent = "Usługa się budzi · oczekiwanie: " + status.waitSeconds + " s";
@@ -353,14 +354,17 @@ export function mountPlanningLayers(container, options = {}) {
   }
   async function standaloneClick(event) {
     popupController?.abort();
-    if (disposed || !map || !L || !(enabled().mpzp || enabled().pogAdopted || enabled().pogDraftGugik)) return;
+    if (disposed || !map || !L || !(enabled().mpzp || enabled().pogAdopted || enabled().pogDraftGugik || options.hasAdditionalPopup?.())) return;
     const egib = getDzialkiState().egibLayers;
     if (map.getZoom() >= EGiB_MIN_ZOOM && (egib.numbers || egib.parcels)) return;
-    const content = extendPopup(node(document, "p", "Informacje planistyczne dla wskazanego miejsca."), event);
+    const base = node(document,"p","Informacje dla wskazanego miejsca.");
+    const content = options.extendStandalonePopup ? options.extendStandalonePopup(base,event) : extendPopup(base,event);
     activePopup = L.popup({ maxWidth: 380, maxHeight: 450 }).setLatLng(event.latlng).setContent(content).openOn(map);
+    options.onPopupOpen?.(activePopup);
   }
   const closePopup = (event) => {
-    if (event.popup?.getContent?.() === activePopupRoot) popupController?.abort();
+    const content = event.popup?.getContent?.();
+    if (content === activePopupRoot || content?.contains?.(activePopupRoot)) popupController?.abort();
   };
   return {
     extendPopup,

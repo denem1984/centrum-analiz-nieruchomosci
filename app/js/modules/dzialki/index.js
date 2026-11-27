@@ -7,6 +7,7 @@ import { getDzialkiState, updateDzialkiState } from "./state.js";
 import { mountParcelSearch } from "./search-ui.js";
 import { mountEgibLayers } from "./egib-layers.js";
 import { mountPlanningLayers } from "./planning-layers.js";
+import { mountThematicLayers } from "./thematic-layers.js";
 
 const STATUS_LABELS = Object.freeze({
   idle: "Nie sprawdzono",
@@ -51,6 +52,7 @@ export function mountDzialki(container, ctx = {}) {
   let activeLayer = null;
   let egibLayerController = null;
   let planningLayerController = null;
+  let thematicLayerController = null;
   let pendingSearchSelection = null;
   let retryController = null;
   let baseFailedTileCount = 0;
@@ -199,9 +201,17 @@ export function mountDzialki(container, ctx = {}) {
   ));
   baseGroup.body.append(archiveControls);
 
+  function extendMapPopup(content,event,selection) {
+    const planning = planningLayerController?.extendPopup(content,event,selection) ?? content;
+    return thematicLayerController?.extendPopup(planning,event,selection) ?? planning;
+  }
+  function popupOpened(popup) {
+    planningLayerController?.onPopupOpen(popup);
+    thematicLayerController?.onPopupOpen(popup);
+  }
   egibLayerController = mountEgibLayers(mapLayersPanel, {
-    extendPopup: (content, event, selection) => planningLayerController?.extendPopup(content, event, selection) ?? content,
-    onPopupOpen: (popup) => planningLayerController?.onPopupOpen(popup),
+    extendPopup: extendMapPopup,
+    onPopupOpen: popupOpened,
     getBackendStatus: ctx.getBackendStatus ?? getBackendStatus,
     checkBackend: ctx.checkBackend ?? checkBackend,
     subscribeBackendStatus: ctx.subscribeBackendStatus,
@@ -215,14 +225,24 @@ export function mountDzialki(container, ctx = {}) {
   const planningGroup = createGroup("planning", "Planowanie przestrzenne", "planning", groups.planning);
   mapLayersPanel.append(planningGroup.details);
   planningLayerController = mountPlanningLayers(planningGroup.body, {
+    hasAdditionalPopup: () => thematicLayerController?.hasPopup(),
+    extendStandalonePopup: extendMapPopup,
+    onPopupOpen: popupOpened,
     getBackendStatus: ctx.getBackendStatus ?? getBackendStatus,
     checkBackend: ctx.checkBackend ?? checkBackend,
     subscribeBackendStatus: ctx.subscribeBackendStatus,
   });
 
+  const investmentGroup = createGroup("investments","Inwestycje i zagrożenia","investments",groups.investments);
+  const infrastructureGroup = createGroup("infrastructure","Infrastruktura i własność","infrastructure",groups.infrastructure);
+  mapLayersPanel.append(investmentGroup.details,infrastructureGroup.details);
+  thematicLayerController = mountThematicLayers(investmentGroup.body,infrastructureGroup.body,{
+    getBackendStatus:ctx.getBackendStatus ?? getBackendStatus,
+    checkBackend:ctx.checkBackend ?? checkBackend,
+    subscribeBackendStatus:ctx.subscribeBackendStatus,
+  });
+
   const upcomingGroups = [
-    ["investments", "Inwestycje i zagrożenia", "investments"],
-    ["infrastructure", "Infrastruktura i własność", "infrastructure"],
     ["tools", "Wygląd i narzędzia działek", "tools"],
   ];
   for (const [id, label, iconName] of upcomingGroups) {
@@ -404,6 +424,7 @@ export function mountDzialki(container, ctx = {}) {
       attachRetry(activeLayer);
       egibLayerController.attach(map, L);
       planningLayerController.attach(map, L);
+      thematicLayerController.attach(map,L);
       map.on("zoomend", syncZoom);
       map.on("moveend", () => {
         if (!map || disposed) return;
@@ -437,6 +458,7 @@ export function mountDzialki(container, ctx = {}) {
     detachRetry();
     egibLayerController?.cleanup();
     planningLayerController?.cleanup();
+    thematicLayerController?.cleanup();
     if (map) {
       map.off("zoomend", syncZoom);
       map.remove();

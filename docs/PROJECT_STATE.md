@@ -36,7 +36,8 @@ Agent wykonuje plan, implementację, testy, dokumentację i PR-y. Właściciel p
 | 4 | `fix/smoke-task-budgets` | Trwały wspólny licznik 4/400/300, blokowanie przekroczeń | [PR #16](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/16); baza #15 |
 | 5 | `feat/m4d2-planning-layers` | Pięć warstw planowania, gminny POG, popupy, monitory i smoke | [PR #17](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/17); baza #16 |
 | 6 | `docs/imagery-freshness-plan` | Porównanie źródeł i plan nowszego podkładu M4b.4 | [PR #18](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/18); baza #17 |
-| 7 | `fix/windows-budget-replace` | Krótkie blokady atomowego zapisu licznika na Windows | PR w przygotowaniu; baza #18 |
+| 7 | `fix/windows-budget-replace` | Krótkie blokady atomowego zapisu licznika na Windows | [PR #19](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/19); baza #18 |
+| 8 | `feat/m4d3-risks-infrastructure` | RWDZ, ISOK, KIUT, własność i wspólne popupy | PR w przygotowaniu; baza #19 |
 
 Scalaj od góry. PR-y zależne porównują zmianę z gałęzią poprzednika; po scaleniu poprzednika ich bazą powinno zostać `main`. Agent nie scala i nie uruchamia wdrożeń.
 
@@ -73,7 +74,7 @@ Przegląd oficjalnych źródeł wskazuje aktualną ortofotomapę GUGiK jako gł�
 | M4a–M4c | Analiza, mapa i wyszukiwanie w `main` | Porównanie z baseline właściciela nie jest domyślnie zaliczone |
 | M4d.1 | EGiB, zaznaczanie, popupy i monitor w `main`, PR #12 | Zewnętrzna kompletność KIEG pozostaje ograniczeniem pomiarów |
 | M4d.2 | Implementacja na gałęzi `feat/m4d2-planning-layers`: pięć warstw, trzy informacje, wspólne popupy, gminny POG z lokalną projekcją i monitory | 139/139 testów PASS w 0,74 s; Edge headed live 11/11, offline + mobile 12/12; tabela źródłowych żądań i ograniczenia w `docs/dzialki-planning.md`; odbiór baseline właściciela pozostaje |
-| M4d.3 | RWDZ, ISOK, KIUT, własność | Legendy, style i sekcje popupów; własność z uzupełnianiem brakujących grup; kompletność |
+| M4d.3 | Implementacja na `feat/m4d3-risks-infrastructure`: cztery warstwy, legendy, własność z uzupełnianiem grup i wspólny popup | Test startowy, URL-e, headed offline/mobile i live; szczegóły i ograniczenia w `reports/m4d3-thematic.md`; baseline D6 pozostaje do odbioru |
 | M4e | Kolory, czyszczenie, rodzina działek, menu mapy, pomiary i Street View | Osiem kolorów, orientacyjność rodziny numerów, obsługa anulowania i cleanup; bez pomijania pomiarów z macierzy |
 | M4f | Lista i eksport PDF, biblioteki lokalne | Dodawanie/usuwanie/czyszczenie działek i widoków, zachowanie między zakładkami, oględziny PDF |
 | M3b | Oficjalne TERC/SIMC i walidacja D9 | Próba pobrania przez agenta; fallback do plików od właściciela tylko przy faktycznej blokadzie; zera wiodące, nazwy powtarzalne, R=4/5 |

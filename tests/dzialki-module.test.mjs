@@ -83,7 +83,10 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
   const planningInputs = fake.document.querySelectorAll("[data-planning-layer]");
   assert.equal(planningInputs.length, 5);
   assert.ok(planningInputs.every((input) => input.checked === false), "planowanie jest domyślnie wyłączone");
-  assert.equal(fake.document.querySelectorAll("button.dzialki-layer-help-button").length, 3);
+  assert.equal(fake.document.querySelector('[data-layer-group="planning"]').querySelectorAll("button.dzialki-layer-help-button").length, 3);
+  const thematicInputs = fake.document.querySelectorAll("[data-thematic-layer]");
+  assert.equal(thematicInputs.length,4);
+  assert.ok(thematicInputs.every((input) => input.checked === false));
   assert.match(view.children[0].attributes.get("aria-labelledby"), /dzialki-title/);
 
   const esriRadio = fake.document.querySelectorAll("[data-base-layer]")

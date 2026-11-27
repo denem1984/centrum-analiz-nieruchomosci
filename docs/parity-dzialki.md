@@ -6,7 +6,7 @@ Status „zrobione” oznacza implementację lokalnej funkcji i testy bez sieci;
 
 | Element | Dowód w starym froncie | Stan nowej aplikacji | Docelowy podetap | Uwagi |
 |---|---|---|---|---|
-| Dostęp do zakładki bez bramki własnej modułu | [FAKT z kodu: `index.html:68–74`] | zrobione | M4c | Zgodnie z D15; wspólne logowanie całej aplikacji pozostaje do decyzji D5. |
+| Dostęp do zakładki bez bramki własnej modułu | [FAKT z kodu: `index.html:68–74`] | zrobione | M4c | Ostateczna D5: aplikacja w ogóle bez logowania (2026-11-27). |
 | Lista powiatów z nazwą województwa | [FAKT z kodu: `index.html:560`] | zrobione | M4c | Formularz pokazuje nazwę powiatu i nazwę województwa z kodu PRG. |
 | Zależna lista gmin | [FAKT z kodu: `index.html:560`] | zrobione | M4c | Lista zależy od wybranego powiatu. |
 | Zależna lista obrębów z numerem obrębu | [FAKT z kodu: `index.html:560`] | zrobione | M4c | Etykieta zawiera nazwę i kod obrębu. |
@@ -43,7 +43,7 @@ Status „zrobione” oznacza implementację lokalnej funkcji i testy bez sieci;
 | Działki o wspólnym numerze bazowym | [FAKT z kodu: `index.html:458,638–708`] | brak | M4e | Stary front określa dopasowanie jako orientacyjne; zgodność sprawdzi baseline D3. |
 | MPZP oraz linie zabudowy | [FAKT z kodu: `index.html:187,319–410,838–844`] | zaimplementowane; testy URL i startu, Edge headed offline i live PASS w publicznym punkcie testowym | M4d.2 | Pięć warstw, przyciski informacji, fallback gmina→RU i szczegóły działki; pełna tabela żądań i ograniczenia w `docs/dzialki-planning.md`. Baseline właściciela D4 nadal wymaga odbioru. |
 | Plan ogólny: warstwa wiążąca oraz warianty projektowane | [FAKT z kodu: `index.html:187,212–318,845–854`] | zaimplementowane; headed live: kafelki 40/40 (uchwalony z uzupełnieniem gminnym), 20/20 RU, 20/20 GUGiK w jednym widoku | M4d.2 | Zachowano uzupełnienie gminne z reprojekcją EPSG:2180. Popup uchwalonego POG wczytany; projektowany GUGiK poprawnie pusty w sprawdzonym miejscu. Nie potwierdza pełnego pokrycia kraju ani wszystkich przypadków D5. |
-| Własność, KIUT, ryzyko powodziowe i pozwolenia budowlane | [FAKT z kodu: `index.html:187,767–815,838–858`] | brak | M4d | Wróci w baseline D6. |
+| Własność, KIUT, ryzyko powodziowe i pozwolenia budowlane | [FAKT z kodu: `index.html:187,211,412–449,767–815,838–858`] | zaimplementowane: cztery opcje off, legendy 9/16, dialog ISOK, wspólny popup RWDZ, uzupełnianie grup 60/4 i cache; headed live PASS w jednym widoku | M4d.3 | Dokładne parametry i instrukcja w `docs/dzialki-thematic.md`; własność 83 obiekty / 0 nieustalonych grup. Baseline D6 i pełne pokrycie kraju niepotwierdzone. |
 | Menu mapy, pomiar odległości i powierzchni | [FAKT z kodu: `index.html:197–209,1122–1285`] | brak | M4e | Wróci w baseline D7. |
 | Street View z punktu mapy | [FAKT z kodu: `index.html:1270–1275`] | brak | M4e | Usługę wywołuje przeglądarka starego frontu; integracja nowej zakładki podlega osobnej kontroli URL. |
 | Lista elementów raportu: dodawanie, usuwanie i czyszczenie | [FAKT z kodu: `index.html:189–194,862–965`] | brak | M4f | Stan listy ma pozostawać w pamięci aplikacji zgodnie z decyzją D15. |

@@ -65,7 +65,7 @@ function contains(point, polygon) {
   return ringContains(point, polygon[0]) && !polygon.slice(1).some((ring) => ringContains(point, ring));
 }
 
-function interiorPoint(geometry) {
+export function interiorPoint(geometry) {
   const polygons = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.coordinates;
   for (const polygon of polygons) {
     const ring = polygon?.[0];

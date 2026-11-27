@@ -36,6 +36,7 @@ export class FakeElement {
     this.value = "";
     this.id = "";
     this.className = "";
+    this.style = {};
   }
 
   get lastElementChild() {
@@ -67,6 +68,15 @@ export class FakeElement {
     this.append(...elements);
   }
 
+  remove() {
+    if (this.parentElement) this.parentElement.children = this.parentElement.children.filter((child) => child !== this);
+    this.parentElement = null;
+  }
+
+  contains(node) {
+    return node === this || this.children.some((child) => child.contains?.(node));
+  }
+
   setAttribute(name, value) {
     const text = String(value);
     this.attributes.set(name, text);
@@ -74,6 +84,10 @@ export class FakeElement {
     if (name === "class") this.className = text;
     if (name.startsWith("data-")) this.dataset[datasetKey(name)] = text;
   }
+
+  getAttribute(name) { return this.attributes.get(name) ?? null; }
+  getElementsByTagName(name) { return this.querySelectorAll(name); }
+  get localName() { return this.tagName; }
 
   removeAttribute(name) {
     this.attributes.delete(name);
@@ -150,6 +164,9 @@ export function createFakeDom() {
     },
     querySelectorAll(selector) {
       return document.body?.querySelectorAll(selector) ?? [];
+    },
+    querySelector(selector) {
+      return document.querySelectorAll(selector)[0] ?? null;
     },
   };
 
