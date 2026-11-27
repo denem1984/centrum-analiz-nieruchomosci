@@ -32,7 +32,8 @@ Agent wykonuje plan, implementację, testy, dokumentację i PR-y. Właściciel p
 |---|---|---|---|
 | 1 | `fix/dzialki-test-cleanup` | Odmontowanie map po teście startowym, także przy błędzie asercji | [PR #13](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/13), 119/119 PASS, 0,69 s |
 | 2 | `fix/edge-headed-cdp` | Osobny profil, port z DevToolsActivePort, lokalny sprawdzian Edge | [PR #14](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/14); baza #13 |
-| 3 | `docs/handover` | Stan, zasady autonomii, aktualna D5, plan i procedury | PR do utworzenia; baza #14 |
+| 3 | `docs/handover` | Stan, zasady autonomii, aktualna D5, plan i procedury | [PR #15](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/15); baza #14 |
+| 4 | `fix/smoke-task-budgets` | Trwały wspólny licznik 4/400/300, blokowanie przekroczeń | PR do utworzenia; baza #15 |
 
 Scalaj od góry. PR-y zależne porównują zmianę z gałęzią poprzednika; po scaleniu poprzednika ich bazą powinno zostać `main`. Agent nie scala i nie uruchamia wdrożeń.
 
@@ -47,6 +48,10 @@ Sprawdzenie właściciela (opcjonalne dla tej poprawki): w PowerShell w folderze
 [FAKT: pomiar 2026-11-27] `node scripts/browser-smoke.mjs --headed --check-browser`: PASS w rzeczywistym Edge z oknem; CDP połączyło się przez port zapisany w nowym profilu. Zrzut `browser-check.png` obejrzano; poprawny tekst PASS jest widoczny. Wyniki lokalne: `.local-results/browser-smoke-2026-11-27T19-18-25-329Z/`. Nie otwierano mapy ani usług zewnętrznych. To nie jest dowód kompletności KIEG.
 
 `node --test --test-reporter=dot scripts/*.test.mjs tests/*.test.mjs`: PASS (123 testy). Nowe testy obejmują niepełny plik portu, zakończenie launchera, niezgodny/obcy WebSocket, błędy HTTP i limit czasu, bez sieci i rzeczywistego czekania. Instrukcja właściciela: `scripts/README-run.md`, sekcja „Sprawdzenie Edge i diagnostyka mapy”.
+
+## Weryfikacja budżetów smoke
+
+[FAKT: przebieg 2026-11-27] Pełne `node --test --test-reporter=tap scripts/*.test.mjs tests/*.test.mjs`: 127/127 PASS w 758,69 ms. Testy licznika sprawdzają wznowienie stanu, blokadę równoległego procesu, współbieżne rezerwacje na granicy 300/400, limit czterech startów, wspólne liczenie przekierowań i odrzucanie nieczytelnego stanu. `node --check scripts/browser-smoke.mjs`: PASS. Bez ruchu do usług. Pełny przebieg integracji licznika z prawdziwą mapą zostanie sprawdzony w M4d.2; nie wykonano go w poprawce narzędzia.
 
 ## Następna praca
 
@@ -89,7 +94,7 @@ Poniższy inwentarz pochodzi z odczytu frontów we wskazanych rewizjach i histor
 
 - Ortofotomapa archiwalna: w historycznym pomiarze 67/144 GET-ów bez odpowiedzi po 35 s. Backlog M4b.3: limit czasu na kafelek i ocena 512 px. Nie uznawać awarii usługi za pusty poprawny wynik.
 - KIEG: V0 headless dawał ORB dla węzła 01, a frakcje wynosiły 0/12, 11/12 i 12/12. Wpływ User-Agent pozostaje [HIP]; nie zmieniamy nagłówków. Aktualny sprawdzian Edge/CDP nie testował usług KIEG. [Źródło: D23 i docs/dzialki-module.md]
-- Nowy budżet właściciela to 4 pełne smoke, 400 żądań Działek, 300 na usługę; stary kod ma większe limity eksperymentów i licznik historyczny M4d.1c. **Przed pełnym nowym smoke trzeba wdrożyć wspólny licznik nowych limitów, bez kasowania historycznego pliku.**
+- Nowy budżet właściciela to 4 pełne smoke, 400 żądań Działek, 300 na usługę. `fix/smoke-task-budgets` dodaje wspólny licznik wymagający `--task`, utrwalany przed wysłaniem żądania; przekierowania KIEG dzielą licznik. Stary licznik M4d.1c jest używany dodatkowo tylko w historycznym eksperymencie, bez kasowania jego stanu. Nie zwiększa nowych limitów. Sprawdzian samego CDP nie zużywa budżetu usług.
 - D2/D9: nie ma pełnych plików TERC/SIMC ani pełnego zbioru wskaźników. 100 wierszy BDL i jeden niezależny match nie zamykają D9. Nie zgadywać rodzaju gminy ani mapowania.
 - Klik działki a DenemContext: zachowujemy obecne zachowanie do osobnej decyzji. Trwałość analiz D11, zasady wyników ofert D12, zakres raportu D10 i domena/koszty nie są rozstrzygnięte.
 - Publiczne warunki usług Esri/GUGiK/Nominatim wymagają sprawdzenia u źródeł przed udostępnieniem nowych integracji. Nie dopisujemy nowych ustaleń bezpieczeństwa starych aplikacji.
