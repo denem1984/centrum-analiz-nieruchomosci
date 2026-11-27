@@ -190,6 +190,13 @@
 - Headed smoke zapisuje statusy, nie treść wpisów RWDZ; szczegóły mogą zawierać nazwiska i są pomijane w screenshot live. Atrapy używają wyłącznie fikcyjnych pól. Nie wykonuje się zmian backendu ani odczytów konfiguracji.
 - Trzeci start zadania m4d3 uzyskał live PASS po naprawieniu atomowego zapisu licznika w osobnym PR #19. Drugi start przerwano przy EPERM, bez zerowania stanu. Pojedynczy widok nie zastępuje odbioru baseline D6.
 
+## D28 — Wspólne wyszukiwanie lokalizacji w Start (2026-11-27)
+
+- **Decyzja właściciela:** jedno wyszukiwanie w Start; zakładki pobierają potrzebny zakres tej samej lokalizacji, bez powtarzania kaskady. Województwo, powiat, gmina, obręb, miejscowość i ulica są osobnymi polami. Nie przerywa to bieżącej pracy.
+- **Realizacja:** po M4e/M4f i słownikach M3b wykonać M3c — kontrakt v2 z migracją v1, wspólny formularz i adaptery. V1 nie przechowuje osobnej ulicy i obrębu niezależnego od działki. Szczegółowy plan i kryteria: `docs/shared-location-start.md`.
+- Filtry analizy pozostają w modułach. Podobne korzysta ze wspólnej lokalizacji dla nieruchomości analizowanej; nieruchomości porównawcze zachowują własne adresy. Zmiana kontekstu unieważnia stare wyniki, nie uruchamia automatycznie ciężkich zapytań i czyści zależne pola. Nie utożsamiamy obrębu z miejscowością.
+- Alternatywę powielania pełnej kaskady w każdej zakładce odrzucono. Działający formularz Działek zastąpić dopiero wraz z gotowym Start i adapterem, bez przejściowej utraty funkcji.
+
 ## Zasady repozytorium
 
 [FAKT: decyzja właściciela z 2026-10-26] Repozytorium jest publiczne. Nie zapisujemy w nim wartości sekretów, konfiguracji, tokenów, kluczy, danych osobowych ani identyfikatorów kont lub usług. Wyjątkiem jest niesekretna wartość trybu źródło danych RCN. Pięć repozytoriów źródłowych jest tylko do odczytu.
