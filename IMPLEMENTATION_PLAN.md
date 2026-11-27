@@ -12,6 +12,8 @@ M4d.2 → M4d.3 → M4e (w tym pomiary i Street View z istniejącego parytetu) �
 
 M3c: [plan wspólnej lokalizacji](docs/shared-location-start.md). Wersjonowany kontrakt z samodzielnym obrębem i ulicą, migracja v1, jeden formularz w Start, przeniesienie list administracyjnych z Działek oraz adaptery modułów. Przypadki akceptacji obejmują czyszczenie zależnych pól, stare URL-e i oznaczanie wyników nieaktualnych po zmianie lokalizacji.
 
+Aktualizacja właściciela: D30 wymaga zatrzymania po większych etapach, lokalnego podglądu, estymacji % i akceptacji przed kontynuacją. M3c obejmuje mapę wyniku w Start i trzy proponowane tryby Obszar/Adres/Działka. D31 usuwa „rodzinę działek” opartą na numerach. D32 ogranicza M5 do adaptacji istniejącego kodu i poprawy prezentacji RCN z obecnymi danymi R2; bez zmiany danych i backendu. Raporty AI (D29) mają czytać mapę oraz internet i redagować tekst bez źródeł, bez bazy DENEM i generowania obrazów; [analiza możliwości](docs/ai-reports-feasibility.md), aktywacja dopiero po decyzjach o usłudze i kosztach.
+
 ## Etapy i zależności
 
 | Etap | Zakres i zależności | Kryterium akceptacji | Główne ryzyko |

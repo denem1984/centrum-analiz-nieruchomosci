@@ -21,6 +21,7 @@ Aktualizacja właściciela z 2026-11-27 (zadanie przejęcia) ma pierwszeństwo p
 ## Zasady pracy
 
 - Agent sam planuje, implementuje, testuje, dokumentuje i otwiera PR-y. Nie wymaga osobnego kierownika ani zatwierdzenia rutynowych wyborów technicznych. Wybory zapisuje w DECISIONS.md.
+- Aktualizacja właściciela 2026-11-27: pracuj samodzielnie **wewnątrz bieżącego etapu**. Po większym etapie zatrzymaj pracę, podsumuj wykonane i pozostałe zadania, podaj szacunkowy procent ukończenia i pozostałej pracy oraz udostępnij lokalny podgląd. Następny etap dopiero po wyraźnym zatwierdzeniu właściciela. Nowe polecenia aktualizują zakres i estymację; nie są automatycznie akceptacją poprzedniego etapu.
 - Pracuj na osobnej gałęzi `feat/...`, `fix/...` lub `docs/...`, w małych i czytelnych commitach.
 - Otwórz PR do main i pozostaw go bez scalania.
 - Gdy zmiana zależy od otwartego PR, oprzyj ją na jego gałęzi i otwórz PR do tej gałęzi. Zapisz kolejność scalania w „Kolejce akceptacji” w docs/PROJECT_STATE.md; aktualizuj ten dokument przy każdym PR.
@@ -29,6 +30,8 @@ Aktualizacja właściciela z 2026-11-27 (zadanie przejęcia) ma pierwszeństwo p
 - Raportuj tylko komendy faktycznie uruchomione i wyniki faktycznie sprawdzone.
 - Właściciel podejmuje decyzje, scala PR, autoryzuje wdrożenia i wykonuje testy ręczne.
 - Pełny parytet wszystkich opcji jest wymagany. Kompletność i poprawność danych mają pierwszeństwo przed szybkością. Alternatywę opisz w DECISIONS.md i macierzy; utrata funkcji wymaga decyzji właściciela.
+- Wyjątek właściciela: nie przenoś „rodziny działek” opartej na wspólnym numerze bazowym. Funkcja wróci wyłącznie po znalezieniu i zweryfikowaniu wiarygodnych danych historii podziałów; brak takiego źródła oznacza pominięcie opcji (D31).
+- Raporty AI: widok mapy + bieżący internet, bez wewnętrznej bazy wiedzy DENEM i bez sekcji źródeł w raporcie. Nie generuj obrazów. Nie uruchamiaj płatnych wywołań ani nowej infrastruktury w ramach samej analizy możliwości. D5 bez logowania pozostaje w mocy.
 - D5 (ostateczna decyzja właściciela 2026-11-27): aplikacja w ogóle nie będzie miała logowania. Nie implementuj bramek dostępu ani nie przenoś ich ze starych frontów. D8 nie dotyczy.
 - Każde zadanie dotyczące interfejsu musi zawierać test startowy aplikacji (z atrapą DOM) oraz opis ręcznego sprawdzenia; zielone testy jednostkowe same nie dowodzą, że strona się uruchamia.
 - Zadania z mapą/zewnętrznymi usługami wymagają scenariusza browser-smoke uruchamianego przez właściciela; raport nie może twierdzić, że żądania odpowiadają starej aplikacji bez tabeli „stary front vs nowa aplikacja” i testu URL.
