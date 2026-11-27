@@ -35,6 +35,7 @@ Agent wykonuje plan, implementację, testy, dokumentację i PR-y. Właściciel p
 | 3 | `docs/handover` | Stan, zasady autonomii, aktualna D5, plan i procedury | [PR #15](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/15); baza #14 |
 | 4 | `fix/smoke-task-budgets` | Trwały wspólny licznik 4/400/300, blokowanie przekroczeń | [PR #16](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/16); baza #15 |
 | 5 | `feat/m4d2-planning-layers` | Pięć warstw planowania, gminny POG, popupy, monitory i smoke | [PR #17](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/17); baza #16 |
+| 6 | `docs/imagery-freshness-plan` | Porównanie źródeł i plan nowszego podkładu M4b.4 | PR do utworzenia; baza #17 |
 
 Scalaj od góry. PR-y zależne porównują zmianę z gałęzią poprzednika; po scaleniu poprzednika ich bazą powinno zostać `main`. Agent nie scala i nie uruchamia wdrożeń.
 
@@ -58,6 +59,8 @@ Sprawdzenie właściciela (opcjonalne dla tej poprawki): w PowerShell w folderze
 
 1. M4d.2 jest w PR #17: 139 testów PASS, rzeczywisty smoke 11/11, offline + mobile 12/12. Szczegółowy [RAPORT](../reports/m4d2-planning.md) i instrukcja baseline pozostają do odbioru właściciela.
 2. Zrealizować dodany plan nowszego podkładu: porównanie źródeł i rekomendacja, bez usuwania opcji.
+
+Przegląd oficjalnych źródeł wskazuje aktualną ortofotomapę GUGiK jako głównego kandydata [HIP do porównania dat w danym miejscu]. [Plan M4b.4, źródła i kryteria](imagery-freshness-plan.md) rozróżnia datę zdjęcia, publikację serwisu i rozdzielczość. Nie zmieniono jeszcze podkładu i nie wykonano dodatkowego ruchu mapowego.
 3. Kontynuować M4d.3 → M4e → M4f, następnie M3b i dalszą roadmapę; każdy podetap osobnym PR, bez scalania i wdrożeń.
 
 ## Roadmapa i warunki zakończenia
