@@ -3,7 +3,20 @@ import assert from "node:assert/strict";
 import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
-import { openSmokeBudget, smokeServiceKey, validateSmokeTask } from "./smoke-budget.mjs";
+import { openSmokeBudget, smokeServiceKey, validateSmokeTask,replaceBudgetFile } from "./smoke-budget.mjs";
+
+test("atomowa podmiana czeka na krótką blokadę Windows, ale trwały błąd blokuje dalszą pracę",async()=>{
+  const waits=[];let calls=0;
+  await replaceBudgetFile("temporary","state",{renameImpl:async(from,to)=>{
+    assert.equal(from,"temporary");assert.equal(to,"state");calls+=1;
+    if(calls<3)throw Object.assign(new Error("busy"),{code:"EPERM"});
+  },wait:async(ms)=>waits.push(ms)});
+  assert.equal(calls,3);assert.deepEqual(waits,[25,50]);
+  calls=0;
+  await assert.rejects(replaceBudgetFile("temporary","state",{renameImpl:async()=>{calls+=1;throw Object.assign(new Error("busy"),{code:"EACCES"});},wait:async()=>{}}),{code:"EACCES"});
+  assert.equal(calls,6);
+  await assert.rejects(replaceBudgetFile("temporary","state",{renameImpl:async()=>{throw Object.assign(new Error("disk"),{code:"ENOSPC"});},wait:async()=>assert.fail("bez ponawiania błędu dysku")}),{code:"ENOSPC"});
+});
 
 async function removeTestDirectory(root) {
   assert.equal(dirname(resolve(root)), resolve(tmpdir()));

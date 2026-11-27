@@ -1,7 +1,21 @@
 import { mkdir, open, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 
 export const SMOKE_LIMITS = Object.freeze({ launches: 4, dzialki: 400, service: 300 });
+
+// Windows can briefly deny replacement while a reader or scanner holds the file.
+// Never remove the old state: dispatch still waits for a successful atomic rename.
+export async function replaceBudgetFile(temporary, destination, {renameImpl = rename,wait = delay} = {}) {
+  const waits = [25,50,100,200,400];
+  for (let attempt = 0; ; attempt += 1) {
+    try { await renameImpl(temporary,destination); return; }
+    catch (error) {
+      if (!["EPERM","EACCES","EBUSY"].includes(error.code) || attempt >= waits.length) throw error;
+      await wait(waits[attempt]);
+    }
+  }
+}
 
 export function smokeServiceKey(address) {
   const url = new URL(address);
@@ -61,7 +75,7 @@ export async function openSmokeBudget(statePath, task) {
       if (!allowed) return false;
       const temporary = statePath + ".tmp";
       await writeFile(temporary, JSON.stringify(copy, null, 2) + "\n", "utf8");
-      await rename(temporary, statePath);
+      await replaceBudgetFile(temporary, statePath);
       state = copy;
       return true;
     });
