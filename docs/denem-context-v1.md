@@ -1,6 +1,6 @@
 # DenemContext v1 — kontrakt lokalizacji
 
-**Status:** aktualna implementacja M3a/M4, do weryfikacji słowników w M3b. Decyzja D28 z 2026-11-27 dodaje centralne wyszukiwanie w Start; [M3c](shared-location-start.md) wprowadzi wersjonowane rozszerzenie o ulicę i osobny obręb oraz migrację v1. Ten dokument nie twierdzi, że te pola już działają.  
+**Status:** aktualna implementacja M3a/M4, do weryfikacji słowników w M3b. Decyzja D28 z 2026-11-27 dodaje centralne wyszukiwanie w Start; [M3c](shared-location-start.md) wprowadzi wersjonowane rozszerzenie o ulicę i osobny obręb oraz migrację v1. Ten dokument nie twierdzi, że te pola już działają.
 **Zakres:** wspólny, opcjonalny kontekst lokalizacji między natywnymi zakładkami. M3a używa wyłącznie fikcyjnego dostawcy danych; M3b podłączy słownik po otrzymaniu plików TERC/SIMC od właściciela.
 
 ## Model danych

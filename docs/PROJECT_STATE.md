@@ -39,7 +39,7 @@ Agent wykonuje plan, implementację, testy, dokumentację i PR-y. Właściciel p
 | 6 | `docs/imagery-freshness-plan` | Porównanie źródeł i plan nowszego podkładu M4b.4 | [PR #18](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/18); baza #17 |
 | 7 | `fix/windows-budget-replace` | Krótkie blokady atomowego zapisu licznika na Windows | [PR #19](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/19); baza #18 |
 | 8 | `feat/m4d3-risks-infrastructure` | RWDZ, ISOK, KIUT, własność i wspólne popupy | [PR #20](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/20); baza #19; 149 testów PASS |
-| 9 | `docs/shared-location-start` | D28: wspólne wyszukiwanie Start i plan M3c | PR w przygotowaniu; baza #20 |
+| 9 | `docs/shared-location-start` | D28: wspólne wyszukiwanie Start i plan M3c | [PR #21](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/21); baza #20 |
 
 Scalaj od góry. PR-y zależne porównują zmianę z gałęzią poprzednika; po scaleniu poprzednika ich bazą powinno zostać `main`. Agent nie scala i nie uruchamia wdrożeń.
 
