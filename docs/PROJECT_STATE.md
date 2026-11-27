@@ -1,6 +1,22 @@
 # Stan projektu — Centrum Analiz Nieruchomości
 
-Aktualizacja: 2026-11-27. Dokument przejęcia jest uzupełniany podczas weryfikacji repozytorium.
+Aktualizacja: 2026-11-27. Bieżące źródło stanu i kolejki akceptacji; starsze raporty są dowodami historycznymi, nie bieżącą listą wykonanych funkcji.
+
+## Cel i zasady odbioru
+
+Jedna samodzielna aplikacja, poza denem.pl, łącząca Działki, RCN, Oferty, Podobne i Gminy. Każda opcja starego frontu musi mieć odpowiednik; poprawki jakości nie mogą odbierać funkcji. Kompletność i poprawność danych są ważniejsze od szybkości. Nie ogłaszamy gotowości niekompletnych wyników.
+
+Agent wykonuje plan, implementację, testy, dokumentację i PR-y. Właściciel podejmuje decyzje produktowe, scala PR-y i wykonuje wdrożenia. Wszystkie pięć źródeł jest tylko do odczytu. Nie wykonujemy operacji zarządzania usługami ani odczytów wartości konfiguracji.
+
+## Architektura i decyzje
+
+- Statyczne `app/`, HTML/CSS/moduły ES; bez npm i budowania. Lokalne, przypięte biblioteki z licencjami; obecnie Leaflet 1.9.4 i testy jego SHA-256. [FAKT: `app/vendor/dzialki/README.md`, `tests/vendor-integrity.test.mjs`]
+- W dostarczonym HEAD nie ma `.gitattributes`; loader Leaflet nie ustawia SRI. Załącznik opisywał szerszą ochronę niż stan plików. [FAKT: `git show HEAD:.gitattributes`, `leaflet-loader.js`]
+- Router hashowy, sześć natywnych zakładek, rejestr mount/unmount i cztery równoległe sondy GET zdrowia. `DenemContext v1` zawiera osobne tekstowe kody TERC/SIMC/BDL i limit 2048 B; aktualny kształt jest w `docs/denem-context-v1.md`. Przykład w starszym MEGA_PROJECT.md nie jest kontraktem implementacji.
+- Kontekst ustawia wyszukiwanie; kliknięcie działki na mapie go nie zmienia. Bez trwałego zapisu analiz; pamięć modułów znika po odświeżeniu.
+- Backendów nie zmieniamy. Produkcyjny tryb RCN potwierdzony przez właściciela w CONFIG.md. Historyczne pomiary pierwszej odpowiedzi: 22–52 s; hipoteza zimnego startu, nie bieżący pomiar. UI ma obsługiwać do 120 s i licznik oczekiwania.
+- Gminy: plik danych (opcja B), bez Supabase. D5 zamknięte: **aplikacja w ogóle nie będzie miała logowania** (właściciel, 2026-11-27). D8 nie dotyczy. Nie jest to tylko zwolnienie na pierwszy odbiór.
+- Lista PDF: pamięć aplikacji między zakładkami, czyszczona przy odświeżeniu (D15). TERC7→TERYT6 jest czystą funkcją; R=4/5→3 nadal [HIP] do walidacji na pełnym TERC.
 
 ## Potwierdzony punkt startowy
 
@@ -15,7 +31,10 @@ Aktualizacja: 2026-11-27. Dokument przejęcia jest uzupełniany podczas weryfika
 | Kolejność | Gałąź | Zakres | Status |
 |---|---|---|---|
 | 1 | `fix/dzialki-test-cleanup` | Odmontowanie map po teście startowym, także przy błędzie asercji | [PR #13](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/13), 119/119 PASS, 0,69 s |
-| 2 | `fix/edge-headed-cdp` | Osobny profil, port z DevToolsActivePort, lokalny sprawdzian Edge | PR do utworzenia; oparty na #13 |
+| 2 | `fix/edge-headed-cdp` | Osobny profil, port z DevToolsActivePort, lokalny sprawdzian Edge | [PR #14](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/14); baza #13 |
+| 3 | `docs/handover` | Stan, zasady autonomii, aktualna D5, plan i procedury | PR do utworzenia; baza #14 |
+
+Scalaj od góry. PR-y zależne porównują zmianę z gałęzią poprzednika; po scaleniu poprzednika ich bazą powinno zostać `main`. Agent nie scala i nie uruchamia wdrożeń.
 
 ## Weryfikacja poprawki testu
 
@@ -35,3 +54,66 @@ Sprawdzenie właściciela (opcjonalne dla tej poprawki): w PowerShell w folderze
 2. Naprawić połączenie CDP w trybie Edge z oknem; osobny PR.
 3. Uzupełnić dokumentację przejęcia i plan M4d.2–M10 w PR `docs: handover`.
 4. Zrealizować podetapy według zlecenia właściciela, bez scalania PR-ów i wdrożeń.
+
+## Roadmapa i warunki zakończenia
+
+| Etap | Stan i następna dostawa | Kryterium |
+|---|---|---|
+| M0/M1 | W `main`; D2 i D9 nadal otwarte | Nie uznawać próbek za pełne potwierdzenie |
+| M2/M3a | Powłoka i fikcyjny słownik w `main` | Nadal jawne oznaczenie danych testowych |
+| M4a–M4c | Analiza, mapa i wyszukiwanie w `main` | Porównanie z baseline właściciela nie jest domyślnie zaliczone |
+| M4d.1 | EGiB, zaznaczanie, popupy i monitor w `main`, PR #12 | Zewnętrzna kompletność KIEG pozostaje ograniczeniem pomiarów |
+| M4d.2 | Następna implementacja: pięć warstw planistycznych, trzy przyciski informacji i sekcje popupów | Wszystkie źródła starego frontu, w tym uzupełnienie uchwalonego POG z usługi gminnej; monitory/retry, test startowy, pełne URL-e i smoke |
+| M4d.3 | RWDZ, ISOK, KIUT, własność | Legendy, style i sekcje popupów; własność z uzupełnianiem brakujących grup; kompletność |
+| M4e | Kolory, czyszczenie, rodzina działek, menu mapy, pomiary i Street View | Osiem kolorów, orientacyjność rodziny numerów, obsługa anulowania i cleanup; bez pomijania pomiarów z macierzy |
+| M4f | Lista i eksport PDF, biblioteki lokalne | Dodawanie/usuwanie/czyszczenie działek i widoków, zachowanie między zakładkami, oględziny PDF |
+| M3b | Oficjalne TERC/SIMC i walidacja D9 | Próba pobrania przez agenta; fallback do plików od właściciela tylko przy faktycznej blokadzie; zera wiodące, nazwy powtarzalne, R=4/5 |
+| M5–M8 | Plan podetapów poniżej | Pełny parytet, nie tylko podstawowe wyszukiwanie |
+| M9 | Widoki zbiorcze i raport po decyzji D10 | Wyniki zgodne ze źródłami; brakujące moduły oznaczone |
+| M10 | Instrukcja wdrożenia podglądowego i odbiór | Wdrożenie wykonuje właściciel; smoke prawdziwej domeny |
+
+## Inwentarz i plan M5–M10
+
+Poniższy inwentarz pochodzi z odczytu frontów we wskazanych rewizjach i historycznych raportów. Jest podstawą planu; przed implementacją każdego modułu powstaje szczegółowa macierz każdej opcji i wszystkich wywołań. Nie wykonano ruchu do starych frontów ani pomiarów ich produkcyjnego zachowania.
+
+| Moduł i dowód | Funkcje wymagane w porcie | Małe podetapy / potrzeby |
+|---|---|---|
+| RCN, `85cb2f9`, `static/index.html:168–436`; `reports/m1a-code-review.md:B2` | Lokale, grunt niezabudowany i zabudowany; listy województwo/powiat/gmina/miejscowość, cała gmina, ulica; powierzchnia i cena, promień 100–5000 m i polygon z cofaniem, odrzucanie skrajnych, daty/suwaki/12–24 miesiące; rynek, funkcja, użytek, wszystkie typy budynków i prawa; podobne z tolerancją/zakresem i wagami; audyt filtrów, mapa, wykres czasu, tabela, średnie ulic i histogram; XLSX i Word | M5a macierz i klient URL; M5b wszystkie formularze i kontekst; M5c wyniki/mapa/wykresy/statystyki/podobne; M5d eksporty i regresja. Przed M5d ustalić sposób testu eksportów POST: obecne pozwolenie pomiarowe obejmuje GET. Nie usuwać eksportu z powodu ograniczenia testów. Pełną logikę JS i ewentualne dodatkowe opcje sprawdzić przed portem. |
+| Oferty, `596451b`, `index.html:73–91`; raport C1 | Cztery rodzaje, podpowiedzi i potwierdzenie miejscowości, promienie 0/1/2/5/10/20/30 km, brak filtra/procent 10–50%/zakres; sześć źródeł, duplikaty i przyjęte wyniki, sortowanie wszystkich kolumn, linki ofert | M6a macierz i klient; M6b wszystkie filtry, wynik wspólny i źródła; M6c sortowanie, błędy częściowe, regresja i weryfikacja eksportu. W odczytanej rewizji HTML nie znaleziono przycisku Excel — wzmiankę załącznika o eksporcie trzeba zweryfikować, nie ogłaszać parytetu bez dowodu. Backend produkcji ma inny punkt wejścia niż `npm start`. Ciężkie wyszukiwanie wyłącznie oszczędnie. |
+| Podobne, `a750201`, `index.html:269–317,644–674`; raport B3 | Analizowana nieruchomość i dowolne porównawcze, adres albo działka z listami jednostek, lokalizowanie/usuwanie; cena/data; przełączniki linii/adresu/ceny/daty; mapa/satelita, pokaż wszystkie | M7a macierz i dokładne URL-e; M7b edytor i lokalizowanie; M7c markery/linie/etykiety, błędy i regresja. Przed bezpośrednim geokodowaniem zweryfikować oficjalne zasady Nominatim i ograniczenia. |
+| Gminy, `c1b682c`, `index.html:27–30,110–111,195–228`; raport B4 | Gmina docelowa, kraj/województwo, trzy profile, ten sam typ; siedem wskaźników i ich lata, ranking/top20, szczegóły „dlaczego”, zaznaczanie i porównanie, objaśnienia, PDF | M8a pełny plik GUS/BDL z pochodzeniem i walidacją D9; M8b odwzorowanie wag/normalizacji/braków i ranking; M8c wszystkie filtry, porównanie i PDF. Siedem identyfikatorów BDL jest w źródłowym froncie. Spróbować publicznego BDL; pełny eksport właściciela tylko jako fallback. Brak logowania jest już decyzją ostateczną. |
+| M9, wymaganie właściciela i D10 | Kontekst lokalizacji, widoki zbiorcze i raport z wynikami modułów | M9a kontrakt wyników i źródeł, M9b widok zbiorczy, M9c raport. D10 nadal otwarte: odpowiedź właściciela z 2026-11-27 rozstrzygnęła logowanie, nie potwierdziła zakresu raportu. Rekomendacja: lokalizacja + wyniki pięciu modułów + źródła + oznaczenie braków. |
+| M10, IMPLEMENTATION_PLAN.md | Podgląd statyczny, pełna macierz regresji, działanie z prawdziwego origin | Instrukcja klik po kliku dla właściciela, bez wykonywania wdrożenia przez agenta. Właściciel wybiera nazwę/domenę i ewentualny koszt hostingu. |
+
+## Znane problemy i rzeczy do weryfikacji
+
+- Ortofotomapa archiwalna: w historycznym pomiarze 67/144 GET-ów bez odpowiedzi po 35 s. Backlog M4b.3: limit czasu na kafelek i ocena 512 px. Nie uznawać awarii usługi za pusty poprawny wynik.
+- KIEG: V0 headless dawał ORB dla węzła 01, a frakcje wynosiły 0/12, 11/12 i 12/12. Wpływ User-Agent pozostaje [HIP]; nie zmieniamy nagłówków. Aktualny sprawdzian Edge/CDP nie testował usług KIEG. [Źródło: D23 i docs/dzialki-module.md]
+- Nowy budżet właściciela to 4 pełne smoke, 400 żądań Działek, 300 na usługę; stary kod ma większe limity eksperymentów i licznik historyczny M4d.1c. **Przed pełnym nowym smoke trzeba wdrożyć wspólny licznik nowych limitów, bez kasowania historycznego pliku.**
+- D2/D9: nie ma pełnych plików TERC/SIMC ani pełnego zbioru wskaźników. 100 wierszy BDL i jeden niezależny match nie zamykają D9. Nie zgadywać rodzaju gminy ani mapowania.
+- Klik działki a DenemContext: zachowujemy obecne zachowanie do osobnej decyzji. Trwałość analiz D11, zasady wyników ofert D12, zakres raportu D10 i domena/koszty nie są rozstrzygnięte.
+- Publiczne warunki usług Esri/GUGiK/Nominatim wymagają sprawdzenia u źródeł przed udostępnieniem nowych integracji. Nie dopisujemy nowych ustaleń bezpieczeństwa starych aplikacji.
+- Narzędzie odczytu starego frontu zwróciło także publiczną konfigurację dostępu. Nie kopiowano jej do plików, testów ani dokumentacji; nie wykonywano żadnych operacji z jej użyciem.
+
+## Procedury
+
+1. Przed etapem: źródła prawdy, obecny stan Git/PR-ów, inwentarz frontu i źródłowy SHA. Dla każdego żądania tabela „stary front vs nowa aplikacja”: adres, metoda, parametry, CRS, format, plik:linia. Dokładne testy URL.
+2. `node --test scripts/*.test.mjs tests/*.test.mjs`: poniżej 5 s, atrapy fetch/DOM/Leaflet; serwer testowy wyłącznie loopback. Dla UI test uruchomienia całej powłoki, nie tylko funkcji pomocniczych. Cleanup także przy nieudanej asercji.
+3. `node scripts/check-no-secrets.mjs` i `node scripts/check-no-secrets.mjs --history`; nowy plik musi wejść do indeksu przed skanem plików. `git diff --check`; lokalne GET 200 dla nowych plików aplikacji.
+4. Przed mapowym smoke: tabelka URL, allowlista nie szersza niż funkcja starego frontu, nowe budżety w pliku stanu. Rzeczywisty Edge z oknem; bez zmiany nagłówków, cache-bustingu i POST do usług. Nie obserwuj ruchu starego frontu bez osobnej zgody.
+5. Zrzuty obejrzyj, zapisz PASS/FAIL i ograniczenia. Pliki pomiarów i dane właściciela zostają w ignorowanych `.local/` / `.local-results/`; w repo wyłącznie fikcyjne przykłady. Mechanizm jednorazowego lokalnego zestawu danych właściciela jest jeszcze do dodania, nie został ogłoszony wykonanym.
+6. Mały commit, osobna gałąź, PR do main lub gałęzi zależności. Uzupełnij ten plik i pełny RAPORT. Bez scalania i wdrażania.
+
+## RAPORT dla kierownika — przejęcie (stan bieżący)
+
+1. Status: CZĘŚCIOWO — dwa problemy techniczne poprawione; dokumentacja i plan przygotowane; roadmapa pozostaje w realizacji.
+2. Repozytorium: centrum-analiz-nieruchomosci; początek `3ebed06`; PR #13 (`f49444d`), PR #14 (`a1f8221`), następnie `docs/handover`. Końcowe SHA i statystyki są w PR-ach, nie przewidujemy identyfikatora własnego commitu.
+3. Zmiany #13: dwa pliki, +45/-0. #14: cztery pliki, +170/-44. Dokumentacja przejęcia: lista i statystyki w jej PR.
+4. Kryteria: testy <5 s — TAK (119/119, 0,69 s); Edge headed/CDP — TAK (lokalny sprawdzian i obejrzany PNG); pełny smoke KIEG — NIE, nie był celem sprawdzianu CDP; handover/plan — przygotowane; M4d.2–M10 — NIE.
+5. Uruchomiono: odczyty dokumentów/kodu, `git clone --bare` i odtworzenie metadanych bez nadpisania plików, status/log/branch/diff, testy, oba skany, `node --check scripts/browser-smoke.mjs`, lokalny `--headed --check-browser`, commity i push dwóch gałęzi; utworzono dwa otwarte PR-y. Weryfikacja dokumentacji dopisywana w jej PR.
+6. [FAKT] Załącznik nie odpowiadał w pełni plikom (brak .git i .gitattributes, brak SRI loadera). [HIP] Przyczyna ORB pozostaje niepotwierdzona.
+7. Zakazane obszary: NIE — bez zmian źródeł, portalu, usług i wdrożeń.
+8. Sekrety: nie odczytywano ani nie zapisywano sekretów lub wartości środowiska. Publiczna konfiguracja starego frontu pojawiła się w odpowiedzi narzędzia; nie utrwalono ani nie używano jej.
+9. Otwarte: pełne dane D2/D9, D10 i produktowe kwestie wyżej. D5 zamknięte: aplikacja zawsze bez logowania.
+10. Test ręczny: opcjonalnie polecenia testów i `--headed --check-browser` opisane w scripts/README-run.md; mapowe scenariusze wymagają osobnego przebiegu po wdrożeniu nowych limitów.
+11. Następny krok: M4d.2 z pełną macierzą żądań, lokalną biblioteką projekcji dla uzupełniającego POG, monitorami i scenariuszem smoke.

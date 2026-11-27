@@ -2,6 +2,8 @@
 
 ## Role
 
+Aktualizacja 2026-11-27: poniższy podział jest historyczny. Agent sam planuje, implementuje, testuje, dokumentuje i otwiera PR-y. Właściciel podejmuje decyzje produktowe, scala i wykonuje wdrożenia. Obowiązują aktualne AGENTS.md i docs/PROJECT_STATE.md. Ostateczna decyzja D5: aplikacja w ogóle nie będzie miała logowania.
+
 - **Claude — kierownik projektu:** przygotowuje zadania z kryteriami akceptacji, pilnuje spójności dokumentacji i ocenia raporty.
 - **Codex — wykonawca:** realizuje zatwierdzone zadania, sprawdza ich kryteria i przedstawia raport.
 - **Właściciel — decyzje i odbiór:** rozstrzyga kwestie produktowe i architektoniczne, scala PR, autoryzuje wdrożenia oraz wykonuje testy ręczne.

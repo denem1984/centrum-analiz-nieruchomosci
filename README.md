@@ -4,9 +4,11 @@ Samodzielna aplikacja do pracy z modułami analiz nieruchomości: Działki, RCN,
 
 ## Status
 
-**M3a — wykonane. M4b — mapa Działek wykonana. M4c — scalone. M4d.1 — EGiB, zaznaczanie i panel warstw w trakcie.** M2 dostarczył statyczną powłokę; M3a dodaje DenemContext v1 i wyszukiwanie na jawnie fikcyjnych danych. M4b dodaje lokalny Leaflet, podkłady mapowe i kontrolki mapy. M4c dodaje zależne listy lokalizacji, wyszukanie działki, obrys, raport EGiB i przekazanie kontekstu. M4d.1 rozbudowuje panel warstw i dodaje EGiB. Na stronie Start aplikacja sprawdza lekkie trasy zdrowia czterech usług metodą GET.
+**Stan na 2026-11-27:** M0–M3a, M4a–M4c oraz M4d.1 są w `main` (PR #12). M4d.2, kolejne narzędzia Działek i pozostałe moduły wymagają implementacji. Kompletność KIEG nie została potwierdzona dla wszystkich historycznych pomiarów; scalenie nie oznacza odbioru usług zewnętrznych.
 
-[FAKT: ustalenie właściciela 2026-10-27] Moduł Gminy ma korzystać z pliku danych, bez zależności od Supabase ani logowania modułu. Logowanie całej aplikacji pozostaje osobną decyzją D5 przed M8.
+Aktualny stan, dowody, plan i **kolejka PR-ów do akceptacji**: [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md). Agent sam planuje, implementuje, testuje i otwiera PR-y. Właściciel podejmuje decyzje produktowe, scala i wykonuje wdrożenia.
+
+[FAKT: ustalenia właściciela] Gminy korzystają z pliku danych (2026-10-27). Cała aplikacja nigdy nie będzie miała logowania (D5, 2026-11-27); nie przenosimy bramek dostępu starych frontów.
 
 ## Uruchomienie lokalne
 
@@ -22,4 +24,10 @@ Instrukcja krok po kroku znajduje się w [scripts/README-run.md](scripts/README-
 - `README.md`, `DECISIONS.md`, `IMPLEMENTATION_PLAN.md` — opis projektu, decyzje i etapy.
 
 Aplikacja nie ma kroku budowania ani zależności npm. Lokalny podgląd serwuje katalog `app/`; ścieżki usług są w `app/js/config.js`.
+
+## Sprawdzenie zmian
+
+W PowerShell w katalogu projektu uruchom `node --test scripts/*.test.mjs tests/*.test.mjs`, następnie `node scripts/check-no-secrets.mjs` i `node scripts/check-no-secrets.mjs --history`. Zestaw testów korzysta z atrap usług; testy serwera łączą się tylko lokalnie. Wymagany czas zestawu: poniżej 5 s.
+
+Samo uruchomienie Edge z oknem, bez map ani usług zewnętrznych: `node scripts/browser-smoke.mjs --headed --check-browser` (Node 22+). Instrukcje i interpretacja wyników są w [scripts/README-run.md](scripts/README-run.md). Test startowy z atrapą DOM jest obowiązkowy przy zmianie interfejsu; zgodność usług wymaga tabeli „stary front vs nowa aplikacja”, testów pełnych URL-i i browser-smoke.
 
