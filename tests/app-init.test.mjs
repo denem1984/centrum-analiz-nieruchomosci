@@ -36,7 +36,7 @@ test("aplikacja startuje, renderuje zakładki i obsługuje kontekst bez sieci", 
   const links = fake.document.getElementById("module-nav")
     .children.filter((element) => element.tagName === "a");
   assert.equal(links.length, 6);
-  assert.equal(appVersion.textContent, "Centrum Analiz Nieruchomości · wersja M4d1");
+  assert.equal(appVersion.textContent, "Centrum Analiz Nieruchomości · wersja M4d2");
   assert.equal(fake.document.getElementById("location-summary").textContent, "Nie wybrano lokalizacji");
   assert.equal(fake.document.getElementById("clear-location").listeners.get("click")?.length, 1);
 

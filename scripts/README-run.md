@@ -21,6 +21,8 @@ Serwer udostępnia tylko pliki z katalogu `app/`; nie ma kroku build ani zależn
 
 ## Sprawdzenie Edge i diagnostyka mapy
 
+Scenariusz planowania M4d.2: `node scripts/browser-smoke.mjs --headed --planning-layers --task m4d2`. Wariant bez ruchu do usług: dodaj `--offline-planning` (fikcyjne odpowiedzi CDP, także sprawdzenie 390 px). Tabela źródłowych URL-i, kryteria, instrukcja sprawdzenia i zebrane wyniki: [docs/dzialki-planning.md](../docs/dzialki-planning.md). Agent wykorzystał już 4/4 starty zadania m4d2, z czego jeden z rzeczywistymi usługami; nie uruchamiaj kolejnego przez zmianę identyfikatora. Odbiór właściciela wymaga osobnego, jawnego budżetu.
+
 **Nowe pełne przebiegi wymagają `--task <identyfikator-zadania>`, np. `--task m4d2`.** Dodaj ten argument do każdego mapowego polecenia poniżej. Przy ponawianiu używaj tego samego identyfikatora. Licznik `.local-results/budgets/<identyfikator>.json` zachowuje maksymalnie 4 starty, 400 żądań do backendu Działek i 300 na pozostałą usługę, również po ponownym uruchomieniu terminala. Przekierowania i ponowienia też są liczone. Wyczerpanie budżetu oznacza przerwanie i wynik FAIL; nie zmieniaj identyfikatora ani nie usuwaj licznika, aby ominąć limit. Starsze przykłady eksperymentów z większym limitem nie zwiększają obecnego budżetu. Przy blokadzie `.lock` najpierw upewnij się, że poprzedni smoke zakończył pracę; nie usuwaj pliku JSON.
 
 Przykład aktualnego polecenia EGiB: `node scripts/browser-smoke.mjs --headed --egib-layers --task m4d2`. `--check-browser` nie otwiera aplikacji i nie wymaga identyfikatora zadania.

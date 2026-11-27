@@ -683,10 +683,12 @@ export function mountEgibLayers(container, options = {}) {
       });
       if (!response?.ok) throw new Error("Usługa EGiB nie odpowiedziała prawidłowo.");
       const text = await response.text();
+      if (controller.signal.aborted || disposed) return;
       const match = text.match(/<Attribute\b[^>]*\bName\s*=\s*["']Identyfikator działki["'][^>]*>([\s\S]*?)<\/Attribute\s*>/i);
       const id = match?.[1]?.replace(/^<!\[CDATA\[|\]\]>$/g, "").trim();
       if (!id) {
         setStatus("Nie znaleziono działki w tym miejscu.", "ready");
+        if (options.extendPopup) openParcelPopup("Brak działki w tym miejscu.", event, null);
         return;
       }
       let entry = selected.get(id);
@@ -702,6 +704,7 @@ export function mountEgibLayers(container, options = {}) {
       } else {
         if (!geometry) {
           setStatus("Dane działki są poza pobranym widokiem. Przesuń mapę i spróbuj ponownie.", "ready");
+          if (options.extendPopup) openParcelPopup("Działka " + id, event, { parcel: { id } });
           return;
         }
         const selection = { parcel: { id, number: labelText(id) }, geometry, egib: parsed };
@@ -714,17 +717,22 @@ export function mountEgibLayers(container, options = {}) {
         parcel: { id }, geometry: findFeature(id)?.geometry, egib: parsed,
       };
       if (currentSelection.egib !== parsed && note?.startsWith("✓")) currentSelection.egib = parsed;
-      if (leaflet?.popup) {
-        leaflet.popup({ maxWidth: 340 }).setLatLng(event.latlng)
-          .setContent(popupContent(document, currentSelection, note)).openOn(map);
-      }
+      openParcelPopup(popupContent(document, currentSelection, note), event, currentSelection);
       setStatus(note, "ready");
     } catch (error) {
       if (controller.signal.aborted || error?.name === "AbortError" || disposed) return;
       setStatus("Nie udało się pobrać informacji o działce.", "error", true);
+      if (options.extendPopup) openParcelPopup("Nie udało się pobrać danych działki.", event, null);
     } finally {
       if (clickController === controller) clickController = null;
     }
+  }
+
+  function openParcelPopup(content, event, selection) {
+    if (!leaflet?.popup) return;
+    const extended = options.extendPopup ? options.extendPopup(content, event, selection) : content;
+    const popup = leaflet.popup({ maxWidth: 380, maxHeight: 450 }).setLatLng(event.latlng).setContent(extended).openOn(map);
+    options.onPopupOpen?.(popup);
   }
 
   function attach(nextMap, nextLeaflet) {

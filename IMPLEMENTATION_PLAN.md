@@ -4,6 +4,8 @@
 
 ## Kolejność dalszej realizacji
 
+**Dodatkowy plan właściciela z 2026-11-27:** po bieżącej implementacji M4d.2 przeanalizować i wskazać aktualniejszy podkład niż obecne Esri. Porównać datę zdjęcia w danym miejscu, szczegółowość obrazu, pokrycie i warunki użycia (także aktualną ortofotomapę). Nie przerywać obecnej pracy; nie usuwać istniejących opcji. Szczegółowe kryteria i kolejność w PROJECT_STATE.md. Nie uznawać hipotezy o nieaktualności Esri za potwierdzoną bez daty zobrazowania.
+
 M4d.2 → M4d.3 → M4e (w tym pomiary i Street View z istniejącego parytetu) → M4f → M3b → M5 → M6 → M7 → M8 → decyzja D10 → M9 → M10 wykonywane przez właściciela. Każdy podetap jest osobnym PR; zależne PR-y mogą być oparte na niescalonych gałęziach. Przed M3b agent próbuje uzyskać oficjalne dane GUS sam; przed M8 próbuje odtworzyć plik wskaźników z publicznego BDL, bez odczytów Supabase. D5 rozstrzygnięte: aplikacja w ogóle nie będzie miała logowania. Nie usuwa się wymagania pełnego parytetu.
 
 ## Etapy i zależności

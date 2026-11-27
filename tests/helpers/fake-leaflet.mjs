@@ -190,7 +190,7 @@ export function createFakeLeaflet() {
   const layers = [];
   const geoJsonLayers = [];
   const fake = {
-    CRS: { EPSG3857: "EPSG:3857" },
+    CRS: { EPSG3857: "EPSG:3857", EPSG4326: "EPSG:4326" },
     map(container, options) {
       const map = new FakeMap(container, options);
       maps.push(map);

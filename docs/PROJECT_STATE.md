@@ -33,7 +33,8 @@ Agent wykonuje plan, implementację, testy, dokumentację i PR-y. Właściciel p
 | 1 | `fix/dzialki-test-cleanup` | Odmontowanie map po teście startowym, także przy błędzie asercji | [PR #13](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/13), 119/119 PASS, 0,69 s |
 | 2 | `fix/edge-headed-cdp` | Osobny profil, port z DevToolsActivePort, lokalny sprawdzian Edge | [PR #14](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/14); baza #13 |
 | 3 | `docs/handover` | Stan, zasady autonomii, aktualna D5, plan i procedury | [PR #15](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/15); baza #14 |
-| 4 | `fix/smoke-task-budgets` | Trwały wspólny licznik 4/400/300, blokowanie przekroczeń | PR do utworzenia; baza #15 |
+| 4 | `fix/smoke-task-budgets` | Trwały wspólny licznik 4/400/300, blokowanie przekroczeń | [PR #16](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/16); baza #15 |
+| 5 | `feat/m4d2-planning-layers` | Pięć warstw planowania, gminny POG, popupy, monitory i smoke | PR do utworzenia; baza #16 |
 
 Scalaj od góry. PR-y zależne porównują zmianę z gałęzią poprzednika; po scaleniu poprzednika ich bazą powinno zostać `main`. Agent nie scala i nie uruchamia wdrożeń.
 
@@ -55,10 +56,9 @@ Sprawdzenie właściciela (opcjonalne dla tej poprawki): w PowerShell w folderze
 
 ## Następna praca
 
-1. Potwierdzić pełny zestaw testów poniżej 5 s i wykonać oba skany sekretów.
-2. Naprawić połączenie CDP w trybie Edge z oknem; osobny PR.
-3. Uzupełnić dokumentację przejęcia i plan M4d.2–M10 w PR `docs: handover`.
-4. Zrealizować podetapy według zlecenia właściciela, bez scalania PR-ów i wdrożeń.
+1. Zamknąć weryfikację i PR implementacji M4d.2; poprzednie poprawki i handover są już w kolejce akceptacji.
+2. Zrealizować dodany plan nowszego podkładu: porównanie źródeł i rekomendacja, bez usuwania opcji.
+3. Kontynuować M4d.3 → M4e → M4f, następnie M3b i dalszą roadmapę; każdy podetap osobnym PR, bez scalania i wdrożeń.
 
 ## Roadmapa i warunki zakończenia
 
@@ -68,7 +68,7 @@ Sprawdzenie właściciela (opcjonalne dla tej poprawki): w PowerShell w folderze
 | M2/M3a | Powłoka i fikcyjny słownik w `main` | Nadal jawne oznaczenie danych testowych |
 | M4a–M4c | Analiza, mapa i wyszukiwanie w `main` | Porównanie z baseline właściciela nie jest domyślnie zaliczone |
 | M4d.1 | EGiB, zaznaczanie, popupy i monitor w `main`, PR #12 | Zewnętrzna kompletność KIEG pozostaje ograniczeniem pomiarów |
-| M4d.2 | Następna implementacja: pięć warstw planistycznych, trzy przyciski informacji i sekcje popupów | Wszystkie źródła starego frontu, w tym uzupełnienie uchwalonego POG z usługi gminnej; monitory/retry, test startowy, pełne URL-e i smoke |
+| M4d.2 | Implementacja na gałęzi `feat/m4d2-planning-layers`: pięć warstw, trzy informacje, wspólne popupy, gminny POG z lokalną projekcją i monitory | 139/139 testów PASS w 0,74 s; Edge headed live 11/11, offline + mobile 12/12; tabela źródłowych żądań i ograniczenia w `docs/dzialki-planning.md`; odbiór baseline właściciela pozostaje |
 | M4d.3 | RWDZ, ISOK, KIUT, własność | Legendy, style i sekcje popupów; własność z uzupełnianiem brakujących grup; kompletność |
 | M4e | Kolory, czyszczenie, rodzina działek, menu mapy, pomiary i Street View | Osiem kolorów, orientacyjność rodziny numerów, obsługa anulowania i cleanup; bez pomijania pomiarów z macierzy |
 | M4f | Lista i eksport PDF, biblioteki lokalne | Dodawanie/usuwanie/czyszczenie działek i widoków, zachowanie między zakładkami, oględziny PDF |
@@ -91,6 +91,8 @@ Poniższy inwentarz pochodzi z odczytu frontów we wskazanych rewizjach i histor
 | M10, IMPLEMENTATION_PLAN.md | Podgląd statyczny, pełna macierz regresji, działanie z prawdziwego origin | Instrukcja klik po kliku dla właściciela, bez wykonywania wdrożenia przez agenta. Właściciel wybiera nazwę/domenę i ewentualny koszt hostingu. |
 
 ## Znane problemy i rzeczy do weryfikacji
+
+- **Nowe zadanie właściciela (2026-11-27): aktualniejsze zdjęcia w podkładzie.** Właściciel ocenia, że Esri może być nieaktualne; rzeczywista data zobrazowania pozostaje do sprawdzenia [HIP]. Bez przerywania bieżących podetapów zaplanowano porównanie alternatywnych zdjęć satelitarnych i aktualnej ortofotomapy. Kryteria: udokumentowana data zdjęcia dla danego obszaru, rozdzielczość przy analizie działki, pokrycie Polski, jakość obrazu, stabilność, dostęp bez ujawniania kluczy, licencja i ewentualny koszt. Wynik ma wskazać rekomendowany nowszy podkład i sposób pokazywania daty/źródła. Nie zastępować szczegółowego obrazu świeższym, ale zbyt mało dokładnym bez jasnego uzasadnienia. Zachować istniejące opcje parytetu; płatny wariant wymaga decyzji właściciela. Kolejność: po zamknięciu bieżącej implementacji M4d.2, równolegle z planowaniem M4d.3, przed docelowym wyborem podkładu w odbiorze.
 
 - Ortofotomapa archiwalna: w historycznym pomiarze 67/144 GET-ów bez odpowiedzi po 35 s. Backlog M4b.3: limit czasu na kafelek i ocena 512 px. Nie uznawać awarii usługi za pusty poprawny wynik.
 - KIEG: V0 headless dawał ORB dla węzła 01, a frakcje wynosiły 0/12, 11/12 i 12/12. Wpływ User-Agent pozostaje [HIP]; nie zmieniamy nagłówków. Aktualny sprawdzian Edge/CDP nie testował usług KIEG. [Źródło: D23 i docs/dzialki-module.md]

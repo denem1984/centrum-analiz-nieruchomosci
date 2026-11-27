@@ -176,6 +176,13 @@
 - **Dowód:** PR #14, `--headed --check-browser` PASS w rzeczywistym Edge; zrzut obejrzany. Ten sprawdzian nie otwiera mapy i nie dowodzi dostępności usług.
 - **Ograniczenia źródeł:** lokalny checkout nie ma `.gitattributes` ani atrybutów SRI w loaderze Leaflet; istnieją testy SHA-256 plików vendor. Nie opisywać stanu z załącznika jako już wdrożonej ochrony.
 
+## D26 — Pełne źródła planowania i jawna niepełność (2026-11-27)
+
+- **Decyzja:** M4d.2 zachowuje pięć warstw oraz uzupełniający gminny POG w EPSG:2180, rysowany po przeliczeniu w lokalnym proj4 2.9.0. Sam raster krajowy byłby utratą funkcji; tego wariantu nie przyjęto. Biblioteka ma licencję, SRI, test blobu i ochronę końców linii vendor.
+- **Popup:** wspólny z EGiB; planowanie działa również po błędzie danych EGiB. MPZP zachowuje priorytet gmina→RU oraz równoległe szczegóły działki. Niepowodzenie jednego źródła oznacza niepełny wynik, a nie brak planu.
+- **Kompletność:** otrzymanie wszystkich widocznych obrazów WMS nie dowodzi pełnej publikacji danych przez gminę. Etykiety to „Kafelki wczytane” z informacją o tym ograniczeniu. Canvas nie ukrywa błędów jako poprawnego pustego kafelka.
+- **Testy przeglądarki:** najpierw prawdziwy Leaflet z odpowiedziami CDP bez wysyłania żądań, potem jeden pomiar usług w Edge z oknem; ostatni przebieg offline obejmuje 390 px. Cztery starty zużywają limit zadania m4d2; licznik nie został wyzerowany. Szczegóły i ograniczenia: docs/dzialki-planning.md.
+
 ## Zasady repozytorium
 
 [FAKT: decyzja właściciela z 2026-10-26] Repozytorium jest publiczne. Nie zapisujemy w nim wartości sekretów, konfiguracji, tokenów, kluczy, danych osobowych ani identyfikatorów kont lub usług. Wyjątkiem jest niesekretna wartość trybu źródło danych RCN. Pięć repozytoriów źródłowych jest tylko do odczytu.

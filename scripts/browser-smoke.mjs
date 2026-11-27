@@ -9,6 +9,8 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createStaticServer } from "./serve.mjs";
 import { openSmokeBudget, validateSmokeTask } from "./smoke-budget.mjs";
+import { isAllowedPlanningRequest } from "./planning-allowlist.mjs";
+import { planningSmokeFixture } from "./planning-smoke-fixtures.mjs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, "..");
@@ -1001,6 +1003,7 @@ function isHealthRequest(url, method, healthRoutes = []) {
 
 function isObservedExternalRequest(url, method, healthRoutes = []) {
   return method === "GET" && (isHealthRequest(url, method, healthRoutes)
+    || isAllowedPlanningRequest(url, method)
     || isTileHostAllowed(url)
     || isAllowedSearchServiceRequest(url)
     || isAllowedDzialkiEgibRequest(url, method));
@@ -1019,6 +1022,7 @@ export function isAllowedBrowserRequest(rawUrl, method, options = {}) {
   if (url.protocol !== "https:" || url.port || url.username || url.password) return false;
 
   if (isHealthRequest(url, requestMethod, options.healthRoutes ?? [])) return true;
+  if (options.planningLayers && isAllowedPlanningRequest(url, requestMethod)) return true;
   if (KIEG_WMS_REDIRECT_HOSTS.includes(url.hostname)
       && url.pathname === KIEG_WMS_PATH
       && options.allowDirectKiegHosts !== true
@@ -1337,6 +1341,9 @@ async function runBrowserSmoke() {
   const smokeTask = checkBrowserOnly ? null : validateSmokeTask(getArg(argv, "--task"));
   const requestedPort = getArg(argv, "--port");
   const egibLayersMode = argv.includes("--egib-layers");
+  const planningLayersMode = argv.includes("--planning-layers");
+  const offlinePlanning = argv.includes("--offline-planning");
+  if (offlinePlanning && !planningLayersMode) throw new Error("--offline-planning wymaga --planning-layers.");
   const egibRequestLimitProvided = argv.some((value) => value === "--max-egib-backend-requests"
     || value.startsWith("--max-egib-backend-requests="));
   const egibBackendRequestLimit = parseEgibBackendRequestLimit(argv);
@@ -1357,6 +1364,9 @@ async function runBrowserSmoke() {
     throw new Error("Nieprawidłowa wartość --before-ref.");
   }
   const compareBefore = Boolean(beforeRef);
+  if (planningLayersMode && (egibLayersMode || kiegReliabilityMode || kiegExperimentMode || tileExperimentArgs || searchArgs || compareBefore)) {
+    throw new Error("--planning-layers działa jako osobny scenariusz.");
+  }
   if (egibLayersMode && (tileExperimentArgs || kiegExperimentMode || searchArgs || expectedAssertions || compareBefore)) {
     throw new Error("--egib-layers działa samodzielnie, bez wyszukiwania ani porównania baseline.");
   }
@@ -1652,6 +1662,7 @@ async function runBrowserSmoke() {
             : isAllowedBrowserRequest(requestUrl, request.method, {
               appOrigins,
               healthRoutes,
+              planningLayers: planningLayersMode,
               allowDirectKiegHosts: kiegExperimentArgs?.id === "V3",
               allowRedirectKiegHosts: isRedirectDestination,
             });
@@ -1726,6 +1737,11 @@ async function runBrowserSmoke() {
               return;
             }
             orthophotoRequestCount += 1;
+          }
+          if (offlinePlanning && parsedRequestUrl && !appOrigins.includes(parsedRequestUrl.origin)) {
+            if (networkRecord) networkRecord.mocked = true;
+            await pageCdp.command("Fetch.fulfillRequest", { requestId: params.requestId, ...planningSmokeFixture(requestUrl) });
+            return;
           }
           // Persist before dispatch; failed and redirected requests also consume budget.
           // Local HTTP/CDP traffic is outside the external-service counters.
@@ -2633,6 +2649,97 @@ async function runBrowserSmoke() {
       return { scenarios, retryScenario, statePreserved };
     }
 
+    if (planningLayersMode) {
+      currentScenario = "m4d2-planning";
+      await pageCdp.command("Page.navigate", { url: appOrigin + "/#/dzialki?ctx=" + contextEncoded });
+      await waitForMap(appOrigin);
+      await setZoomForTest();
+      if (offlinePlanning) await evaluate(`(() => {
+        const note = document.createElement('p'); note.textContent = 'TEST OFFLINE — atrapy usług, dane fikcyjne.';
+        note.style.cssText = 'padding:12px;background:#fff2ba;color:#263325;font-weight:bold';
+        document.querySelector('.dzialki-header').append(note);
+      })()`);
+      const initial = await evaluate(`(() => ({
+        count: document.querySelectorAll('[data-planning-layer]').length,
+        allOff: [...document.querySelectorAll('[data-planning-layer]')].every(el => !el.checked),
+        helpCount: document.querySelectorAll('.dzialki-layer-help-button').length
+      }))()`);
+      await evaluate(`(() => {
+        document.querySelector('[data-layer-group="planning"]').open = true;
+        for (const input of document.querySelectorAll('[data-planning-layer]')) {
+          input.checked = true; input.dispatchEvent(new Event('change', { bubbles:true }));
+        }
+        for (const button of document.querySelectorAll('.dzialki-layer-help-button')) button.click();
+      })()`);
+      const monitorExpression = `(() => [...document.querySelectorAll('[data-planning-status]')].map(el => ({
+        id: el.dataset.planningStatus, state: el.dataset.state, loaded: Number(el.dataset.loaded),
+        total: Number(el.dataset.total), text: el.textContent
+      })))()`;
+      const deadline = Date.now() + 42000;
+      let layers;
+      do {
+        await sleep(500);
+        layers = await evaluate(monitorExpression);
+      } while (Date.now() < deadline && layers.some(layer => layer.state === "loading"));
+      // Inspect popup fields without requiring private owner test data.
+      await evaluate(`(() => {
+        const map = document.querySelector('.dzialki-map'); const r = map.getBoundingClientRect();
+        map.dispatchEvent(new MouseEvent('click', { bubbles:true, cancelable:true, clientX:r.left+r.width/2, clientY:r.top+r.height/2 }));
+      })()`);
+      const popupDeadline = Date.now() + 145000;
+      const popupExpression = `(() => ({
+        text: document.querySelector('.dzialki-planning-popup')?.textContent || '',
+        sections: [...document.querySelectorAll('.dzialki-planning-popup section')].map(el => ({state:el.dataset.state,title:el.querySelector('h4')?.textContent}))
+      }))()`;
+      let popup;
+      do {
+        await sleep(500);
+        popup = await evaluate(popupExpression);
+      } while (Date.now() < popupDeadline && (popup.sections.length !== 3 || popup.sections.some(section => section.state === "loading")));
+      const assertions = [
+        { name: "Pięć warstw domyślnie wyłączonych", pass: initial.count === 5 && initial.allOff },
+        { name: "Trzy informacje o warstwach", pass: initial.helpCount === 3 },
+        ...layers.map(layer => ({ name: "Kompletne kafelki: " + layer.id, pass: layer.state === "complete" && layer.total > 0 && layer.loaded === layer.total })),
+        { name: "Trzy sekcje wspólnego popupu", pass: popup.sections.length === 3 },
+        { name: "Popup zakończył żądania bez błędu lub niepełności", pass: popup.sections.length === 3 && popup.sections.every(section => ["ready", "empty"].includes(section.state)) },
+        { name: "Brak wyjątków JavaScript", pass: pageExceptions.length === 0 },
+      ];
+      const screenshot = await pageCdp.command("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
+      await writeFile(join(resultDir, "m4d2-planning.png"), Buffer.from(screenshot.data, "base64"));
+      // Also verify persistence and disposal through the real router.
+      await evaluate("location.hash = '#/rcn'");
+      await sleep(250);
+      const removed = await evaluate("!document.querySelector('.leaflet-container')");
+      await evaluate("location.hash = '#/dzialki'");
+      await waitForMap(appOrigin);
+      const preserved = await evaluate("[...document.querySelectorAll('[data-planning-layer]')].every(el=>el.checked)");
+      assertions.push({ name: "Cleanup mapy i zachowanie przełączników", pass: removed && preserved });
+      let mobile = null;
+      if (offlinePlanning) {
+        await pageCdp.command("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+        await sleep(300);
+        mobile = await evaluate(`(() => ({width:innerWidth, scrollWidth:document.documentElement.scrollWidth,
+          count:document.querySelectorAll('[data-planning-layer]').length}))()`);
+        assertions.push({ name: "Widok 390 px bez poziomego przewijania", pass: mobile.scrollWidth <= mobile.width + 1 && mobile.count === 5 });
+        const mobilePng = await pageCdp.command("Page.captureScreenshot", { format:"png", captureBeyondViewport:true });
+        await writeFile(join(resultDir, "m4d2-mobile.png"), Buffer.from(mobilePng.data, "base64"));
+      }
+      await evaluate("location.hash = '#/rcn'");
+      await sleep(200);
+      await Promise.all([...pendingFetchHandlers]);
+      if (runError) throw runError;
+      const passed = assertions.every(assertion => assertion.pass) && blockedRequests.length === 0;
+      runReport = { scenario: currentScenario, browserMode: headed ? "headed" : "headless", offline: offlinePlanning, passed,
+        layers, popup, mobile, assertions, externalRequests, blockedRequests, consoleErrors, pageExceptions,
+        budget: taskBudget.snapshot(), screenshot: "m4d2-planning.png" };
+      await writeFile(join(resultDir, "report.json"), JSON.stringify(runReport, null, 2), "utf8");
+      const summary = assertions.map(assertion => (assertion.pass ? "PASS" : "FAIL") + " | " + assertion.name).join("\n")
+        + "\nŻądania zablokowane: " + blockedRequests.length + "\nWyniki: " + resultDir + "\n";
+      await writeFile(join(resultDir, "summary.txt"), summary, "utf8");
+      process.stdout.write(summary);
+      if (!passed) process.exitCode = 1;
+      return;
+    }
     const egibScenario = egibLayersMode ? await runEgibLayersScenario(appOrigin) : null;
     const tileExperiment = !egibLayersMode && tileExperimentArgs ? await runTileExperiment(appOrigin) : null;
     const kiegReliability = kiegReliabilityMode ? await runKiegReliability(appOrigin) : null;

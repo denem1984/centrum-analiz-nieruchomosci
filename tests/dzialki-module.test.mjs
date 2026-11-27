@@ -80,6 +80,10 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
   assert.match(view.textContent, /Niezaładowane kafelki: 0/);
   assert.match(view.textContent, /Stan usługi Działki: Dostępna/);
   assert.match(view.textContent, /w kolejnych etapach/);
+  const planningInputs = fake.document.querySelectorAll("[data-planning-layer]");
+  assert.equal(planningInputs.length, 5);
+  assert.ok(planningInputs.every((input) => input.checked === false), "planowanie jest domyślnie wyłączone");
+  assert.equal(fake.document.querySelectorAll("button.dzialki-layer-help-button").length, 3);
   assert.match(view.children[0].attributes.get("aria-labelledby"), /dzialki-title/);
 
   const esriRadio = fake.document.querySelectorAll("[data-base-layer]")

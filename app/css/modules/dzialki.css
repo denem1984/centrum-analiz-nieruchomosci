@@ -522,3 +522,21 @@
     grid-column: 1 / -1;
   }
 }
+[data-module="dzialki"] .dzialki-planning-row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin-top: .7rem;
+}
+[data-module="dzialki"] .dzialki-planning-row input { width: 1rem; flex: 0 0 1rem; }
+[data-module="dzialki"] .dzialki-planning-row label { flex: 1; font-size: .9rem; margin: 0; }
+[data-module="dzialki"] .dzialki-layer-help-button { width: 2rem; min-height: 2rem; padding: .25rem; }
+[data-module="dzialki"] .dzialki-planning-help,
+[data-module="dzialki"] .dzialki-planning-status { font-size: .875rem; line-height: 1.5; margin: .35rem 0 .5rem; }
+[data-module="dzialki"] .dzialki-planning-help { padding: .7rem; background: #f2f6fa; border: 1px solid #d3dfe9; border-radius: .5rem; }
+[data-module="dzialki"] .dzialki-planning-help img { display: block; max-width: 100%; height: auto; margin-top: .5rem; }
+.dzialki-planning-popup { font-size: .875rem; }
+.dzialki-planning-popup section { border-top: 1px solid #d3dfe9; margin-top: .7rem; padding-top: .4rem; }
+.dzialki-planning-popup h4 { margin: .3rem 0; }
+.dzialki-planning-popup p { margin: .3rem 0; overflow-wrap: anywhere; }
+.dzialki-planning-popup button { min-height: 2.5rem; }
