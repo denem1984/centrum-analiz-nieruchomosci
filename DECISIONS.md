@@ -223,6 +223,13 @@
 - Najpierw zielone testy i skany, potem scalenia w kolejności zależności, z kontrolą oczekiwanego SHA. Zależne PR-y przenosić na main po scaleniu poprzednika; zachować historię stosu przez merge commit.
 - D30 nadal obowiązuje: po większym etapie podsumowanie, lokalny podgląd, estymacja i zatrzymanie do akceptacji dalszej pracy. Merge nie oznacza odbioru danych produkcyjnych, zgody na wdrożenie, koszty AI ani zarządzanie usługami. Pięć źródeł i DENEM pozostają tylko do odczytu.
 
+## D34 — Oddzielne przewijanie i sprawdzone linie zabudowy (2026-11-28)
+
+- Właściciel wymaga nieruchomej mapy podczas przewijania lewego menu. Opcja linii ma pozostać po potwierdzeniu działającej warstwy z nieprzekraczalnymi liniami.
+- Obszar roboczy ma ograniczoną wysokość okna, osobne przewijanie panelu i blokadę przekazywania jego przewijania na stronę. Na telefonie mapa jest nad panelem. ResizeObserver aktualizuje Leaflet; wysoki wynik pomiaru ma własne przewijanie.
+- `wektor-lzb` KIMPZP zostaje: rzeczywisty test w publicznym przykładzie GUGiK pokazał linie z pełnymi i pustymi trójkątami oraz zgodną legendę. Dodano opis wymaganego zbliżenia i danych wektorowych gminy. Nie dodano nowej usługi ani parametrów i nie potwierdzono pokrycia każdej gminy. Dowody: `docs/map-panel-scroll.md`, `reports/map-panel-scroll.md`.
+- Poprawka nie rozpoczyna M4f. Po dostawie nadal akceptacja kontynuacji; postęp pozostaje około 31% / 69%.
+
 ## Zasady repozytorium
 
 [FAKT: decyzja właściciela z 2026-10-26] Repozytorium jest publiczne. Nie zapisujemy w nim wartości sekretów, konfiguracji, tokenów, kluczy, danych osobowych ani identyfikatorów kont lub usług. Wyjątkiem jest niesekretna wartość trybu źródło danych RCN. Pięć repozytoriów źródłowych jest tylko do odczytu.

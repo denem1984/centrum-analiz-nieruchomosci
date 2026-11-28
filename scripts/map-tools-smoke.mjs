@@ -47,8 +47,11 @@ export async function runMapToolsSmoke({ evaluate, command, sleep, origin, conte
     await command("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true }); await sleep(500);
     await button("measure-area"); await point("click", .35, .4); await point("click", .6, .4); await point("click", .6, .6); await button("measure-finish");
     await evaluate("document.querySelector('#dzialki-measure-panel').scrollIntoView({block:'end'})");
+    await evaluate("(()=>{const panel=document.querySelector('#dzialki-measure-panel');panel.scrollTop=panel.scrollHeight;})()");
     mobile = await evaluate("({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,panelWidth:document.querySelector('#dzialki-measure-panel').getBoundingClientRect().width})");
     assertions.push({ name: "390 px: panel mieści się bez poziomego przewijania", pass: mobile.scrollWidth <= mobile.width + 1 && mobile.panelWidth <= mobile.width });
+    const accessible = await evaluate("(()=>{const p=document.querySelector('#dzialki-measure-panel').getBoundingClientRect(),b=document.querySelector('#dzialki-measure-clear').getBoundingClientRect();return b.top>=p.top&&b.bottom<=p.bottom;})()");
+    assertions.push({ name: "390 px: przycisk usuwania jest dostępny po przewinięciu wyniku", pass: accessible });
     await capture("m4e2-mobile.png");
   }
   await tab("rcn");

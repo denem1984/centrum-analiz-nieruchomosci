@@ -121,3 +121,6 @@ Przed wysłaniem każdego dopuszczonego żądania KIEG skrypt zapisuje przyrost 
 `node scripts/browser-smoke.mjs --headed --map-tools --offline-map-tools --task m4e2`
 
 Scenariusz otwiera rzeczywisty Edge i Leaflet z fikcyjnymi odpowiedziami CDP, bez żądań do usług publicznych. Sprawdza pomiary, brak zaznaczania podczas rysowania, pamięć między zakładkami, menu, odnośnik Street View (bez nawigacji), Esc i 390 px. Nie zerować licznika zadania. [Tabela starego frontu, ograniczenia i test ręczny](../docs/dzialki-map-tools.md).
+### Niezależne przewijanie panelu Działek
+
+Scenariusz: `node scripts/browser-smoke.mjs --headed --map-layout --task map-panel-scroll`. Opcjonalne `--verify-building-lines` sprawdza rzeczywiste dotychczasowe linie KIMPZP i legendę, z atrapami pozostałych usług. Wynik końcowy 20/20 PASS; **budżet tego zadania jest już zużyty (4/4) — nie uruchamiać ponownie ani nie resetować licznika**. Do ręcznego sprawdzenia użyć lokalnej aplikacji. [Instrukcja i ograniczenia](../docs/map-panel-scroll.md).

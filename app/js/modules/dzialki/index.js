@@ -56,6 +56,7 @@ export function mountDzialki(container, ctx = {}) {
   let planningLayerController = null;
   let thematicLayerController = null;
   let mapTools = null;
+  let mapResizeObserver = null;
   let pendingSearchSelection = null;
   let retryController = null;
   let baseFailedTileCount = 0;
@@ -84,6 +85,7 @@ export function mountDzialki(container, ctx = {}) {
   const layout = element("div", undefined, "dzialki-layout");
   const controls = element("aside", undefined, "dzialki-controls");
   controls.setAttribute("aria-label", "Ustawienia mapy Działki");
+  controls.setAttribute("tabindex", "0");
   const searchArea = element("section", undefined, "dzialki-search-area");
   searchArea.setAttribute("aria-label", "Wyszukiwanie i raport działki");
   controls.append(searchArea);
@@ -430,6 +432,12 @@ export function mountDzialki(container, ctx = {}) {
     try {
       leaflet = L;
       map = createMap(L, mapContainer, view);
+      if (typeof globalThis.ResizeObserver === "function") {
+        mapResizeObserver = new ResizeObserver(() => {
+          if (map && !disposed) map.invalidateSize({ pan: false, animate: false });
+        });
+        mapResizeObserver.observe(mapContainer);
+      }
       baseLayers = createBaseLayers(L);
       activeLayer = buildLayer(selectedBase);
       map.addLayer(activeLayer);
@@ -470,6 +478,7 @@ export function mountDzialki(container, ctx = {}) {
     unmountSearch();
     detachRetry();
     mapTools?.cleanup();
+    mapResizeObserver?.disconnect();
     egibLayerController?.cleanup();
     planningLayerController?.cleanup();
     thematicLayerController?.cleanup();

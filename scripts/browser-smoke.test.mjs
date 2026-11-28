@@ -5,6 +5,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  isCanceledFixtureInterception,
   aggregateRequests,
   buildKiegRetryOverrideSource,
   buildKiegExperimentOverrideSource,
@@ -721,4 +722,12 @@ test("parsuje argumenty scenariusza i normalizuje polskie nazwy", () => {
   });
   assert.equal(parseSearchArguments([]), null);
   assert.throws(() => parseSearchArguments(["--powiat", "Fikcyjny powiat"]), /wymaga argumentów/);
+});
+test("anulowana fikstura CDP wymaga jednocześnie wygasłego identyfikatora i potwierdzonego anulowania", () => {
+  const stale = new Error("CDP Fetch.fulfillRequest: Invalid InterceptionId.");
+  assert.equal(isCanceledFixtureInterception(stale, { canceled: true }), true);
+  assert.equal(isCanceledFixtureInterception(stale, { errorText: "net::ERR_ABORTED" }), true);
+  assert.equal(isCanceledFixtureInterception(stale, { canceled: false }), false);
+  assert.equal(isCanceledFixtureInterception(stale, undefined), false);
+  assert.equal(isCanceledFixtureInterception(new Error("CDP Fetch.fulfillRequest: unexpected failure"), { canceled: true }), false);
 });

@@ -63,4 +63,6 @@ Przyszłą klasyfikację po stronie aplikacji należy oprzeć na nagłówkach z 
 
 ## Utrzymanie
 
+Aktualizacja 2026-11-28, D34: osobne przewijanie panelu Działek i wyniku pomiaru, mapa nad kontrolkami na telefonie. Linie `wektor-lzb` pozostają po rzeczywistym teście zbliżenia i legendy, bez zmiany parametrów źródła; nie oznacza to pokrycia każdej gminy. 156 testów i końcowy headed smoke 20/20 PASS; [raport](../reports/map-panel-scroll.md).
+
 Aktualizuj tę macierz w każdym podetapie M4. Zmieniaj status dopiero po przejrzeniu implementacji i testów danego elementu; nie oznaczaj funkcji zewnętrznej jako działającej produkcyjnie na podstawie atrap.

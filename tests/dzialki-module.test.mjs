@@ -22,12 +22,19 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
   };
   fake.window.location.hash = "#/dzialki";
   const previous = {
+    ResizeObserver: globalThis.ResizeObserver,
     document: globalThis.document,
     window: globalThis.window,
     fetch: globalThis.fetch,
     L: globalThis.L,
   };
   const requests = [];
+  const resizeObservers = [];
+  globalThis.ResizeObserver = class {
+    constructor(callback) { this.callback = callback; resizeObservers.push(this); }
+    observe(node) { this.node = node; }
+    disconnect() { this.disconnected = true; }
+  };
   globalThis.document = fake.document;
   globalThis.window = fake.window;
   globalThis.fetch = async (url, options = {}) => {
@@ -47,6 +54,8 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
     resetHealthCache();
     resetDzialkiState();
     contextStore.clear();
+    if (previous.ResizeObserver === undefined) delete globalThis.ResizeObserver;
+    else globalThis.ResizeObserver = previous.ResizeObserver;
     if (previous.document === undefined) delete globalThis.document;
     else globalThis.document = previous.document;
     if (previous.window === undefined) delete globalThis.window;
@@ -62,6 +71,9 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
 
   assert.equal(leaflet.maps.length, 1);
   const firstMap = leaflet.maps[0];
+  assert.equal(resizeObservers[0].node, firstMap.getContainer());
+  resizeObservers[0].callback();
+  assert.equal(firstMap.invalidateCount, 1, "Leaflet aktualizuje rozmiar po zmianie układu");
   assert.equal(firstMap.options.zoomSnap, 0.1);
   assert.equal(firstMap.options.zoomDelta, 0.1);
   assert.deepEqual(firstMap.getCenter(), { lat: 52.07, lng: 19.48 });
@@ -72,6 +84,7 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
   assert.equal(firstMap.controls[0].type, "scale");
 
   const view = fake.document.getElementById("module-view");
+  assert.equal(view.querySelector('aside').getAttribute("tabindex"), "0", "panel można przewijać także z klawiatury");
   assert.match(view.textContent, /Działki/);
   assert.match(view.textContent, /OpenStreetMap/);
   assert.match(view.textContent, /Satelita – Esri World Imagery/);
@@ -182,6 +195,7 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
   fake.window.location.hash = "#/start";
   fake.window.dispatch("hashchange");
   assert.equal(firstMap.removed, true);
+  assert.equal(resizeObservers[0].disconnected, true);
   assert.equal(archiveLayer.listenerCount("tileerror"), 0);
 
   fake.window.location.hash = "#/dzialki";

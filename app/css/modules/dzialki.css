@@ -42,7 +42,9 @@
   display: grid;
   grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr);
   gap: 1rem;
-  align-items: start;
+  height: calc(100dvh - 2rem);
+  min-height: 0;
+  align-items: stretch;
 }
 
 [data-module="dzialki"] .dzialki-controls,
@@ -56,6 +58,10 @@
 
 [data-module="dzialki"] .dzialki-controls {
   padding: 1rem;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
 }
 
 [data-module="dzialki"] .dzialki-controls h3 {
@@ -480,12 +486,16 @@
 [data-module="dzialki"] .dzialki-map-frame {
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 [data-module="dzialki"] .dzialki-map {
   width: 100%;
-  height: min(70vh, 46rem);
-  min-height: 28rem;
+  height: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
   background: #e5edf0;
 }
 
@@ -504,12 +514,12 @@
 @media (max-width: 52rem) {
   [data-module="dzialki"] .dzialki-layout {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    height: calc(100dvh - 1rem);
   }
 
-  [data-module="dzialki"] .dzialki-map {
-    height: 58vh;
-    min-height: 20rem;
-  }
+  [data-module="dzialki"] .dzialki-map-frame { grid-row: 1; }
+  [data-module="dzialki"] .dzialki-controls { grid-row: 2; }
 }
 
 @media (max-width: 28rem) {
@@ -561,7 +571,7 @@
 .dzialki-thematic-popup button { min-height:2.75rem; }
 .dzialki-measure-buttons { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
 .dzialki-map-tools button, #dzialki-measure-panel button { min-height: 44px; margin: .2rem; }
-#dzialki-measure-panel { border: 1px solid #0f766e; border-radius: .5rem; padding: .75rem; margin-top: .5rem; }
+#dzialki-measure-panel { border: 1px solid #0f766e; border-radius: .5rem; padding: .75rem; margin-top: .5rem; flex: 0 0 auto; max-height: 50%; overflow-y: auto; overscroll-behavior-y: contain; }
 #dzialki-measure-panel h4 { margin: 0; }
 #dzialki-measure-values { font-weight: 600; overflow-wrap: anywhere; }
 .dzialki-map-menu { position: fixed; z-index: 1200; width: min(260px, calc(100vw - 12px)); padding: .4rem; background: white; color: #162c40; border: 1px solid #bdcbd5; border-radius: .5rem; box-shadow: 0 6px 24px #162c4033; }
