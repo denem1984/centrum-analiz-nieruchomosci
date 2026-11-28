@@ -4,7 +4,7 @@ Aktualizacja: 2026-11-28. Bieżące źródło stanu i kolejki akceptacji; starsz
 
 ## Obecnie: M7 — Podobne do odbioru lokalnego
 
-Podobne obejmują nieruchomość analizowaną i nieruchomości porównawcze lokalizowane po adresie lub działce. Mapa pokazuje markery, odległości i przeciągane etykiety. [Podgląd przykładowy](http://localhost:8085/?podobne=demo#/podobne) · [Tryb danych rzeczywistych](http://localhost:8085/#/podobne) · [Raport i próba ręczna](../reports/m7-podobne.md) · [Porównanie frontów](parity-podobne.md)
+Podobne obejmują nieruchomość analizowaną i nieruchomości porównawcze lokalizowane po adresie lub działce. Mapa pokazuje markery, odległości i przeciągane etykiety. [Podgląd przykładowy](http://localhost:8085/?podobne=demo#/podobne) · [Tryb danych rzeczywistych](http://localhost:8085/#/podobne) · [Raport i próba ręczna](../reports/m7-podobne.md) · [Porównanie frontów](parity-podobne.md) · [Otwarty PR #33](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/33)
 
 Właściciel zatwierdził Oferty. [PR #32](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/32) scalono jako `7c267f9`. Zakładka ma wybór ofert, kalkulator i eksport XLSX. [Raport i próba ręczna](../reports/m6-oferty.md) · [Porównanie frontów](parity-oferty.md)
 

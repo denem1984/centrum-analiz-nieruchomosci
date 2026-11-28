@@ -6,12 +6,12 @@ WYKONANE w zakresie portu i lokalnych testów. Odbiór bieżących odpowiedzi AP
 
 ## 2. Repozytorium, gałąź, SHA i PR
 
-- `denem1984/centrum-analiz-nieruchomosci`, gałąź `feat/m7-podobne`, baza `7c267f9ec3363be8fd1696f37de0c69f68ee49a7`. Końcowa rewizja w PR etapu.
+- `denem1984/centrum-analiz-nieruchomosci`, gałąź `feat/m7-podobne`. Baza `7c267f9ec3363be8fd1696f37de0c69f68ee49a7` → implementacja `2ae0bfbbb06ee54c96af679f327d41df42b2af4d`. Końcowa rewizja dokumentacji w [otwartym PR #33](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/33).
 - [PR #32](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/32) scalono za zgodą właściciela, z kontrolą oczekiwanego SHA `35ef135` i dwiema zaliczonymi kontrolami GitHub.
 
 ## 3. Zmienione pliki
 
-Moduł Podobne, arkusz stylów, rejestr, powłoka i wersja, ponowne użycie projekcji i geometrii Działek, testy klienta i startu, smoke Edge, decyzje i dokumentacja etapu. Statystyki per plik w PR.
+Moduł Podobne, arkusz stylów, rejestr, powłoka i wersja, ponowne użycie projekcji i geometrii Działek, testy klienta i startu, smoke Edge, decyzje i dokumentacja etapu. Commit implementacji obejmuje 22 pliki, 1318 dodanych i 18 usuniętych linii. [Statystyki per plik](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/33/files)
 
 ## 4. Kryteria akceptacji
 
@@ -29,6 +29,7 @@ Moduł Podobne, arkusz stylów, rejestr, powłoka i wersja, ponowne użycie proj
 - `node scripts/podobne-browser-smoke.mjs --headed --browser "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"`. PASS. Przechwycono wszystkie obce żądania. Zrzuty i dokładne URL-e są w `.local-results/podobne-browser-smoke/run-UKnpDj/`. Pierwsza próba wykryła niewłaściwą pozycję fikcyjnych punktów, wpływającą na czytelność etykiet. Wersja końcowa ma poprawione punkty i układ etykiet.
 - `curl.exe -sSI` dla oficjalnego przykładu UUG. HTTP 200, JSON, `Access-Control-Allow-Origin: *`. Sprawdzono jedną publiczną odpowiedź Marki, Andersa 1 przez przykład z dokumentacji.
 - `Invoke-WebRequest` do lokalnego portu 8085 zwrócił HTTP 200.
+- `git diff --cached --check`, `node scripts/check-no-secrets.mjs` i `node scripts/check-no-secrets.mjs --history` zaliczone przed publikacją.
 
 ## 6. Odstępstwa i założenia
 
