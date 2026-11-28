@@ -6,7 +6,7 @@ Aktualizacja: 2026-11-28. Bieżące źródło stanu i kolejki akceptacji; starsz
 
 D37 zatwierdzono i scalono w [PR #28](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/28) jako `5ea366c`. [Raport poprawek Działek](../reports/dzialki-planning-presentation.md).
 
-M3b potwierdza relacje pełnych katalogów TERC, SIMC, ULIC i pokrycie 2479 gmin w publicznym BDL. [Podgląd słowników](http://localhost:8082/.local/m3b/index.html) korzysta z lokalnej kopii archiwum GUS z 2026-07-17. [Raport M3b i test ręczny](../reports/m3b-location-dictionaries.md). Kolejka akceptacji obejmuje PR M3b i odbiór lokalny. M5 zaczyna się po zatwierdzeniu właściciela.
+M3b potwierdza relacje pełnych katalogów TERC, SIMC, ULIC i pokrycie 2479 gmin w publicznym BDL. [Podgląd słowników](http://localhost:8082/.local/m3b/index.html) korzysta z lokalnej kopii archiwum GUS z 2026-07-17. [Raport M3b i test ręczny](../reports/m3b-location-dictionaries.md). Kolejka akceptacji obejmuje [PR #29](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/29) i odbiór lokalny. M5 zaczyna się po zatwierdzeniu właściciela.
 
 Właściciel zatwierdził M4f i samodzielne scalenie po testach dla [PR #27](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/27). Lista działek i widoków mapy, edycja listy i PDF są dostępne w podglądzie 8082. [Raport M4f](../reports/m4f-report-pdf.md). D35 przywraca własne wyszukiwanie lokalizacji w każdym module.
 

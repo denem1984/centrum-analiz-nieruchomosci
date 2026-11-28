@@ -32,4 +32,6 @@
 
 ## Metadane dostawy
 
-Otwarty PR i końcowy SHA zostaną podane przy dostawie.
+- [PR #29 do odbioru](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/29). Implementacja `47b80724e7a67d3d497df61e1db1ea7c849bd261`, 6 plików, +425 / −13 linii przed dopisaniem metadanych. [Pełny diff i końcowy SHA](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/29/files).
+- `git diff --cached --check`, `node scripts/check-no-secrets.mjs` i `node scripts/check-no-secrets.mjs --history` przeszły. Gałąź opublikowano przez `git push -u origin feat/m3b-location-dictionaries`.
+- `git -C .local/preview-m4e2 switch --detach 47b8072` przypiął podgląd do implementacji. Kontrola HTTP po przełączeniu objęła stronę aplikacji i słowników, indeks, katalogi dwóch województw, moduł normalizacji oraz moduł Działki. Wszystkie odpowiedzi HTTP 200.
