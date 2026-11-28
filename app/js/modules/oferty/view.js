@@ -14,6 +14,7 @@ export const offersView = `
   <section class="oferty-card" aria-labelledby="oferty-title">
     <h2 id="oferty-title">Wyszukiwanie ofert</h2>
     <p data-part="demo" class="oferty-notice" hidden>Dane przykładowe. Wyniki i adresy ogłoszeń służą do testowania interfejsu.</p>
+    <p data-part="previewMode" class="oferty-help" hidden><a data-part="previewLink"></a></p>
     <form data-part="form" novalidate>
       <fieldset data-part="searchFields" class="oferty-fields">
         <div class="oferty-field oferty-location">
@@ -21,7 +22,7 @@ export const offersView = `
           <input data-part="location" id="oferty-location" autocomplete="off" placeholder="np. Olsztyn"
             role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="oferty-suggestions">
           <ul data-part="suggestions" id="oferty-suggestions" class="oferty-suggestions" role="listbox" aria-label="Miejscowości" hidden></ul>
-          <p data-part="locationStatus" class="oferty-help" role="status">Wybierz podpowiedź TERYT lub wpisz pełną nazwę.</p>
+          <p data-part="locationStatus" class="oferty-help" role="status">Wpisz nazwę i wybierz podpowiedź lub naciśnij „Szukaj ofert”.</p>
         </div>
         <div class="oferty-field">
           <label for="oferty-type">Rodzaj nieruchomości</label>

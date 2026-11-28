@@ -8,7 +8,7 @@ Wszystkie trzy żądania z Centrum to GET do istniejącego hosta Ofert. `client.
 
 | Operacja | Stary front | Centrum i dowód |
 |---|---|---|
-| Podpowiedzi | `/api/location-suggestions?q=…`. `index.html:87` oraz skrypt wyboru miejscowości wstrzykiwany w `server.js:11` | Ta sama ścieżka i parametr. Test klienta i przechwycony URL w Edge. |
+| Podpowiedzi | `/api/location-suggestions?q=…`. `index.html:87` oraz skrypt wyboru miejscowości wstrzykiwany w `server.js:11` | Ta sama ścieżka i parametr. Test klienta i przechwycony URL w Edge. Po 10 s bez odpowiedzi lub błędzie można przejść do sprawdzenia pełnej nazwy w `resolve-location`. |
 | Potwierdzenie | `/api/resolve-location?location=…&teryt=…&simc=…`. `index.html:88–91` oraz `server.js:11` | Ta sama ścieżka i kolejność parametrów. Test kodów z zerami wiodącymi i wykrycia innego SIMC w odpowiedzi. |
 | Pobranie wyników | `/api/live/combined?location=…&teryt=…&simc=…&area=…&tolerance=…&radius=…&propertyType=…`. `index.html:84–91`, `server.js:12–16` | Ta sama ścieżka, kolejność, kodowanie i rodzaje. Tryb bez filtra zachowuje `area=100&tolerance=9999`, przedział używa środka i połowy szerokości w procentach. Test URL-i także dla `działka` i `Nieruchomość komercyjna`. |
 | Pobranie XLSX | `excel-export-patch.html` dołączany przez `server.js:11`, plik tworzony w przeglądarce | Plik tworzony w przeglądarce i pobierany z zaznaczonych wierszy. Lokalna biblioteka SheetJS z SRI i licencją Apache 2.0. Test ponownie odczytuje plik. [Dokumentacja biblioteki](https://docs.sheetjs.com/docs/getting-started/installation/standalone/) |

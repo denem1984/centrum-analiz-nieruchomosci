@@ -35,6 +35,12 @@ function mountOffers(container, context) {
   const demo = context.ofertyDemo === true;
   const client = createOffersClient({ signal, ...(demo ? { fetchImpl: createOffersDemoFetch() } : {}) });
   part("demo").hidden = !demo;
+  if (context.localPreview) {
+    const link = part("previewLink");
+    link.href = demo ? "./#/oferty" : "./?oferty=demo#/oferty";
+    link.textContent = demo ? "Przejdź do ofert z portali" : "Sprawdź na danych przykładowych";
+    part("previewMode").hidden = false;
+  }
 
   let chosen = null;
   let suggestions = [];
@@ -117,15 +123,28 @@ function mountOffers(container, context) {
     }
   }
 
+  function scheduleLookup() {
+    const query = input.value.trim();
+    part("locationStatus").textContent = query.length >= 2 ? "Szukanie miejscowości…" : "Wpisz co najmniej 2 znaki.";
+    if (query.length >= 2) lookupTimer = setTimeout(() => void showSuggestions(query), 250);
+  }
+
   input.addEventListener("input", () => {
     stopLookup();
     chosen = null;
     checkedName = undefined;
     suggestions = [];
     hideSuggestions();
+    scheduleLookup();
+  });
+  input.addEventListener("focus", () => {
     const query = input.value.trim();
-    part("locationStatus").textContent = query.length >= 2 ? "Szukanie miejscowości…" : "Wpisz co najmniej 2 znaki.";
-    if (query.length >= 2) lookupTimer = setTimeout(() => void showSuggestions(query), 250);
+    if (chosen || search || query.length < 2) return;
+    if (checkedName === normalizeQuery(query)) {
+      renderSuggestions(suggestions);
+    } else {
+      scheduleLookup();
+    }
   });
   input.addEventListener("blur", () => {
     stopLookup();
@@ -212,8 +231,7 @@ function mountOffers(container, context) {
           suggestions = items;
         } catch (error) {
           if (signal.aborted || request !== search) return;
-          if (error.name === "TimeoutError") throw error;
-          part("locationStatus").textContent = "Podpowiedzi są chwilowo niedostępne. Trwa wyszukiwanie po nazwie.";
+          part("locationStatus").textContent = "Podpowiedzi są chwilowo niedostępne. Sprawdzam pełną nazwę miejscowości.";
         }
       }
       const repeatedName = suggestions.filter((item) => normalizeQuery(item.name) === name).length > 1;
@@ -239,6 +257,9 @@ function mountOffers(container, context) {
       announce("Znaleziono " + offerCount(result.offers.length, true) + ".");
     } catch (error) {
       if (signal.aborted || request !== search) return;
+      if (stage === "Potwierdzanie lokalizacji") {
+        part("locationStatus").textContent = "Nie udało się potwierdzić miejscowości „" + query.location + "”.";
+      }
       announce(error.name === "TimeoutError" ? "Usługa nie odpowiedziała w ciągu 120 s. Spróbuj ponownie." : error.message, true);
     } finally {
       if (request === search) {

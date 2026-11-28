@@ -44,6 +44,8 @@ test("nie podmienia wybranego SIMC i rozpoznaje błędne odpowiedzi", async () =
   await assert.rejects(client.search(searchValues(fields), place), /listy ofert/);
   const broken = createOffersClient({ fetchImpl: async () => new Response("HTML", { status: 502 }) });
   await assert.rejects(broken.suggest("Olsztyn"), /nieczytelną/);
+  const offline = createOffersClient({ fetchImpl: async () => { throw new TypeError("Failed to fetch"); } });
+  await assert.rejects(offline.resolve("Olsztyn"), /połączyć z usługą Oferty/);
 });
 
 test("przyjmuje liczniki backendu, oznacza awarię portalu i sortuje braki na końcu", () => {

@@ -49,11 +49,17 @@ function offerUrl(path, params) {
 }
 
 export function createOffersClient({ fetchImpl = globalThis.fetch, signal } = {}) {
-  async function get(path, params, requestSignal) {
-    const request = AbortSignal.any([signal, requestSignal, AbortSignal.timeout(120_000)].filter(Boolean));
-    const response = await fetchImpl(offerUrl(path, params), {
-      method: "GET", credentials: "omit", cache: "no-store", signal: request,
-    });
+  async function get(path, params, requestSignal, timeout = 120_000) {
+    const request = AbortSignal.any([signal, requestSignal, AbortSignal.timeout(timeout)].filter(Boolean));
+    let response;
+    try {
+      response = await fetchImpl(offerUrl(path, params), {
+        method: "GET", credentials: "omit", cache: "no-store", signal: request,
+      });
+    } catch {
+      request.throwIfAborted();
+      throw new Error("Nie udało się połączyć z usługą Oferty. Spróbuj ponownie.");
+    }
     let data;
     try { data = await response.json(); }
     catch (error) {
@@ -67,7 +73,7 @@ export function createOffersClient({ fetchImpl = globalThis.fetch, signal } = {}
   }
   return {
     async suggest(q, request) {
-      const data = await get("/api/location-suggestions", { q }, request);
+      const data = await get("/api/location-suggestions", { q }, request, 10_000);
       return Array.isArray(data) ? data.filter((entry) => typeof entry?.name === "string" && entry.name.trim()) : [];
     },
     async resolve(location, chosen, request) {

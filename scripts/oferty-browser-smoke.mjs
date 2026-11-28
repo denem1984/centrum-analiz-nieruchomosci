@@ -9,18 +9,19 @@ import { BACKENDS } from "../app/js/config.js";
 import { createOffersDemoFetch } from "../app/js/modules/oferty/demo.js";
 import { buildBrowserLaunchArgs, CdpConnection, chooseBrowserPath, waitForDebugger } from "./browser-smoke.mjs";
 import { createStaticServer } from "./serve.mjs";
-import { openSmokeBudget } from "./smoke-budget.mjs";
+import { openSmokeBudget, validateSmokeTask } from "./smoke-budget.mjs";
 
 const args = process.argv.slice(2);
-if (args.length !== 3 || args[0] !== "--headed" || args[1] !== "--browser") {
-  throw new Error('Użycie: node scripts/oferty-browser-smoke.mjs --headed --browser "ścieżka do Edge"');
+if (![3, 5].includes(args.length) || args[0] !== "--headed" || args[1] !== "--browser"
+  || (args.length === 5 && args[3] !== "--task")) {
+  throw new Error('Użycie: node scripts/oferty-browser-smoke.mjs --headed --browser "ścieżka do Edge" [--task id-zadania]');
 }
 const browserPath = chooseBrowserPath({ explicitPath: args[2] });
 assert.ok(browserPath, "Brak wskazanej przeglądarki");
 const artifacts = resolve(".local-results", "oferty-browser-smoke");
 await mkdir(artifacts, { recursive: true });
 const output = await mkdtemp(join(artifacts, "run-"));
-const task = "oferty-m6";
+const task = validateSmokeTask(args[4] ?? "oferty-m6");
 const budget = await openSmokeBudget(resolve(".local-results", "budgets", task + ".json"), task);
 try {
   assert.ok(await budget.reserveLaunch(), "Wyczerpano budżet testu Ofert");
@@ -82,7 +83,9 @@ async function handle({ requestId, request }) {
   if (url.pathname === backend.healthPath) result = Response.json({ ok: true });
   else if (backend.id === "Oferty" && ["/api/location-suggestions", "/api/resolve-location", "/api/live/combined"].includes(url.pathname)) {
     requested.push(url.pathname + url.search);
-    if (url.searchParams.get("area") === "999") result = Response.json({ error: "Przykładowa awaria Ofert." }, { status: 502 });
+    if (url.pathname === "/api/location-suggestions" && url.searchParams.get("q") === "Olsztyn") {
+      result = Response.json({ error: "Przykładowa niedostępność podpowiedzi." }, { status: 503 });
+    } else if (url.searchParams.get("area") === "999") result = Response.json({ error: "Przykładowa awaria Ofert." }, { status: 502 });
     else {
       if (url.searchParams.get("area") === "1234") await delay(550);
       result = await fixtureFetch(url);
@@ -126,14 +129,22 @@ try {
     if (method === "Runtime.exceptionThrown") exceptions.push(params.exceptionDetails.exception?.description ?? params.exceptionDetails.text);
   };
   await page.command("Page.enable");
+  await page.command("Page.bringToFront");
+  await page.command("Emulation.setFocusEmulationEnabled", { enabled: true });
   await page.command("Runtime.enable");
   await page.command("Fetch.enable", { patterns: [{ urlPattern: "http*" }] });
   await page.command("Page.setDownloadBehavior", { behavior: "allow", downloadPath: downloads });
 
   await page.command("Page.navigate", { url: origin + "/?oferty=demo#/oferty" });
   await check("el('demo')?.hidden === false");
+  await check("el('previewLink').getAttribute('href') === './#/oferty'");
   await action("el('location').focus(), type('location', 'olsz')");
   await check("el('suggestions').children.length === 1");
+  assert.ok(await action("document.activeElement === el('location')"));
+  assert.ok(await action("el('radius').focus(), document.activeElement === el('radius')"));
+  await check("el('suggestions').hidden");
+  await action("el('location').focus()");
+  await check("!el('suggestions').hidden && el('suggestions').children.length === 1");
   await action(`el('location').dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", cancelable: true })),
     el('location').dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", cancelable: true }))`);
   await check("el('location').value === 'Olsztyn' && el('suggestions').hidden");
@@ -164,6 +175,7 @@ try {
 
   await page.command("Page.navigate", { url: origin + "/#/oferty" });
   await check("el('demo')?.hidden === true");
+  await check("el('previewLink').getAttribute('href') === './?oferty=demo#/oferty'");
   await action("el('location').focus(), type('location', 'Testowo'), el('form').requestSubmit()");
   await check("el('status').textContent.includes('Kilka miejscowości')");
   await check("!el('suggestions').hidden && el('suggestions').children.length === 2");
@@ -199,6 +211,13 @@ try {
   await check("!root");
   await action("document.querySelector('[data-module-link=oferty]').click()");
   await check("el('location')?.value === ''");
+  await action("el('location').focus(), type('location', 'Olsztyn'), el('form').requestSubmit()");
+  await check("!el('results').hidden && el('locationStatus').textContent.includes('Lokalizacja potwierdzona · Olsztyn')");
+  assert.deepEqual(requested.slice(-3), [
+    "/api/location-suggestions?q=Olsztyn",
+    "/api/resolve-location?location=Olsztyn&teryt=&simc=",
+    "/api/live/combined?location=Olsztyn&teryt=286201&simc=0964465&area=62&tolerance=20&radius=0&propertyType=mieszkanie",
+  ]);
   await delay(600);
   assert.deepEqual(exceptions, []);
   assert.deepEqual(unexpected, []);

@@ -5,10 +5,12 @@ import { MODULES, MODULE_BY_ID } from "./modules/registry.js";
 
 let activeModuleCleanup = null;
 
+function isLocalPreview() {
+  return ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname);
+}
+
 function isModuleDemo(id) {
-  const { hostname, search } = window.location;
-  return ["localhost", "127.0.0.1", "[::1]"].includes(hostname)
-    && new URLSearchParams(search).get(id) === "demo";
+  return isLocalPreview() && new URLSearchParams(window.location.search).get(id) === "demo";
 }
 
 export const MODULE_IDS = Object.freeze(MODULES.map((module) => module.id));
@@ -243,6 +245,7 @@ function renderCurrentView() {
     providerConfig: { provider: "fixture" },
     rcnDemo: isModuleDemo("rcn"),
     ofertyDemo: isModuleDemo("oferty"),
+    localPreview: isLocalPreview(),
   };
   const cleanup = MODULE_BY_ID[route].mount(view, ctx);
   if (typeof cleanup === "function") activeModuleCleanup = cleanup;

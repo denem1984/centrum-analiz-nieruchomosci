@@ -33,12 +33,14 @@ WYKONANE w zakresie implementacji i lokalnych testów na danych przykładowych. 
 - `node scripts/oferty-browser-smoke.mjs --headed --browser "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"`. PASS. Trzy obrazy `oferty-porownanie.png`, `oferty-wyniki-zrodel.png` i `oferty-mobile.png` oraz zapis żądań w `.local-results/oferty-browser-smoke/run-VXQ4j1/`. Pierwszy przebieg ujawnił problem odczytu zapisanego XLSX w teście. Końcowy przebieg odczytał bufor pobranego pliku.
 - `Invoke-WebRequest` do podglądu 8084. HTTP 200 dla strony, konfiguracji, klienta, widoku, eksportu, CSS i biblioteki XLSX.
 - `git diff --cached --check`, `node scripts/check-no-secrets.mjs` i `node scripts/check-no-secrets.mjs --history` zaliczone przed publikacją.
+- Po zgłoszeniu dotyczącym Olsztyna ponowiono zestaw 177 testów i smoke Edge z `--task oferty-m6-location`. Końcowy przebieg `run-yWKM06` sprawdził przywrócenie listy po zmianie pola, przełącznik trybu oraz przejście do potwierdzania Olsztyna po odpowiedzi HTTP 503 z atrapy podpowiedzi.
 
 ## 6. Odstępstwa i założenia
 
 - [FAKT z kodu] Eksport i porównanie starej aplikacji powstają przez dodatki w serwerowym punkcie wejścia. Port uwzględnia te dodatki. [Macierz](../docs/parity-oferty.md)
 - [FAKT z kodu] Dla domów, działek i nieruchomości komercyjnych istniejący kolektor opiera wyszukiwanie na nazwie miejscowości. Centrum pokazuje ostrzeżenie po rozpoznaniu powtarzającej się nazwy. [Ograniczenie lokalizacji](../docs/parity-oferty.md#rozróżnianie-miejscowości)
 - [FAKT z testów] Tryb przykładowy jest dostępny wyłącznie na loopback i ma jawnie fikcyjne wyniki. Próby Edge były przechwytywane lokalnie.
+- [FAKT z katalogu SIMC M3b] Nazwę „Olsztyn” mają miejscowości w województwach warmińsko-mazurskim, śląskim i łódzkim. W podglądzie przykładowym jest Olsztyn w województwie warmińsko-mazurskim.
 
 ## 7. Dotknięto zakazanych obszarów?
 
@@ -57,7 +59,7 @@ D12 pozostaje decyzją właściciela przed udostępnieniem wyników dodatkowym u
 1. Otwórz [podgląd Ofert na danych przykładowych](http://localhost:8084/?oferty=demo#/oferty). Wpisz **Olsztyn**, wybierz podpowiedź i uruchom wyszukiwanie mieszkania z domyślną powierzchnią. Oczekiwane jest pięć wierszy i informacja o braku wyników z Adresowo w tym wyszukiwaniu.
 2. Posortuj wyniki po cenie za m², zaznacz dwie oferty, wpisz cenę i powierzchnię własnej nieruchomości. Sprawdź średnią, różnicę i pobierz XLSX. Otwórz arkusz i sprawdź dwa wybrane wiersze i typ komórek z ceną.
 3. Wpisz **Testowo** i od razu uruchom wyszukiwanie. Wybierz jedną z dwóch podpowiedzi. Zmień rodzaj na **Działka**, wybierz przedział i promień. Sprawdź komunikat o powtarzającej się nazwie.
-4. Otwórz [podgląd z istniejącym API](http://localhost:8084/#/oferty). Wybierz tę samą miejscowość, typ, powierzchnię i promień co w starym froncie. Porównaj podpowiedź, listę portali, duplikaty i przykładowe oferty. Przy różnicy zapisz typ, filtry, portal i widoczne komunikaty. Wyniki portali mogą zmienić się pomiędzy wywołaniami.
+4. Otwórz [podgląd z istniejącym API](http://localhost:8084/#/oferty). Wybierz tę samą miejscowość, typ, powierzchnię i promień co w starym froncie. Dla Olsztyna sprawdź województwo w podpowiedzi. Gdy nie ma podpowiedzi, wpisz pełną nazwę i kliknij „Szukaj ofert”, aby przejść do próby potwierdzenia. Porównaj listę portali, duplikaty i przykładowe oferty. Przy różnicy zapisz widoczny komunikat, filtry i portal. Wyniki portali mogą zmienić się pomiędzy wywołaniami.
 
 W razie zamknięcia serwera uruchom z katalogu projektu `node scripts/serve.mjs --port 8084`, a następnie otwórz jeden z powyższych adresów.
 
