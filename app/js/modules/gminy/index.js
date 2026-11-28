@@ -1,4 +1,5 @@
 import { normalizeQuery } from "../../location/normalize.js";
+import { locationNotice } from "../../location/shared.js";
 import { demoMunicipalities } from "./demo.js";
 import { findMunicipalities, formatScore, formatValue, INDICATORS, PROFILES, rankMunicipalities, readMunicipalities, TYPES } from "./model.js";
 import { downloadGminyPdf } from "./pdf.js";
@@ -23,6 +24,14 @@ function mountGminy(container, context) {
   const lifetime = new AbortController();
   const { signal } = lifetime;
   const input = part("target");
+  const shared = context.sharedSearch === true;
+  const location = context.location;
+  if (shared) {
+    input.readOnly = true;
+    input.value = location?.gmina.name ?? "";
+    part("form").prepend(locationNotice(document, context,
+      location ? "Gmina ze Startu: " + location.gmina.name + "." : "Wybierz gminę w module Start."));
+  }
   const suggestions = part("suggestions");
   let data;
   let active = -1;
@@ -69,7 +78,7 @@ function mountGminy(container, context) {
   }
 
   function offerOptions() {
-    if (chosen || !data) return;
+    if (shared || chosen || !data) return;
     const value = input.value.trim();
     const matches = findMunicipalities(data.municipalities, value);
     options = matches.slice(0, 18);
@@ -135,7 +144,16 @@ function mountGminy(container, context) {
       }
       if (signal.aborted) return;
       data = readMunicipalities(payload, { demo });
-      part("filters").disabled = false;
+      if (shared && location) {
+        const { terc7 } = location.canonicalGmina ?? location.gmina;
+        const canonical = ["4", "5"].includes(terc7.at(-1)) ? terc7.slice(0, 6) + "3" : terc7;
+        const target = data.municipalities.find((item) => (
+          (!location.bdlUnitId || item.id === location.bdlUnitId) && item.terc === canonical
+        ));
+        if (target) choose(target);
+        else part("targetHelp").textContent = "Brak tej jednostki w pliku wskaźników BDL.";
+      }
+      part("filters").disabled = shared && !chosen;
       part("dataYear").textContent = data.source + " · rok danych " + data.year
         + (data.collected && !demo ? " · stan pliku " + data.collected : "");
       part("dataYear").hidden = false;
@@ -208,7 +226,7 @@ function mountGminy(container, context) {
 
   function run() {
     if (!data) return;
-    if (!chosen) {
+    if (!chosen && !shared) {
       const value = normalizeQuery(input.value);
       const exact = data.municipalities.filter(({ name, terc, referenceTerc, id }) => [normalizeQuery(name), terc, referenceTerc, id].includes(value));
       if (exact.length === 1) choose(exact[0]);

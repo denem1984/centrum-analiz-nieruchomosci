@@ -1,4 +1,5 @@
 import { loadLeaflet } from "../dzialki/leaflet-loader.js";
+import { locationNotice, sharedSubject } from "../../location/shared.js";
 import { loadPlanningProjection } from "../dzialki/planning-projection.js";
 import { createSimilarClient } from "./client.js";
 import { demoFields, demoSimilarFetch } from "./demo.js";
@@ -256,7 +257,16 @@ function mountSimilar(container, context) {
     return editor;
   }
 
-  makeEditor(true);
+  const subjectEditor = makeEditor(true);
+  if (context.sharedSearch) {
+    subjectEditor.card.append(subjectEditor.field("status"));
+    subjectEditor.field("form").hidden = true;
+    const subject = sharedSubject(context.location);
+    part("subject").append(locationNotice(document, context, subject
+      ? "Nieruchomość analizowana ze Startu."
+      : "Nieruchomość analizowana wymaga działki lub adresu z punktem na mapie."));
+    if (subject) chooseLocation(subjectEditor, subject);
+  }
   for (let index = 0; index < 3; index += 1) makeEditor(false);
   draw();
   part("add").addEventListener("click", () => {
@@ -288,6 +298,7 @@ function mountSimilar(container, context) {
     for (const key of overlays) part(key).checked = true;
     try {
       await Promise.all(demoFields.map(async (data, index) => {
+        if (index === 0 && context.sharedSearch) return;
         const editor = editors[index];
         const { field } = editor;
         await setMode(editor, data.type ?? "address");

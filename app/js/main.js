@@ -48,11 +48,16 @@ export function decodeContextFromHash(hash) {
 export function formatLocationSummary(context) {
   if (!context || context.kind === "nieokreslona") return "Nie wybrano lokalizacji";
 
-  const primary = context.name
+  const sharedName = context.version === "2" && (
+    (context.parcel && "Działka " + context.parcel.id)
+    || (context.kind === "obreb" && "Obręb " + context.district.name)
+    || (context.street && [context.place.name + ",", context.street.name, context.street.number].filter(Boolean).join(" "))
+  );
+  const primary = sharedName || (context.name
     ?? context.place?.name
     ?? context.gmina?.name
     ?? (context.parcel ? "Działka " + context.parcel.id : null)
-    ?? (context.point ? "Punkt " + context.point.lat + ", " + context.point.lon : "Lokalizacja");
+    ?? (context.point ? "Punkt " + context.point.lat + ", " + context.point.lon : "Lokalizacja"));
   const details = [];
   if (context.gmina?.name) details.push("gmina: " + context.gmina.name);
   if (context.powiat?.name) details.push("powiat: " + context.powiat.name);
@@ -104,6 +109,7 @@ function loadContextFromHash(hash) {
   }
 
   if (!decoded.context) {
+    contextStore.clear();
     showContextLoadError("Nie udało się wczytać lokalizacji z adresu");
     return false;
   }
@@ -236,16 +242,21 @@ function renderCurrentView() {
   renderNavigation(route);
   const view = document.getElementById("module-view");
   view.replaceChildren();
+  const savedLocation = contextStore.get();
+  const startDemo = isModuleDemo("start");
   const ctx = {
     createBackendStatusPanel,
     renderBackendCards,
     getBackendStatus,
     subscribeBackendStatus,
     setContext: setAppContext,
-    providerConfig: { provider: "fixture" },
-    rcnDemo: isModuleDemo("rcn"),
-    ofertyDemo: isModuleDemo("oferty"),
-    podobneDemo: isModuleDemo("podobne"),
+    location: savedLocation.version === "2" ? savedLocation : null,
+    sharedSearch: savedLocation.version === "2" || (savedLocation.kind === "nieokreslona" && !isModuleDemo(route)),
+    startHref: hashForRoute("start", encodedCurrentContext()),
+    startDemo,
+    rcnDemo: startDemo || isModuleDemo("rcn"),
+    ofertyDemo: startDemo || isModuleDemo("oferty"),
+    podobneDemo: startDemo || isModuleDemo("podobne"),
     gminyDemo: isModuleDemo("gminy"),
     localPreview: isLocalPreview(),
   };
@@ -271,10 +282,11 @@ function init() {
     contextStore.clear();
     showContextLoadError();
     writeContextToHash();
+    if (resolveRoute(window.location.hash) !== "start") renderCurrentView();
   });
   renderCurrentView();
   window.addEventListener("hashchange", renderCurrentView);
-  if (!["rcn", "oferty", "podobne", "gminy"].some(isModuleDemo)) startHealthChecks();
+  if (!["start", "rcn", "oferty", "podobne", "gminy"].some(isModuleDemo)) startHealthChecks();
 }
 
 if (typeof document !== "undefined" && typeof window !== "undefined") {

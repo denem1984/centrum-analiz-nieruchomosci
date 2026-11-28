@@ -79,6 +79,7 @@ export function mountDzialki(container, ctx = {}) {
   const title = element("h2", "Działki");
   title.id = "dzialki-title";
   header.append(title);
+  if (ctx.startDemo) header.append(element("p", "Podgląd przykładowy. Mapa wyświetla obrys działki ze Startu."));
   const backendStatus = element("p", "", "dzialki-service-status");
   backendStatus.setAttribute("role", "status");
   backendStatus.setAttribute("aria-live", "polite");
@@ -114,7 +115,11 @@ export function mountDzialki(container, ctx = {}) {
   }
 
   unmountSearch = mountParcelSearch(searchArea, {
-    setContext: ctx.setContext,
+    ...ctx,
+    api: ctx.startDemo ? {
+      parcel: async (district, number) => (await import("../../location/start-demo.js")).demoParcel(district, number),
+      egib: async () => { throw new Error("Podgląd przykładowy obejmuje obrys, bez danych EGiB."); },
+    } : undefined,
     onSelect: (selection) => { showSelectedParcel(selection); parcelPdf?.refresh(); },
     onEgib: (selection) => { egibLayerController?.updateSearchSelection(selection); parcelPdf?.refresh(); },
   });
@@ -218,6 +223,7 @@ export function mountDzialki(container, ctx = {}) {
     thematicLayerController?.onPopupOpen(popup);
   }
   egibLayerController = mountEgibLayers(mapLayersPanel, {
+    demo: ctx.startDemo,
     isMapInteractionBlocked: () => mapTools?.isMeasuring(),
     extendPopup: extendMapPopup,
     onPopupOpen: popupOpened,
@@ -359,7 +365,7 @@ export function mountDzialki(container, ctx = {}) {
   const currentPointKey = pointKey(point);
   const applyNewPoint = point && currentPointKey !== saved.appliedPoint;
   let view = applyNewPoint
-    ? { center: [point.lat, point.lon], zoom: Math.max(16, saved.zoom) }
+    ? { center: [point.lat, point.lon], zoom: { area: 11, place: 13, street: 16, address: 17, parcel: 17 }[point.role] ?? Math.max(16, saved.zoom) }
     : { center: saved.center, zoom: saved.zoom };
   if (applyNewPoint) updateDzialkiState({ appliedPoint: currentPointKey });
 
@@ -398,6 +404,7 @@ export function mountDzialki(container, ctx = {}) {
   let selectedBase = saved.baseLayer;
 
   function buildLayer(id) {
+    if (ctx.startDemo) return leaflet.layerGroup();
     return id === "archive" ? baseLayers.archive(getDzialkiState().year) : baseLayers[id];
   }
 
@@ -415,6 +422,9 @@ export function mountDzialki(container, ctx = {}) {
     attachRetry(activeLayer);
   }
 
+  if (ctx.startDemo) {
+    for (const group of [baseGroup, planningGroup, investmentGroup, infrastructureGroup]) group.details.hidden = true;
+  }
   for (const [id, input] of baseInputs) {
     input.addEventListener("change", () => {
       if (input.checked) selectBase(id);
@@ -467,10 +477,12 @@ export function mountDzialki(container, ctx = {}) {
       baseLayers = createBaseLayers(L);
       activeLayer = buildLayer(selectedBase);
       map.addLayer(activeLayer);
-      attachRetry(activeLayer);
+      if (!ctx.startDemo) attachRetry(activeLayer);
       egibLayerController.attach(map, L);
-      planningLayerController.attach(map, L);
-      thematicLayerController.attach(map,L);
+      if (!ctx.startDemo) {
+        planningLayerController.attach(map, L);
+        thematicLayerController.attach(map,L);
+      }
       mapTools.attach(map, L, getDzialkiState().measurement);
       map.on("zoomend", syncZoom);
       map.on("moveend", () => {
@@ -488,8 +500,9 @@ export function mountDzialki(container, ctx = {}) {
       const savedState = getDzialkiState();
       if (savedState.mapSelectionInitialized) {
         egibLayerController.restoreSelections(savedState.selectedMapParcels);
-      } else if (savedState.selectedParcel) showSelectedParcel(savedState.selectedParcel);
-      else if (pendingSearchSelection) showSelectedParcel(pendingSearchSelection);
+      }
+      if (pendingSearchSelection) showSelectedParcel(pendingSearchSelection);
+      else if (savedState.selectedParcel && !savedState.mapSelectionInitialized) showSelectedParcel(savedState.selectedParcel);
       pendingSearchSelection = null;
     } catch {
       mapStatus.textContent = "Nie udało się uruchomić mapy. Odśwież stronę i spróbuj ponownie.";

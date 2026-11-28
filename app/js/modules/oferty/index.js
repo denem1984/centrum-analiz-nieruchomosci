@@ -1,4 +1,5 @@
 import { normalizeQuery } from "../../location/normalize.js";
+import { locationNotice } from "../../location/shared.js";
 import { createOffersClient, searchValues } from "./client.js";
 import { createOffersDemoFetch } from "./demo.js";
 import { exportOffers } from "./export.js";
@@ -43,6 +44,12 @@ function mountOffers(container, context) {
   }
 
   let chosen = null;
+  const shared = context.sharedSearch;
+  const location = context.location;
+  const sharedPlace = shared && location?.place ? {
+    name: location.place.name, simc: location.place.simc7, teryt: location.place.terc7 ?? location.gmina.terc7,
+    powiat: location.powiat.name, wojewodztwo: location.voivodeship.name,
+  } : null;
   let suggestions = [];
   let checkedName;
   let activeSuggestion = -1;
@@ -88,6 +95,15 @@ function mountOffers(container, context) {
     input.value = place.name;
     hideSuggestions();
     part("locationStatus").textContent = "Wybrano " + locationLabel(place);
+  }
+
+  if (shared) {
+    form.prepend(locationNotice(document, context, !sharedPlace ? "Oferty wymagają miejscowości."
+      : location.street ? "Oferty pobiorą dane dla " + sharedPlace.name + ". Usługa filtruje na poziomie miejscowości."
+        : "Miejscowość ze Startu: " + locationLabel(sharedPlace) + "."));
+    input.readOnly = true;
+    if (sharedPlace) choose(sharedPlace);
+    part("submit").disabled = !sharedPlace;
   }
 
   function renderSuggestions(items) {
@@ -202,7 +218,7 @@ function mountOffers(container, context) {
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (search) return;
+    if (search || (shared && !sharedPlace)) return;
     let query;
     try {
       query = searchValues(Object.fromEntries(inputNames.map((name) => [name, part(name).value])));
@@ -244,7 +260,7 @@ function mountOffers(container, context) {
         announce(message, true);
         return;
       }
-      const resolved = await client.resolve(query.location, chosen, request.signal);
+      const resolved = sharedPlace ?? await client.resolve(query.location, chosen, request.signal);
       if (signal.aborted || request !== search) return;
       chosen = resolved;
       input.value = resolved.name;
@@ -253,7 +269,7 @@ function mountOffers(container, context) {
       tick();
       const data = await client.search(query, resolved, request.signal);
       if (signal.aborted || request !== search) return;
-      renderResult(normalizeResults(data, query, resolved), repeatedName && query.propertyType !== "mieszkanie");
+      renderResult(normalizeResults(data, query, resolved), (shared || repeatedName) && query.propertyType !== "mieszkanie");
       announce("Znaleziono " + offerCount(result.offers.length, true) + ".");
     } catch (error) {
       if (signal.aborted || request !== search) return;
@@ -301,7 +317,9 @@ function mountOffers(container, context) {
     part("sourceWarning").textContent = failed.length ? "Źródła niedostępne w tym wyszukiwaniu · " + failed.join(", ") : "";
     part("scopeWarning").hidden = !warnAboutLocation;
     part("scopeWarning").textContent = warnAboutLocation
-      ? "Dla tego typu nieruchomości portale wyszukują po nazwie miejscowości. Nazwa się powtarza. Sprawdź adresy w wynikach."
+      ? (shared
+        ? "Portale dla tego typu nieruchomości filtrują po nazwie. Sprawdź, czy wyniki dotyczą wybranej miejscowości."
+        : "Dla tego typu nieruchomości portale wyszukują po nazwie miejscowości. Nazwa się powtarza. Sprawdź adresy w wynikach.")
       : "";
     part("sourceDetails").hidden = data.sources.length === 0;
     part("sources").replaceChildren(...data.sources.map((entry) => sourceCard(entry, data.radius)));

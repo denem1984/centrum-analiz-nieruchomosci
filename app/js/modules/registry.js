@@ -1,4 +1,4 @@
-import { mountLocationSearch } from "../location/search-ui.js";
+import { mountSharedStart } from "../location/start-ui.js";
 import { dzialkiModule } from "./dzialki/index.js";
 import { rcnModule } from "./rcn/index.js";
 import { offersModule } from "./oferty/index.js";
@@ -21,13 +21,11 @@ function mountStart(container, ctx) {
   appendText(
     section,
     "p",
-    "Tutaj znajdziesz skrót do modułów i stan połączenia z ich usługami.",
+    "Ustal lokalizację, z której skorzystają wszystkie moduły.",
     "module-description",
   );
-  appendText(section, "p", "moduł w przygotowaniu", "preparation-note");
   container.append(section);
-  mountLocationSearch(container, ctx);
-  ctx.renderBackendCards(container);
+  return mountSharedStart(container, ctx);
 }
 
 export const MODULES = Object.freeze([

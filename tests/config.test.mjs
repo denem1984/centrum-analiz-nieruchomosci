@@ -4,7 +4,7 @@ import { APP_STAGE, BACKENDS } from "../app/js/config.js";
 import { ALLOWLIST, ALLOWED_METHODS } from "../scripts/m1-probe.mjs";
 
 test("trasy zdrowia i metody zgadzają się z allowlistą sond", () => {
-  assert.equal(APP_STAGE, "M8");
+  assert.equal(APP_STAGE, "M3c");
   assert.deepEqual(ALLOWED_METHODS, ["GET", "OPTIONS"]);
   for (const [id, backend] of Object.entries(BACKENDS)) {
     assert.equal(backend.id, id);

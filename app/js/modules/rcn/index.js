@@ -70,7 +70,7 @@ function mountRcn(container, context) {
       ? (await import("./demo.js")).createRcnDemo({ signal })
       : createRcnClient({ signal });
     if (signal.aborted) return;
-    mountRcnFrontend(root, { L, Chart, fetch, signal, demo });
+    mountRcnFrontend(root, { L, Chart, fetch, signal, demo, context });
     status.remove();
   }
 

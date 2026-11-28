@@ -1,8 +1,19 @@
 # Jedna lokalizacja w Start — M3c
 
-> **Aktualizacja 2026-11-28.** D39 przywraca wspólne wyszukiwanie w Start. Poniższy projekt interfejsu stanowi punkt wyjścia do M3c. Kolejność realizacji i powiązanie z opcją dołączenia Ofert do raportu RCN opisuje [decyzja D39](../DECISIONS.md#d39--wspólna-lokalizacja-ze-startu-oraz-oferty-w-raporcie-rcn-2026-11-28).
+> **Aktualizacja 2026-11-28.** M3c jest dostępny w lokalnym podglądzie. Poniżej opisano dostarczony kontrakt i założenia projektowe. Powiązanie z raportem RCN i Ofertami opisuje [decyzja D39](../DECISIONS.md#d39--wspólna-lokalizacja-ze-startu-oraz-oferty-w-raporcie-rcn-2026-11-28).
 
-## Decyzja właściciela, 2026-11-27
+## Wersja dostarczona do odbioru
+
+- Formularz wybiera jeden z trybów `Obszar`, `Adres` i `Działka`. Przy wyszukiwaniu miejscowości można podać nazwę w skali całego kraju lub użyć filtrów administracyjnych. Wynik pokazuje typ miejscowości, jej jednostki nadrzędne i SIMC.
+- Wspólny kontekst to v2 w istniejącym parametrze `ctx` w URL. Używa tekstowych identyfikatorów TERC, SIMC, ULIC i opcjonalnie BDL. Osobne pola zawierają `district`, `parcel`, `street`, `canonicalGmina` oraz `point.role`. Rola rozróżnia środek obszaru, punkt miejscowości, punkt ulicy, punkt adresowy i środek działki. Geometria jest pobierana do widoku, a limit kontekstu w URL nadal wynosi 2048 B. Dekoder v1 i obsługa starych linków pozostają dostępne.
+- Tryb działki przyjmuje pełny identyfikator lub obręb z numerem. Miejscowość i ulicę można ręcznie dołączyć w obrębie tej samej gminy. Obrys ULDK jest potwierdzany po pełnym identyfikatorze. Przy samym obrębie wyświetlana jest opisana granica gminy, a kod obrębu przechodzi do Działek.
+- Podkład Startu to OpenStreetMap. Gmina ma granicę PRG, punkt adresowy lub orientacyjny pochodzi z UUG, a działka ma obrys ULDK. Gdy UUG nie zwróci jednoznacznego punktu, kod lokalizacji pozostaje dostępny dla modułów i mapa może pokazać granicę gminy z odpowiednim komunikatem.
+- RCN wykorzystuje nazwę miejscowości, TERYT6 i ulicę w trybie lokali. Analizy gruntów korzystają z dotychczasowej semantyki filtra opisu ewidencyjnego i trybu całej gminy. Oferty otrzymują TERC7 i SIMC, a Podobne otrzymują punkt nieruchomości analizowanej. Gminy używają kanonicznego TERC i identyfikatora BDL. Działki otrzymują obręb i ewentualny pełny ID.
+- Pliki w `app/data/location/` powstały z weryfikacji M3b według stanu TERC/SIMC 2026-01-01 i ULIC 2026-07-16. Jest 16 wojewódzkich plików SIMC i 16 plików ULIC, wczytywanych według potrzeby. Pliki można odtworzyć przez `python scripts/build-start-catalog.py <eksport M3b> app/data/location`.
+
+[Raport odbioru, adres podglądu i porównanie zapytań](../reports/m3c-start.md).
+
+## Pierwotny projekt, 2026-11-27
 
 Użytkownik ustala lokalizację raz w zakładce Start. Każda kolejna zakładka pobiera potrzebne pola z tego samego stanu. Moduły nie wymagają ponownego wyboru województwa, powiatu, gminy, obrębu, miejscowości i ulicy.
 
@@ -50,4 +61,4 @@ Wybranie działki nie gwarantuje automatycznego ustalenia miejscowości i ulicy.
 
 ## Akceptacja
 
-Jednokrotny wybór lokalizacji w Start pokazuje wynik na mapie i zasila właściwe moduły bez powtarzania wyszukiwania; brak pola ma czytelną ścieżkę uzupełnienia. Sprawdzić wszystkie trzy tryby, bezpośredni identyfikator działki, powtarzalne nazwy, brak ulic, miasto na prawach powiatu, gminę miejsko-wiejską, niezależność obrębu i miejscowości, stare linki v1, czyszczenie zależności i anulowanie spóźnionych odpowiedzi. Obowiązują test startowy DOM, dokładne testy URL-i, headed smoke z budżetem oraz oględziny desktop/mobile. Ta dostawa zapisuje decyzję i plan; nie wdraża jeszcze kontraktu v2 ani wspólnej kaskady z mapą.
+Jednokrotny wybór w Start ma pokazać lokalizację na mapie i zasilić moduły. W próbie ręcznej sprawdzić trzy tryby, pełne ID działki, powtarzalne nazwy, brak ulic, miasto na prawach powiatu, gminę miejsko-wiejską, stary link v1 i czyszczenie zależnych danych. [Scenariusz](../reports/m3c-start.md).

@@ -1,7 +1,8 @@
 import { asFiniteNumber, prepareRcnRecords, recordKey } from "./records.js";
+import { locationLine, locationNotice, streetName } from "../../location/shared.js";
 
 // Frontend port of denem1984/rcn-web-app static/app.js at 85cb2f91348e10fc1fa3491c5e4e0c07b4a952bb.
-export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }) {
+export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false, context = {} }) {
   const window = root.ownerDocument.defaultView;
   const timers = new Set();
   function later(callback, delay) {
@@ -26,6 +27,8 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
   }, { once: true });
 
   const $ = (id) => root.getElementById(id);
+  const shared = context.sharedSearch;
+  const location = context.location;
   const fmtMoney = (v) => v == null ? "—" : new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 0 }).format(v) + " zł";
   const fmtNum = (v, d = 2) => v == null ? "—" : new Intl.NumberFormat("pl-PL", { maximumFractionDigits: d }).format(v);
   const fmtPct = (v) => v == null ? "—" : (v > 0 ? "+" : "") + new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 1 }).format(v) + "%";
@@ -88,7 +91,7 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
       $("cityFieldWrap")?.classList.add("hidden");
       $("gminaPickerWrap")?.classList.remove("hidden");
       $("basicRangeFiltersWrap")?.classList.add("hidden");
-      if (!$("gmina_voivodeship").options.length || $("gmina_voivodeship").options.length <= 1) loadVoivodeships();
+      if (!shared && $("gmina_voivodeship").options.length <= 1) loadVoivodeships();
       applyGminaModeVisibility();
     } else if (module === "grunt_niezabudowany" || module === "grunt_zabudowany") {
       const built = module === "grunt_zabudowany";
@@ -110,10 +113,11 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
       $("gminaPickerWrap")?.classList.remove("hidden");
       if ($("gminaModeWrap")) $("gminaModeWrap").classList.remove("hidden");
       if ($("miejscowoscFieldWrap")) $("miejscowoscFieldWrap").classList.remove("hidden");
-      if (!$("gmina_voivodeship").options.length || $("gmina_voivodeship").options.length <= 1) loadVoivodeships();
+      if (shared) applySharedLocation();
+      else if ($("gmina_voivodeship").options.length <= 1) loadVoivodeships();
       if ($("streetFieldWrap")) $("streetFieldWrap").classList.remove("hidden");
       if (selectedPlace && isValidPolandPoint(selectedPlace.lat, selectedPlace.lon) && map) {
-        map.setView([Number(selectedPlace.lat), Number(selectedPlace.lon)], 13);
+        map.setView([Number(selectedPlace.lat), Number(selectedPlace.lon)], 13, { animate: false });
       }
     } else {
       setModule("lokale");
@@ -776,7 +780,7 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
         L.DomEvent.preventDefault(e);
         if (layer === activeBaseLayer) return;
         map.removeLayer(activeBaseLayer);
-        layer.addTo(map);
+        if (!demo) layer.addTo(map);
         activeBaseLayer = layer;
         layerControl.querySelectorAll(".rcn-layer-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
@@ -1015,7 +1019,17 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
         p.set("center_lon", String(c.lon));
       }
     }
-    if ($("gmina_mode")?.checked && $("gmina_gmina")?.value) {
+    if (location && shared && $("gmina_mode").checked) {
+      const gmina = location.canonicalGmina ?? location.gmina;
+      p.set("area_admin_level", "gmina");
+      p.set("gmina", gmina.name);
+      p.set("powiat", location.powiat.name);
+      p.set("voivodeship", location.voivodeship.name);
+      p.set("gmina_teryt6", gmina.terc7.slice(0, 6));
+      p.delete("city");
+      p.delete("teryt");
+      p.delete("street");
+    } else if ($("gmina_mode")?.checked && $("gmina_gmina")?.value) {
       p.set("area_admin_level", "gmina");
       p.set("gmina", $("gmina_gmina").value);
       p.set("powiat", $("gmina_powiat")?.value || "");
@@ -2188,10 +2202,11 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
 
   async function search() {
     if (currentSearch || signal.aborted) return;
-    if (!$("city").value.trim() && !($("gmina_mode").checked && $("gmina_gmina").value)
+    if (!$("city").value.trim() && !($("gmina_mode").checked && (shared ? location?.gmina : $("gmina_gmina").value))
         && !(getAreaMode() === "radius" && analysisCenter)
         && !(getAreaMode() === "polygon" && polygonClosed)) {
-      $("status").textContent = "Wybierz miejscowość, całą gminę lub gotowy obszar na mapie.";
+      $("status").textContent = shared ? "Wybierz lokalizację w Start lub wyznacz obszar analizy na mapie."
+        : "Wybierz miejscowość, całą gminę lub gotowy obszar na mapie.";
       return;
     }
     const request = new AbortController();
@@ -2204,9 +2219,9 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
         clearMapAnalysisContext();
         cityChangedManually = false;
       }
-      if ($("layer")?.value === "dzialki") {
+      if (!shared && $("layer")?.value === "dzialki") {
         await ensureDzialkiPlaceCenter();
-      } else {
+      } else if (!shared) {
         await ensureLokalePlaceCenter();
       }
       if (signal.aborted || request !== currentSearch) return;
@@ -2505,7 +2520,31 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
     $("status").textContent = `Wybrano miejscowość: ${cityName}.${centerNote} Kliknij „Szukaj”, aby pobrać dane.`;
   });
 
+  function applySharedLocation() {
+    $("gminaPickerWrap").classList.add("hidden");
+    $("cityFieldWrap").classList.add("hidden");
+    const whole = $("gmina_mode");
+    whole.disabled = !location?.place;
+    if (!location?.place) whole.checked = Boolean(location);
+    const place = whole.checked ? null : location?.place;
+    const land = $("layer").value === "dzialki";
+    $("city").value = place?.name ?? "";
+    $("teryt").value = place ? (place.terc7 ?? location.gmina.terc7).slice(0, 6) : "";
+    // The land modes use this field for cadastral descriptions, never for an address.
+    $("street").value = place && !land ? streetName(location.street) : "";
+    $("street").readOnly = !land;
+    $("streetFieldWrap").classList.toggle("hidden", !place || (!land && !location?.street));
+    const point = location?.point;
+    selectedPlace = point && (whole.checked || point.role !== "area")
+      ? { lat: point.lat, lon: point.lon, city: place?.name, teryt: $("teryt").value } : null;
+    $("status").textContent = location
+      ? (whole.checked ? "Zakres RCN: cała gmina " + (location.canonicalGmina ?? location.gmina).name + "." : "Zakres RCN: " + place.name + ".")
+      : "Wybierz lokalizację w module Start.";
+    if (map && selectedPlace) map.setView([selectedPlace.lat, selectedPlace.lon], Math.max(map.getZoom() || 0, 12), { animate: false });
+  }
+
   function applyGminaModeVisibility() {
+    if (shared) { applySharedLocation(); return; }
     const active = $("gmina_mode").checked;
     $("miejscowoscFieldWrap").classList.toggle("hidden", active);
     $("streetFieldWrap").classList.toggle("hidden", active);
@@ -2524,6 +2563,11 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
     }
   }
 
+  if (shared) {
+    const note = locationNotice(root.ownerDocument, context, locationLine(location));
+    $("searchTitle").after(note, $("gminaModeWrap"));
+    $("gminaModeWrap").classList.toggle("hidden", !location?.place);
+  }
   $("gmina_mode")?.addEventListener("change", applyGminaModeVisibility);
   $("gmina_retry").addEventListener("click", loadVoivodeships);
 
