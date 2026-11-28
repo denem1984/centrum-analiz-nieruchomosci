@@ -25,4 +25,6 @@ Przegląd wykorzystuje istniejące żądania z [macierzy stary front i Centrum](
 
 ## Metadane dostawy
 
-Do uzupełnienia po utworzeniu PR i weryfikacji podglądu.
+- [PR #31](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/31) otwarty do gałęzi `feat/m5-rcn` z #30. Implementacja `d21c114d403e452397531506022ea033a4dc7178`, 10 plików, +367 / −133 linii bez aktualizacji metadanych. [Pełny diff i końcowy SHA](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/31/files).
+- `git diff --cached --check`, `node scripts/check-no-secrets.mjs` i `node scripts/check-no-secrets.mjs --history` przeszły. `git push -u origin fix/rcn-review` opublikował gałąź.
+- `Invoke-WebRequest` na porcie 8083 zwrócił HTTP 200 dla aplikacji, szablonu, frontu, fikstur i nowego `records.js`. Sprawdzono obecność reguły kwalifikacji stawki gruntu w odpowiedzi localhost.
