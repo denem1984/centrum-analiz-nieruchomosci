@@ -39,6 +39,9 @@ export function planningSmokeFixture(raw) {
   ], body: Buffer.from(body).toString("base64") });
   const json = (body) => result("application/json", JSON.stringify(body));
   const id = "998877_2.0001.12/3";
+  if (url.hostname === "uldk.gugik.gov.pl" && request === "getparcelbyid") {
+    return result("text/plain", "0\n" + id + "|998877_2|12/3|Fikcyjny powiat|Łąki Żółte|Śródmieście|POLYGON((16.7375 53.1498,16.7395 53.1498,16.7395 53.1518,16.7375 53.1518,16.7375 53.1498))");
+  }
   if (request === "getmap" || request === "getlegendgraphic" || /\.(png|jpg)$/.test(url.pathname) || url.hostname.includes("arcgisonline")) {
     const width = Number(params.get("width") ?? params.get("WIDTH")) || 256;
     const height = Number(params.get("height") ?? params.get("HEIGHT")) || 256;

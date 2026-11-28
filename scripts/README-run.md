@@ -124,3 +124,6 @@ Scenariusz otwiera rzeczywisty Edge i Leaflet z fikcyjnymi odpowiedziami CDP, be
 ### Niezależne przewijanie panelu Działek
 
 Scenariusz: `node scripts/browser-smoke.mjs --headed --map-layout --task map-panel-scroll`. Opcjonalne `--verify-building-lines` sprawdza rzeczywiste dotychczasowe linie KIMPZP i legendę, z atrapami pozostałych usług. Wynik końcowy 20/20 PASS; **budżet tego zadania jest już zużyty (4/4) — nie uruchamiać ponownie ani nie resetować licznika**. Do ręcznego sprawdzenia użyć lokalnej aplikacji. [Instrukcja i ograniczenia](../docs/map-panel-scroll.md).
+### PDF w Działkach
+
+`node scripts/browser-smoke.mjs --headed --report-pdf --task m4f` sprawdza listę, mapę i rzeczywiste pobranie PDF w Edge. Odpowiedzi usług są fikcyjne. Plik PDF i zrzuty trafiają do ignorowanego katalogu wyników. [Test ręczny i ograniczenia](../reports/m4f-report-pdf.md).

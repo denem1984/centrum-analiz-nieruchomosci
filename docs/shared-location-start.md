@@ -1,5 +1,7 @@
 # Jedna lokalizacja w Start — M3c
 
+> **Plan historyczny.** Decyzja D35 właściciela z 2026-11-28 ustala osobne wyszukiwanie lokalizacji w każdym module. Poniższy opis zachowuje kontekst wcześniejszych ustaleń.
+
 ## Decyzja właściciela, 2026-11-27
 
 Użytkownik ustala lokalizację raz w zakładce Start. Każda kolejna zakładka pobiera potrzebne pola z tego samego stanu. Moduły nie wymagają ponownego wyboru województwa, powiatu, gminy, obrębu, miejscowości i ulicy.

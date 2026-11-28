@@ -4,7 +4,7 @@ Samodzielna aplikacja do pracy z modułami analiz nieruchomości: Działki, RCN,
 
 ## Status
 
-**Stan na 2026-11-28:** M0–M3a i M4a–M4e.1 w main; kolejkę #13–#24 scalono po sprawdzeniu CI. M4e.2: menu mapy, odległość/pole/obwód i Street View, 155 testów oraz headed offline/mobile 9/9 PASS. [Raport i podgląd](reports/m4e2-map-tools.md). Pozostały PDF, Start z mapą i słownikami, nowszy podkład, RCN i pozostałe moduły oraz AI. Scalenie nie oznacza odbioru baseline ani kompletności usług.
+**Stan na 2026-11-28.** Moduł Działki ma mapę z warstwami, pomiary i raport PDF z działkami oraz zapisanymi widokami. [Raport i podgląd](reports/m4f-report-pdf.md). Każdy moduł otrzyma własne wyszukiwanie lokalizacji zgodnie z D35.
 
 Aktualny stan, dowody, plan i **kolejka PR-ów**: [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md). Agent sam planuje, implementuje, testuje, otwiera i scala sprawdzone PR-y (zgoda właściciela 2026-11-28, D33). Właściciel podejmuje decyzje produktowe i autoryzuje wdrożenia. Po większym etapie agent zatrzymuje pracę do akceptacji kontynuacji.
 

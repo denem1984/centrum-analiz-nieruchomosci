@@ -2,7 +2,11 @@
 
 Aktualizacja: 2026-11-28. Bieżące źródło stanu i kolejki akceptacji; starsze raporty są dowodami historycznymi, nie bieżącą listą wykonanych funkcji.
 
-## Obecnie: M4e.2 i poprawka przewijania panelu
+## Obecnie: M4f — raport PDF w Działkach
+
+Właściciel zatwierdził M4f i samodzielne scalenie po testach. Lista działek i widoków mapy, edycja listy i PDF są gotowe do testu w podglądzie 8082, przypiętym do `f3a8cd3`. [PR #27](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/27), [raport M4f](../reports/m4f-report-pdf.md). Aktualizacja zakresu D35 przywraca własne wyszukiwanie lokalizacji w każdym module. Kolejny etap M3b czeka na akceptację.
+
+### Historia M4e i poprawki przewijania
 
 Dostawa poprawki: [PR #26](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/26), `fix/map-panel-scroll`, implementacja `3049421`. Podgląd 8082 przełączono do tej rewizji i potwierdzono HTTP 200 zmienionych zasobów. Końcowy stan merge i SHA w PR; kod podglądu jest taki sam jak w dostawie, późniejsze metadane nie zmieniają UI.
 
@@ -10,19 +14,19 @@ Aktualizacja po uwagach właściciela 2026-11-28 (D34): panel Działek przewija 
 
 Właściciel polecił 2026-11-28 „Kontynuuj. I rób sam to merge”. PR-y #13–#24 scalono kolejno do main po zielonych kontrolach; main `0fb6a8f` ma CI push SUCCESS. D33 zezwala na samodzielne merge, bez wdrażania. Ukończono M4e.2: odległość, pole i pełny obwód, menu miejsca i odnośnik Street View. 155 testów PASS i headed Edge offline/mobile 9/9 PASS; PNG obejrzane. Po tym etapie praca zatrzymana do akceptacji kontynuacji M4f.
 
-Zgodnie z D30 następny większy etap wymaga wyraźnej akceptacji. Starszy podgląd M4d.3 na porcie 8080 (`9c07bb4`, `.local/preview-m4d3`) pozostaje wersją historyczną; obecny etap testować na porcie 8082. Scalenie nie zastępuje ręcznego porównania baseline ani nie potwierdza pełnej dostępności usług.
+D30 wymaga wyraźnej akceptacji po każdym większym etapie. Scalenie potwierdza kontrolę kodu. Ręczne porównanie z baseline pozostaje częścią odbioru właściciela.
 
 Jeśli serwer po zamknięciu komputera przestanie działać: w terminalu katalogu projektu uruchomić `node .local/preview-m4d3/scripts/serve.mjs --port 8080`, a następnie otworzyć powyższy adres. Przy zajętym porcie nie uruchamiać drugiej kopii — najpierw sprawdzić działający podgląd.
 
-**Aktualny podgląd M4e.2: http://localhost:8082/#/dzialki**, oddzielna zapisana wersja w `.local/preview-m4e2`. Wznowienie: `node .local/preview-m4e2/scripts/serve.mjs --port 8082`. Dowody HTTP i SHA w [raporcie M4e.2](../reports/m4e2-map-tools.md). Port 8081 pozostaje starszym M4e.1. Rodzina numerów pominięta zgodnie z D31. Start z mapą, nowszy podkład i AI są zaplanowane. RCN i pozostałe nieprzeniesione moduły pokazują przygotowanie; Start nadal używa jawnych fikstur.
+**Aktualny podgląd M4f działa pod http://localhost:8082/#/dzialki.** Wznowienie z katalogu projektu poleceniem `node .local/preview-m4e2/scripts/serve.mjs --port 8082`. Start korzysta z jawnych fikstur. Następne moduły otrzymają osobne formularze lokalizacji zgodnie z D35.
 
-**Szacunkowo około 31% projektu wykonane, około 69% pozostało.** To orientacyjny szacunek nakładu całego zakresu, nie odsetek testów ani potwierdzenie gotowości produkcyjnej. Obejmuje Start z mapą, wizualne AI z internetem, brak logowania i ponowne wykorzystanie RCN/R2. Podajemy teraz sumę wag zamiast wcześniejszego zaokrąglenia do dziesiątek; aktualizować po zmianie zakresu i większym etapie.
+**Szacunkowo około 35% projektu wykonane, około 65% pozostało.** Wagi opisują orientacyjny nakład realizacji. Eksport PDF dodaje trzy punkty wykonania. Wycofanie centralnego wyszukiwania usuwa około trzech punktów zakresu, ponieważ formularze modułów i słowniki nadal są potrzebne.
 
 | Obszar | Waga w szacunku | Zrealizowana część w punktach całości |
 |---|---:|---:|
 | Powłoka, kontekst v1, zdrowie usług, narzędzia i porządek projektu | 10 | 9 |
-| Wspólne wyszukiwanie Start z mapą i prawdziwymi słownikami | 15 | 3 |
-| Działki: mapa, wyszukiwanie, warstwy, narzędzia i PDF | 22 | 18 |
+| Słowniki i wspólne elementy potrzebne wyszukiwaniom modułów | 12 | 3 |
+| Działki: mapa, wyszukiwanie, warstwy, narzędzia i PDF | 22 | 21 |
 | RCN: adaptacja istniejącego kodu i prezentacja z obecnym R2 | 12 | 1 |
 | Oferty | 9 | 0 |
 | Podobne | 9 | 0 |
@@ -30,9 +34,9 @@ Jeśli serwer po zamknięciu komputera przestanie działać: w terminalu katalog
 | Raporty AI: odczyt mapy, internet, tekst i eksport | 9 | 0 |
 | Raport zbiorczy, pełna regresja i odbiór wdrożenia | 4 | 0 |
 
-Suma robocza 31/100 (poprzednio 29/100, pokazywane jako około 30%). Pomiary dodają dwa punkty; same merge nie zwiększają liczby ukończonych funkcji. Nowa zgoda D33 zmienia sposób dostawy, nie zakres. Nieukończonych szkiców nie zaliczono jako gotowych.
+Suma robocza 34/97, czyli około 35%. Przed M4f i D35 było 31/100.
 
-Test właściciela: podgląd 8082 → Działki → „Wygląd i narzędzia działek” → odległość i obszar → zakończenie, zmiana zakładki, Esc → PPM i Street View. Pełny scenariusz w dokumentacji narzędzi. Kolejny etap M4f po wyraźnej akceptacji; scalenie nie oznacza zgody na wdrożenia lub opłaty AI.
+Test właściciela: podgląd 8082 → Działki → wyszukać działkę lub wskazać ją przez PPM → dodać do raportu → zapisać widok mapy → zmienić zakładkę i wrócić → pobrać PDF. [Scenariusz](../reports/m4f-report-pdf.md).
 
 ## Cel i zasady odbioru
 
@@ -46,7 +50,7 @@ Agent wykonuje plan, implementację, testy, dokumentację i PR-y oraz sam scala 
 - Historyczny dostarczony HEAD nie miał `.gitattributes`; M4d.2 dodało ochronę końców linii vendor. Proj4 ma SRI; Leaflet nadal korzysta z testu integralności blobu bez SRI loadera. [FAKT: `.gitattributes`, loader Leaflet i projekcji, testy vendor]
 - Router hashowy, sześć natywnych zakładek, rejestr mount/unmount i cztery równoległe sondy GET zdrowia. `DenemContext v1` zawiera osobne tekstowe kody TERC/SIMC/BDL i limit 2048 B; aktualny kształt jest w `docs/denem-context-v1.md`. Przykład w starszym MEGA_PROJECT.md nie jest kontraktem implementacji.
 - Kontekst ustawia wyszukiwanie; kliknięcie działki na mapie go nie zmienia. Bez trwałego zapisu analiz; pamięć modułów znika po odświeżeniu.
-- D28 (2026-11-27): docelowo **jedna lokalizacja wybierana w Start**, z województwem, powiatem, gminą, samodzielnym obrębem, miejscowością i ulicą. Moduły pobierają potrzebne pola. [Plan M3c](shared-location-start.md), po słownikach M3b i bieżących M4e/M4f; implementacja v1 nie ma jeszcze ulicy i osobnego obrębu.
+- D35 (2026-11-28) zastępuje D28. Formularz wyszukiwania jest osobny dla każdego modułu. Słowniki administracyjne można współdzielić, a istniejący kontekst nadal obsługuje odnośniki.
 - Backendów nie zmieniamy. Produkcyjny tryb RCN potwierdzony przez właściciela w CONFIG.md. Historyczne pomiary pierwszej odpowiedzi: 22–52 s; hipoteza zimnego startu, nie bieżący pomiar. UI ma obsługiwać do 120 s i licznik oczekiwania.
 - Gminy: plik danych (opcja B), bez Supabase. D5 zamknięte: **aplikacja w ogóle nie będzie miała logowania** (właściciel, 2026-11-27). D8 nie dotyczy. Nie jest to tylko zwolnienie na pierwszy odbiór.
 - Lista PDF: pamięć aplikacji między zakładkami, czyszczona przy odświeżeniu (D15). TERC7→TERYT6 jest czystą funkcją; R=4/5→3 nadal [HIP] do walidacji na pełnym TERC.
@@ -114,9 +118,9 @@ Przegląd oficjalnych źródeł wskazuje aktualną ortofotomapę GUGiK jako gł�
 | M4d.2 | Scalone do main w #17: pięć warstw, gminny POG i monitory | Testy i punktowe smoke opisane w `docs/dzialki-planning.md`; odbiór baseline właściciela pozostaje |
 | M4d.3 | Scalone do main w #20: RWDZ, ISOK, KIUT, własność z uzupełnieniem grup | Dowody w `reports/m4d3-thematic.md`; baseline D6 pozostaje do odbioru |
 | M4e | M4e.1 w main (#23); M4e.2 ukończone w bieżącym PR: menu, pomiary i Street View | 155 testów i headed offline/mobile 9/9 PASS; odbiór ręczny pozostaje; rodzina numerów pominięta D31 |
-| M4f | Lista i eksport PDF, biblioteki lokalne | Dodawanie/usuwanie/czyszczenie działek i widoków, zachowanie między zakładkami, oględziny PDF |
+| M4f | Lista raportu i PDF w Działkach | Testy startu, raportu i pobierania w Edge. Oględziny PDF z mapą i polskimi znakami |
 | M3b | Oficjalne TERC/SIMC i walidacja D9 | Próba pobrania przez agenta; fallback do plików od właściciela tylko przy faktycznej blokadzie; zera wiodące, nazwy powtarzalne, R=4/5 |
-| M3c | Jedno wyszukiwanie w Start, D28; po M3b | Kontrakt v2 i migracja v1, obręb oraz ulica, wspólna kaskada, adapter Działek i kolejnych modułów; bez powielania wyboru lokalizacji |
+| M3c | Dawny plan centralnego wyszukiwania zastąpiony przez D35 | Osobne wyszukiwania zasilane właściwymi danymi w etapach poszczególnych modułów |
 | M5–M8 | Plan podetapów poniżej; RCN według D32 | RCN wykorzystuje istniejący kod, obliczenia i bazę R2; poprawki prezentacji według przeglądu. Pozostałe moduły zachowują pełny parytet |
 | M9 | Widoki zbiorcze i raport po decyzji D10 | Wyniki zgodne ze źródłami; brakujące moduły oznaczone |
 | M10 | Instrukcja wdrożenia podglądowego i odbiór | Wdrożenie wykonuje właściciel; smoke prawdziwej domeny |
