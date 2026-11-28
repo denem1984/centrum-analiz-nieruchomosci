@@ -4,9 +4,9 @@ Aktualizacja: 2026-11-28. Bieżące źródło stanu i kolejki akceptacji; starsz
 
 ## Obecnie: M4f — raport PDF w Działkach
 
-D37 obejmuje poprawki po uwagach właściciela: lewy klik otwiera informacje, zaznaczenie jest w menu PPM, kolory własności odpowiadają legendzie, długi popup ma przewijanie, a PDF odróżnia MPZP od POG. [Raport poprawek](../reports/dzialki-planning-presentation.md). Podgląd na porcie 8082. Szacunek 35% / 65%. M3b pozostaje następnym etapem po odbiorze.
+D37 obejmuje poprawki po uwagach właściciela: lewy klik otwiera informacje, zaznaczenie jest w menu PPM, kolory własności odpowiadają legendzie, długi popup ma przewijanie, a PDF odróżnia MPZP od POG. Podgląd na porcie 8082 korzysta z `e031f16`. [PR #28 do decyzji właściciela](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/28), [raport poprawek](../reports/dzialki-planning-presentation.md). Szacunek 35% / 65%. M3b pozostaje następnym etapem po odbiorze.
 
-Właściciel zatwierdził M4f i samodzielne scalenie po testach. Lista działek i widoków mapy, edycja listy i PDF są gotowe do testu w podglądzie 8082, przypiętym do `f3a8cd3`. [PR #27](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/27), [raport M4f](../reports/m4f-report-pdf.md). Aktualizacja zakresu D35 przywraca własne wyszukiwanie lokalizacji w każdym module. Kolejny etap M3b czeka na akceptację.
+Właściciel zatwierdził M4f i samodzielne scalenie po testach dla [PR #27](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/27). Lista działek i widoków mapy, edycja listy i PDF są gotowe do testu w podglądzie 8082. [Raport M4f](../reports/m4f-report-pdf.md). Aktualizacja zakresu D35 przywraca własne wyszukiwanie lokalizacji w każdym module. Kolejny etap M3b czeka na akceptację.
 
 ### Historia M4e i poprawki przewijania
 
