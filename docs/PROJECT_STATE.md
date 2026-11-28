@@ -14,6 +14,7 @@ Agent wykonuje plan, implementację, testy, dokumentację i PR-y. Właściciel p
 - W dostarczonym HEAD nie ma `.gitattributes`; loader Leaflet nie ustawia SRI. Załącznik opisywał szerszą ochronę niż stan plików. [FAKT: `git show HEAD:.gitattributes`, `leaflet-loader.js`]
 - Router hashowy, sześć natywnych zakładek, rejestr mount/unmount i cztery równoległe sondy GET zdrowia. `DenemContext v1` zawiera osobne tekstowe kody TERC/SIMC/BDL i limit 2048 B; aktualny kształt jest w `docs/denem-context-v1.md`. Przykład w starszym MEGA_PROJECT.md nie jest kontraktem implementacji.
 - Kontekst ustawia wyszukiwanie; kliknięcie działki na mapie go nie zmienia. Bez trwałego zapisu analiz; pamięć modułów znika po odświeżeniu.
+- D28 (2026-11-27): docelowo **jedna lokalizacja wybierana w Start**, z województwem, powiatem, gminą, samodzielnym obrębem, miejscowością i ulicą. Moduły pobierają potrzebne pola. [Plan M3c](shared-location-start.md), po słownikach M3b i bieżących M4e/M4f; implementacja v1 nie ma jeszcze ulicy i osobnego obrębu.
 - Backendów nie zmieniamy. Produkcyjny tryb RCN potwierdzony przez właściciela w CONFIG.md. Historyczne pomiary pierwszej odpowiedzi: 22–52 s; hipoteza zimnego startu, nie bieżący pomiar. UI ma obsługiwać do 120 s i licznik oczekiwania.
 - Gminy: plik danych (opcja B), bez Supabase. D5 zamknięte: **aplikacja w ogóle nie będzie miała logowania** (właściciel, 2026-11-27). D8 nie dotyczy. Nie jest to tylko zwolnienie na pierwszy odbiór.
 - Lista PDF: pamięć aplikacji między zakładkami, czyszczona przy odświeżeniu (D15). TERC7→TERYT6 jest czystą funkcją; R=4/5→3 nadal [HIP] do walidacji na pełnym TERC.
@@ -38,6 +39,7 @@ Agent wykonuje plan, implementację, testy, dokumentację i PR-y. Właściciel p
 | 6 | `docs/imagery-freshness-plan` | Porównanie źródeł i plan nowszego podkładu M4b.4 | [PR #18](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/18); baza #17 |
 | 7 | `fix/windows-budget-replace` | Krótkie blokady atomowego zapisu licznika na Windows | [PR #19](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/19); baza #18 |
 | 8 | `feat/m4d3-risks-infrastructure` | RWDZ, ISOK, KIUT, własność i wspólne popupy | [PR #20](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/20); baza #19; 149 testów PASS |
+| 9 | `docs/shared-location-start` | D28: wspólne wyszukiwanie Start i plan M3c | [PR #21](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/21); baza #20 |
 
 Scalaj od góry. PR-y zależne porównują zmianę z gałęzią poprzednika; po scaleniu poprzednika ich bazą powinno zostać `main`. Agent nie scala i nie uruchamia wdrożeń.
 
@@ -78,6 +80,7 @@ Przegląd oficjalnych źródeł wskazuje aktualną ortofotomapę GUGiK jako gł�
 | M4e | Kolory, czyszczenie, rodzina działek, menu mapy, pomiary i Street View | Osiem kolorów, orientacyjność rodziny numerów, obsługa anulowania i cleanup; bez pomijania pomiarów z macierzy |
 | M4f | Lista i eksport PDF, biblioteki lokalne | Dodawanie/usuwanie/czyszczenie działek i widoków, zachowanie między zakładkami, oględziny PDF |
 | M3b | Oficjalne TERC/SIMC i walidacja D9 | Próba pobrania przez agenta; fallback do plików od właściciela tylko przy faktycznej blokadzie; zera wiodące, nazwy powtarzalne, R=4/5 |
+| M3c | Jedno wyszukiwanie w Start, D28; po M3b | Kontrakt v2 i migracja v1, obręb oraz ulica, wspólna kaskada, adapter Działek i kolejnych modułów; bez powielania wyboru lokalizacji |
 | M5–M8 | Plan podetapów poniżej | Pełny parytet, nie tylko podstawowe wyszukiwanie |
 | M9 | Widoki zbiorcze i raport po decyzji D10 | Wyniki zgodne ze źródłami; brakujące moduły oznaczone |
 | M10 | Instrukcja wdrożenia podglądowego i odbiór | Wdrożenie wykonuje właściciel; smoke prawdziwej domeny |

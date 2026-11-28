@@ -8,7 +8,9 @@
 
 Plan M4b.4 i przegląd oficjalnych źródeł: [docs/imagery-freshness-plan.md](docs/imagery-freshness-plan.md). Kandydat: aktualna ortofotomapa GUGiK z metadanymi; rekomendacja domyślnego źródła dopiero po porównaniu dat i szczegółu. To zaplanowane rozszerzenie, nie wykonana zamiana podkładu.
 
-M4d.2 → M4d.3 → M4e (w tym pomiary i Street View z istniejącego parytetu) → M4f → M3b → M5 → M6 → M7 → M8 → decyzja D10 → M9 → M10 wykonywane przez właściciela. Każdy podetap jest osobnym PR; zależne PR-y mogą być oparte na niescalonych gałęziach. Przed M3b agent próbuje uzyskać oficjalne dane GUS sam; przed M8 próbuje odtworzyć plik wskaźników z publicznego BDL, bez odczytów Supabase. D5 rozstrzygnięte: aplikacja w ogóle nie będzie miała logowania. Nie usuwa się wymagania pełnego parytetu.
+M4d.2 → M4d.3 → M4e (w tym pomiary i Street View z istniejącego parytetu) → M4f → M3b → M3c (jedna lokalizacja w Start, D28) → M5 → M6 → M7 → M8 → decyzja D10 → M9 → M10 wykonywane przez właściciela. Każdy podetap jest osobnym PR; zależne PR-y mogą być oparte na niescalonych gałęziach. Przed M3b agent próbuje uzyskać oficjalne dane GUS sam; słowniki obejmują też weryfikację źródła ulic ULIC. Przed M8 próbuje odtworzyć plik wskaźników z publicznego BDL, bez odczytów Supabase. D5 rozstrzygnięte: aplikacja w ogóle nie będzie miała logowania. Nie usuwa się wymagania pełnego parytetu.
+
+M3c: [plan wspólnej lokalizacji](docs/shared-location-start.md). Wersjonowany kontrakt z samodzielnym obrębem i ulicą, migracja v1, jeden formularz w Start, przeniesienie list administracyjnych z Działek oraz adaptery modułów. Przypadki akceptacji obejmują czyszczenie zależnych pól, stare URL-e i oznaczanie wyników nieaktualnych po zmianie lokalizacji.
 
 ## Etapy i zależności
 
