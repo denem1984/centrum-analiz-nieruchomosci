@@ -1,6 +1,6 @@
 # Jedna lokalizacja w Start — M3c
 
-> **Plan historyczny.** Decyzja D35 właściciela z 2026-11-28 ustala osobne wyszukiwanie lokalizacji w każdym module. Poniższy opis zachowuje kontekst wcześniejszych ustaleń.
+> **Aktualizacja 2026-11-28.** D39 przywraca wspólne wyszukiwanie w Start. Poniższy projekt interfejsu stanowi punkt wyjścia do M3c. Kolejność realizacji i powiązanie z opcją dołączenia Ofert do raportu RCN opisuje [decyzja D39](../DECISIONS.md#d39--wspólna-lokalizacja-ze-startu-oraz-oferty-w-raporcie-rcn-2026-11-28).
 
 ## Decyzja właściciela, 2026-11-27
 

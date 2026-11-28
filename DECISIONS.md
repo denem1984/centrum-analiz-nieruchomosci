@@ -10,7 +10,7 @@
 
 ## D2 — Wspólny słownik lokalizacji (2026-10-27)
 
-- **Status:** katalogi zweryfikowane w M3b na pełnym archiwum GUS z 2026-07-17. Podłączenie dostawców należy do etapów poszczególnych modułów (D35).
+- **Status:** katalogi zweryfikowane w M3b na pełnym archiwum GUS z 2026-07-17. Wspólne wyszukiwanie i podłączenie modułów zaplanowano w M3c zgodnie z D39.
 - **Decyzja:** [FAKT z kodu] RCN ładuje SIMC z cache, a przy jego braku pobiera SIMC i TERC, z małym `teryt_places.csv` jako fallback. Kod zwraca TERYT gminy i SIMC miejscowości; szczegóły i ograniczenia próbek zapisano w reports/m1c-d2-simc.md.
 - **Wpływ architektury:** TERC identyfikuje jednostkę administracyjną, SIMC miejscowość, a para SIMC i ULIC ulicę w danej miejscowości. Kody zachowujemy jako tekst. Wyniki o tej samej nazwie rozróżniamy kodem, rodzajem i położeniem administracyjnym. Obręby ewidencyjne pozostają danymi PRG/ULDK. [Wyniki M3b](reports/m3b-location-dictionaries.md).
 
@@ -63,9 +63,9 @@
 
 ## D10 — Zakres raportu zbiorczego (2026-10-26)
 
-- **Status:** otwarte; rozstrzygnąć przed M9.
+- **Status:** częściowo rozstrzygnięte przez D39. Raport RCN ma mieć opcję dołączenia analizy Ofert. Zakres pełnego raportu zbiorczego należy potwierdzić przed M9.
 - **Decyzja:** określić odbiorcę, format i wymagane sekcje raportu.
-- **Wpływ architektury:** raport pozostaje w M9; bez zmiany statusu.
+- **Wpływ architektury:** raport pozostaje w M9. Dołączenie Ofert wymaga wspólnej lokalizacji ze Startu.
 
 ## D11 — Trwałość analiz (2026-10-26)
 
@@ -253,6 +253,14 @@
 - Dla gruntu niezabudowanego do statystyk ceny/m² trafia bezpośrednia cena działki, potwierdzona powierzchnia z konturu i zgodny iloraz. Cena aktu lub nieruchomości o niepotwierdzonym zakresie, udział oraz niepotwierdzona jednostka powierzchni pozostają oznaczone w tabeli.
 - Dla gruntu zabudowanego wskaźnik dotyczy całej transakcji. Wymaga powiązania po ID transakcji, pełnej podstawy powierzchniowej dla budynków, bezpiecznej ceny aktu i zgodnego ilorazu. Stwierdzona niepełna suma działek wyłącza wskaźnik. Osobno oznaczamy podstawę z powierzchni użytkowej i ze szacunku kondygnacji.
 - Zakres wdrożenia obejmuje Centrum. [Weryfikacja kodu, testy i ograniczenia po stronie API](reports/m5-rcn-review.md).
+
+## D39 — Wspólna lokalizacja ze Startu oraz Oferty w raporcie RCN (2026-11-28)
+
+- Właściciel przywrócił wspólne wyszukiwanie. Start ustala lokalizację i pokazuje ją na mapie. Moduły odczytują potrzebne im identyfikatory z tego samego wyboru. D39 zastępuje D35 jako docelowy sposób wyszukiwania.
+- W M3c przewidziano wybór jednostki administracyjnej, adresu lub działki według posiadanych danych. RCN korzysta z miejscowości i ulicy, Oferty z miejscowości i jej kodów, Działki z gminy, obrębu i działki, Podobne z działki lub adresu, a Gminy z gminy. Formularze zachowują własne filtry analizy, między innymi okres, powierzchnię i promień.
+- Wynik wyszukiwania powinien rozróżniać powtarzalne nazwy przez kody i jednostki nadrzędne. Moduł pokazuje, jakiej części lokalizacji używa, jakiej jednostki mu brakuje i czy jego API obsługuje mniej dokładny zasięg. Zmiana lokalizacji oznacza wcześniejszy wynik jako pochodzący z poprzedniej lokalizacji.
+- W M9 raport RCN otrzyma opcjonalną sekcję z wynikami Ofert dla tej samej lokalizacji. Podczas dołączania trzeba sprawdzić powiązanie identyfikatorów, pokazać zastosowane filtry i przedstawić ceny transakcyjne RCN oraz ceny ofertowe w osobnych sekcjach z własnymi statystykami. Wynik z innej lokalizacji lub brak wyników trzeba pokazać przed wygenerowaniem raportu. Zakres dołączanych wierszy i format załącznika są do potwierdzenia w M9. Udostępnianie wyników Ofert nadal podlega decyzji D12.
+- Kolejność robocza to odbiór M6, pozostałe moduły M7–M8, wspólne wyszukiwanie M3c i raport M9. Ten zapis aktualizuje plan bieżącego etapu.
 
 ## Zasady repozytorium
 
