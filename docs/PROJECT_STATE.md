@@ -4,7 +4,7 @@ Aktualizacja: 2026-11-28. Bieżące źródło stanu i kolejki akceptacji; starsz
 
 ## Obecnie: M6 — Oferty do odbioru lokalnego
 
-Oferty mają własną zakładkę z czterema typami nieruchomości, filtrem powierzchni, promieniem, podsumowaniem portali, wyborem ofert, kalkulatorem i eksportem XLSX. [Dane przykładowe](http://localhost:8084/?oferty=demo#/oferty), [tryb istniejącego API](http://localhost:8084/#/oferty), [raport i próba ręczna](../reports/m6-oferty.md), [porównanie frontów](parity-oferty.md). Potwierdzenie bieżących odpowiedzi API i porównanie ze starym frontem pozostają do odbioru właściciela.
+Oferty mają własną zakładkę z czterema typami nieruchomości, filtrem powierzchni, promieniem, podsumowaniem portali, wyborem ofert, kalkulatorem i eksportem XLSX. Potwierdzenie bieżących odpowiedzi API i porównanie ze starym frontem pozostają do odbioru właściciela. [Dane przykładowe](http://localhost:8084/?oferty=demo#/oferty), [tryb istniejącego API](http://localhost:8084/#/oferty), [raport i próba ręczna](../reports/m6-oferty.md), [porównanie frontów](parity-oferty.md), [otwarty PR #32](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/32).
 
 Właściciel zatwierdził RCN. Scalono kolejno [PR #30](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/30) jako `1347ebc` i [PR #31](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/31) jako `b7c2210`. RCN wykorzystuje dotychczasowe API obsługujące źródło R2. Centrum kwalifikuje stawkę do statystyk i pokazuje powód pominięcia zgodnie z D38. [Raport przeglądu](../reports/m5-rcn-review.md), [macierz parytetu](parity-rcn.md).
 

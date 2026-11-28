@@ -6,7 +6,7 @@ WYKONANE w zakresie implementacji i lokalnych testów na danych przykładowych. 
 
 ## 2. Repozytorium, gałąź, SHA i PR
 
-- `denem1984/centrum-analiz-nieruchomosci`, `feat/m6-oferty`, baza `b7c2210a196fda8065a642ec6546aab86cbb0007`. SHA dostawy i PR są w metadanych Git.
+- `denem1984/centrum-analiz-nieruchomosci`, `feat/m6-oferty`. Baza `b7c2210a196fda8065a642ec6546aab86cbb0007` → implementacja `c6c927ccabb15939d3b7e1fad98f36e0c553b94f`. Końcowa rewizja dokumentacji jest w [otwartym PR #32](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/32).
 - Zgodnie z dyspozycją scalono w kolejności [#30](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/30) → `1347ebc3f5c97429ee721534cbc9dca2ade17928`, następnie [#31](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/31) → `b7c2210a196fda8065a642ec6546aab86cbb0007`. Kontrole PR-ów i końcowego main miały wynik SUCCESS.
 
 ## 3. Zmienione pliki
@@ -14,7 +14,7 @@ WYKONANE w zakresie implementacji i lokalnych testów na danych przykładowych. 
 - Moduł `app/js/modules/oferty/`, styl `app/css/modules/oferty.css`, wpis w rejestrze, wersja, przekazanie trybu przykładowego w powłoce.
 - SheetJS 0.20.3 mini i licencja w `app/vendor/oferty/`.
 - Testy klienta i startu zakładki, aktualizacja testów powłoki, scenariusz `scripts/oferty-browser-smoke.mjs`.
-- [Macierz Ofert](../docs/parity-oferty.md), [stan projektu](../docs/PROJECT_STATE.md) i [plan](../IMPLEMENTATION_PLAN.md). Liczby zmienionych linii są w statystyce PR.
+- [Macierz Ofert](../docs/parity-oferty.md), [stan projektu](../docs/PROJECT_STATE.md) i [plan](../IMPLEMENTATION_PLAN.md). Implementacja obejmuje 22 pliki, 1606 dodanych i 19 usuniętych linii. [Aktualne statystyki według plików](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/32/files)
 
 ## 4. Kryteria akceptacji
 
@@ -32,6 +32,7 @@ WYKONANE w zakresie implementacji i lokalnych testów na danych przykładowych. 
 - `node --test --test-reporter=tap scripts/*.test.mjs tests/*.test.mjs` z dostępem do loopback. 177/177 PASS. W sandboxie dwa testy lokalnego serwera otrzymały EACCES.
 - `node scripts/oferty-browser-smoke.mjs --headed --browser "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"`. PASS. Trzy obrazy `oferty-porownanie.png`, `oferty-wyniki-zrodel.png` i `oferty-mobile.png` oraz zapis żądań w `.local-results/oferty-browser-smoke/run-VXQ4j1/`. Pierwszy przebieg ujawnił problem odczytu zapisanego XLSX w teście. Końcowy przebieg odczytał bufor pobranego pliku.
 - `Invoke-WebRequest` do podglądu 8084. HTTP 200 dla strony, konfiguracji, klienta, widoku, eksportu, CSS i biblioteki XLSX.
+- `git diff --cached --check`, `node scripts/check-no-secrets.mjs` i `node scripts/check-no-secrets.mjs --history` zaliczone przed publikacją.
 
 ## 6. Odstępstwa i założenia
 
