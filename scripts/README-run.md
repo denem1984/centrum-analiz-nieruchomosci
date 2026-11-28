@@ -116,3 +116,8 @@ node scripts/browser-smoke.mjs --kieg-experiment V3
 V0 i V1 mierzą bieżące K0 bez cyklicznego sweepu, by zachować punkt odniesienia; V2 ustawia osiem rosnących opóźnień i sweep co 3 s; V3 mierzy bezpośrednie przejście na węzeł 02 po pierwszym błędzie ORB z węzła 01. Tylko V3 może wysyłać bezpośredni GET do hostów integracja01/integracja02. Pozostałe żądania muszą przechodzić zwykłą trasą i allowlistą KIEG. Skrypt nie zmienia User-Agent ani nagłówków Origin/Referer.
 
 Przed wysłaniem każdego dopuszczonego żądania KIEG skrypt zapisuje przyrost licznika do `.local-results/m4d1c-kieg-budget.json` (pliku ignorowanego przez Git). Licznik jest trwały po przerwaniu procesu: limit wynosi 5 uruchomień i 900 prób żądań łącznie. Nie usuwaj ani nie edytuj tego pliku w trakcie zadania; uszkodzony stan blokuje żądania. Przy osiągnięciu limitu dalsze wczytania i warianty są pomijane lub blokowane. Tabela pokaże ułamek końcowy, czas do 100%, żądania, błędy ORB oraz zgodność monitora z widocznymi kafelkami. `report.json`, `summary.txt` i PNG są w osobnym `.local-results/browser-smoke-<czas>/`.
+### Pomiary i menu mapy M4e.2
+
+`node scripts/browser-smoke.mjs --headed --map-tools --offline-map-tools --task m4e2`
+
+Scenariusz otwiera rzeczywisty Edge i Leaflet z fikcyjnymi odpowiedziami CDP, bez żądań do usług publicznych. Sprawdza pomiary, brak zaznaczania podczas rysowania, pamięć między zakładkami, menu, odnośnik Street View (bez nawigacji), Esc i 390 px. Nie zerować licznika zadania. [Tabela starego frontu, ograniczenia i test ręczny](../docs/dzialki-map-tools.md).

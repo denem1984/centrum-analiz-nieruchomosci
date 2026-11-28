@@ -9,6 +9,7 @@ import { mountEgibLayers } from "./egib-layers.js";
 import { mountPlanningLayers } from "./planning-layers.js";
 import { mountThematicLayers } from "./thematic-layers.js";
 import { mountParcelAppearance } from "./appearance-tools.js";
+import { mountMapTools } from "./map-tools.js";
 
 const STATUS_LABELS = Object.freeze({
   idle: "Nie sprawdzono",
@@ -54,6 +55,7 @@ export function mountDzialki(container, ctx = {}) {
   let egibLayerController = null;
   let planningLayerController = null;
   let thematicLayerController = null;
+  let mapTools = null;
   let pendingSearchSelection = null;
   let retryController = null;
   let baseFailedTileCount = 0;
@@ -211,6 +213,7 @@ export function mountDzialki(container, ctx = {}) {
     thematicLayerController?.onPopupOpen(popup);
   }
   egibLayerController = mountEgibLayers(mapLayersPanel, {
+    isMapInteractionBlocked: () => mapTools?.isMeasuring(),
     extendPopup: extendMapPopup,
     onPopupOpen: popupOpened,
     getBackendStatus: ctx.getBackendStatus ?? getBackendStatus,
@@ -226,6 +229,7 @@ export function mountDzialki(container, ctx = {}) {
   const planningGroup = createGroup("planning", "Planowanie przestrzenne", "planning", groups.planning);
   mapLayersPanel.append(planningGroup.details);
   planningLayerController = mountPlanningLayers(planningGroup.body, {
+    isMapInteractionBlocked: () => mapTools?.isMeasuring(),
     hasAdditionalPopup: () => thematicLayerController?.hasPopup(),
     extendStandalonePopup: extendMapPopup,
     onPopupOpen: popupOpened,
@@ -299,6 +303,16 @@ export function mountDzialki(container, ctx = {}) {
   mapStatus.setAttribute("role", "status");
   mapStatus.setAttribute("aria-live", "polite");
   mapFrame.append(mapStatus);
+  mapTools = mountMapTools(toolsGroup.body, {
+    menuContainer: mapFrame,
+    resultContainer: mapFrame,
+    onChange: (measurement) => updateDzialkiState({ measurement }),
+    onStart: () => {
+      egibLayerController.cancelMapInteraction();
+      planningLayerController.cancelMapInteraction();
+      map?.closePopup?.();
+    },
+  });
   layout.append(controls, mapFrame);
   root.append(layout);
   container.append(root);
@@ -423,6 +437,7 @@ export function mountDzialki(container, ctx = {}) {
       egibLayerController.attach(map, L);
       planningLayerController.attach(map, L);
       thematicLayerController.attach(map,L);
+      mapTools.attach(map, L, getDzialkiState().measurement);
       map.on("zoomend", syncZoom);
       map.on("moveend", () => {
         if (!map || disposed) return;
@@ -454,6 +469,7 @@ export function mountDzialki(container, ctx = {}) {
     unsubscribeHealth();
     unmountSearch();
     detachRetry();
+    mapTools?.cleanup();
     egibLayerController?.cleanup();
     planningLayerController?.cleanup();
     thematicLayerController?.cleanup();

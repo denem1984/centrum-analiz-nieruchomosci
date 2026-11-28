@@ -2,23 +2,23 @@
 
 Aktualizacja: 2026-11-28. Bieżące źródło stanu i kolejki akceptacji; starsze raporty są dowodami historycznymi, nie bieżącą listą wykonanych funkcji.
 
-## Obecnie: M4e.1 gotowy do odbioru
+## Obecnie: M4e.2 — pomiary i menu mapy
 
-Właściciel polecił „Kontynuuj” 2026-11-28. Ukończono M4e.1: osiem kolorów zaznaczenia, kolor obrysów i czyszczenie bez utraty wyniku wyszukiwania. Test startowy i formularza, pełny zestaw oraz headed smoke z atrapami przeszły. Po tej dostawie praca ponownie zatrzymana do akceptacji właściciela; pomiary i menu mapy nie są jeszcze realizowane.
+Właściciel polecił 2026-11-28 „Kontynuuj. I rób sam to merge”. PR-y #13–#24 scalono kolejno do main po zielonych kontrolach; main `0fb6a8f` ma CI push SUCCESS. D33 zezwala na samodzielne merge, bez wdrażania. Ukończono M4e.2: odległość, pole i pełny obwód, menu miejsca i odnośnik Street View. 155 testów PASS i headed Edge offline/mobile 9/9 PASS; PNG obejrzane. Po tym etapie praca zatrzymana do akceptacji kontynuacji M4f.
 
-Zgodnie z D30 praca nad następnym większym etapem jest zatrzymana do wyraźnego zatwierdzenia. Ukończone do odbioru: M4d.2/M4d.3 (planowanie oraz RWDZ/ISOK/KIUT/własność). Lokalny podgląd M4d.3: **http://localhost:8080/#/dzialki**, kod `9c07bb4` w ignorowanym `.local/preview-m4d3`. Serwer działa oddzielnie od roboczego katalogu; sprawdzono HTTP 200 strony i nowego modułu. Nie jest to wdrożenie produkcyjne.
+Zgodnie z D30 następny większy etap wymaga wyraźnej akceptacji. Starszy podgląd M4d.3 na porcie 8080 (`9c07bb4`, `.local/preview-m4d3`) pozostaje wersją historyczną; obecny etap testować na porcie 8082. Scalenie nie zastępuje ręcznego porównania baseline ani nie potwierdza pełnej dostępności usług.
 
 Jeśli serwer po zamknięciu komputera przestanie działać: w terminalu katalogu projektu uruchomić `node .local/preview-m4d3/scripts/serve.mjs --port 8080`, a następnie otworzyć powyższy adres. Przy zajętym porcie nie uruchamiać drugiej kopii — najpierw sprawdzić działający podgląd.
 
-**Aktualny podgląd M4e.1: http://localhost:8081/#/dzialki**, zapisany kod `01675a2` w `.local/preview-m4e1`; strona i moduł HTTP 200, napis wersji M4e1 potwierdzony. Wznowienie serwera: `node .local/preview-m4e1/scripts/serve.mjs --port 8081`. Heurystykę rodziny działek usunięto na polecenie właściciela D31; [ocena](parcel-history-assessment.md). Start z mapą i raporty AI są zaplanowane, nie wdrożone. RCN i pozostałe nieprzeniesione moduły pokazują stan przygotowania; Start nadal używa jawnych fikstur.
+**Aktualny podgląd M4e.2: http://localhost:8082/#/dzialki**, oddzielna zapisana wersja w `.local/preview-m4e2`. Wznowienie: `node .local/preview-m4e2/scripts/serve.mjs --port 8082`. Dowody HTTP i SHA w [raporcie M4e.2](../reports/m4e2-map-tools.md). Port 8081 pozostaje starszym M4e.1. Rodzina numerów pominięta zgodnie z D31. Start z mapą, nowszy podkład i AI są zaplanowane. RCN i pozostałe nieprzeniesione moduły pokazują przygotowanie; Start nadal używa jawnych fikstur.
 
-**Szacunkowo około 30% projektu wykonane, około 70% pozostało.** To zgrubny szacunek nakładu całego aktualnego zakresu, zaokrąglony do dziesiątek procent, a nie odsetek testów ani potwierdzenie gotowości produkcyjnej. Obejmuje nowy Start z mapą, wizualne AI z internetem, brak logowania i ponowne wykorzystanie RCN/R2. Aktualizować po każdym nowym poleceniu zmieniającym zakres oraz po odbiorze etapu.
+**Szacunkowo około 31% projektu wykonane, około 69% pozostało.** To orientacyjny szacunek nakładu całego zakresu, nie odsetek testów ani potwierdzenie gotowości produkcyjnej. Obejmuje Start z mapą, wizualne AI z internetem, brak logowania i ponowne wykorzystanie RCN/R2. Podajemy teraz sumę wag zamiast wcześniejszego zaokrąglenia do dziesiątek; aktualizować po zmianie zakresu i większym etapie.
 
 | Obszar | Waga w szacunku | Zrealizowana część w punktach całości |
 |---|---:|---:|
 | Powłoka, kontekst v1, zdrowie usług, narzędzia i porządek projektu | 10 | 9 |
 | Wspólne wyszukiwanie Start z mapą i prawdziwymi słownikami | 15 | 3 |
-| Działki: mapa, wyszukiwanie, warstwy, narzędzia i PDF | 22 | 16 |
+| Działki: mapa, wyszukiwanie, warstwy, narzędzia i PDF | 22 | 18 |
 | RCN: adaptacja istniejącego kodu i prezentacja z obecnym R2 | 12 | 1 |
 | Oferty | 9 | 0 |
 | Podobne | 9 | 0 |
@@ -26,9 +26,9 @@ Jeśli serwer po zamknięciu komputera przestanie działać: w terminalu katalog
 | Raporty AI: odczyt mapy, internet, tekst i eksport | 9 | 0 |
 | Raport zbiorczy, pełna regresja i odbiór wdrożenia | 4 | 0 |
 
-Suma robocza 29/100, prezentowana jako około 30%. Wzrost z 28 po ukończeniu M4e.1 nie zmienia zaokrąglonego wyniku. Nowe wymagania Start i AI zwiększyły zakres, ponowne wykorzystanie RCN go ogranicza, a pominięcie rodziny numerów usuwa mały podzakres. Nieukończonych szkiców nie zaliczono jako gotowych.
+Suma robocza 31/100 (poprzednio 29/100, pokazywane jako około 30%). Pomiary dodają dwa punkty; same merge nie zwiększają liczby ukończonych funkcji. Nowa zgoda D33 zmienia sposób dostawy, nie zakres. Nieukończonych szkiców nie zaliczono jako gotowych.
 
-Test właściciela: otworzyć podgląd → Działki → wyszukać znaną działkę → sprawdzić pięć opcji Planowania i cztery Inwestycji/Infrastruktury, legendy oraz popupy → zmienić zakładkę i wrócić. Przekazać uwagi albo wyraźnie zatwierdzić M4d.3. Akceptacja etapu nie oznacza zgody agentowi na merge, wdrożenie lub opłaty AI.
+Test właściciela: podgląd 8082 → Działki → „Wygląd i narzędzia działek” → odległość i obszar → zakończenie, zmiana zakładki, Esc → PPM i Street View. Pełny scenariusz w dokumentacji narzędzi. Kolejny etap M4f po wyraźnej akceptacji; scalenie nie oznacza zgody na wdrożenia lub opłaty AI.
 
 ## Cel i zasady odbioru
 
@@ -39,7 +39,7 @@ Agent wykonuje plan, implementację, testy, dokumentację i PR-y oraz sam scala 
 ## Architektura i decyzje
 
 - Statyczne `app/`, HTML/CSS/moduły ES; bez npm i budowania. Lokalne, przypięte biblioteki z licencjami; obecnie Leaflet 1.9.4 i testy jego SHA-256. [FAKT: `app/vendor/dzialki/README.md`, `tests/vendor-integrity.test.mjs`]
-- W dostarczonym HEAD nie ma `.gitattributes`; loader Leaflet nie ustawia SRI. Załącznik opisywał szerszą ochronę niż stan plików. [FAKT: `git show HEAD:.gitattributes`, `leaflet-loader.js`]
+- Historyczny dostarczony HEAD nie miał `.gitattributes`; M4d.2 dodało ochronę końców linii vendor. Proj4 ma SRI; Leaflet nadal korzysta z testu integralności blobu bez SRI loadera. [FAKT: `.gitattributes`, loader Leaflet i projekcji, testy vendor]
 - Router hashowy, sześć natywnych zakładek, rejestr mount/unmount i cztery równoległe sondy GET zdrowia. `DenemContext v1` zawiera osobne tekstowe kody TERC/SIMC/BDL i limit 2048 B; aktualny kształt jest w `docs/denem-context-v1.md`. Przykład w starszym MEGA_PROJECT.md nie jest kontraktem implementacji.
 - Kontekst ustawia wyszukiwanie; kliknięcie działki na mapie go nie zmienia. Bez trwałego zapisu analiz; pamięć modułów znika po odświeżeniu.
 - D28 (2026-11-27): docelowo **jedna lokalizacja wybierana w Start**, z województwem, powiatem, gminą, samodzielnym obrębem, miejscowością i ulicą. Moduły pobierają potrzebne pola. [Plan M3c](shared-location-start.md), po słownikach M3b i bieżących M4e/M4f; implementacja v1 nie ma jeszcze ulicy i osobnego obrębu.
@@ -55,7 +55,9 @@ Agent wykonuje plan, implementację, testy, dokumentację i PR-y oraz sam scala 
 - [FAKT: kod testu] Końcowa mapa w `tests/dzialki-module.test.mjs` pozostawała zamontowana. Monitor konturów utrzymywał licznik przez 40 s.
 - Nie wykonywano pomiarów usług zewnętrznych ani operacji zarządzania usługami.
 
-## Kolejka akceptacji
+## Historia kolejki #13–#24
+
+Wszystkie poniższe PR-y scalono do main 2026-11-28 po sprawdzeniu oczekiwanego SHA, zielonych check-runs i braku konfliktów. Tabela zachowuje dawne zależności, nie jest listą otwartych PR-ów. SHA merge w [raporcie](../reports/m4e2-map-tools.md).
 
 | Kolejność | Gałąź | Zakres | Status |
 |---|---|---|---|
@@ -71,7 +73,7 @@ Agent wykonuje plan, implementację, testy, dokumentację i PR-y oraz sam scala 
 | 10 | `docs/location-map-ai-reports` | Start z mapą, analiza AI, przegląd RCN, D30/D31 i estymacja | [PR #22](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/22); baza #21 |
 | 11 | `feat/m4e1-parcel-appearance` | Kolory i czyszczenie zaznaczeń, bez rodziny numerów | [PR #23](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/23); baza #22; 149 testów i headed offline 8/8 PASS |
 
-Scalaj od góry. PR-y zależne porównują zmianę z gałęzią poprzednika; po scaleniu poprzednika ich bazą powinno zostać `main`. Agent sam scala po zielonych kontrolach zgodnie z D33; nie uruchamia wdrożeń. Zapis zgody na merge powstaje w `docs/agent-merge-authorization`, na bazie #23; po nim kontynuacja M4e.2.
+Po #23 scalono także [PR #24](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/24), `docs/agent-merge-authorization`, zapisujący D33. M4e.2 powstaje na main w `feat/m4e2-map-measurements`; aktualny PR i wynik podaje raport. Agent sam scala sprawdzone PR-y, nie uruchamia wdrożeń.
 
 ## Weryfikacja poprawki testu
 
@@ -95,7 +97,7 @@ Sprawdzenie właściciela (opcjonalne dla tej poprawki): w PowerShell w folderze
 2. Zrealizować dodany plan nowszego podkładu: porównanie źródeł i rekomendacja, bez usuwania opcji.
 
 Przegląd oficjalnych źródeł wskazuje aktualną ortofotomapę GUGiK jako głównego kandydata [HIP do porównania dat w danym miejscu]. [Plan M4b.4, źródła i kryteria](imagery-freshness-plan.md) rozróżnia datę zdjęcia, publikację serwisu i rozdzielczość. Nie zmieniono jeszcze podkładu i nie wykonano dodatkowego ruchu mapowego.
-3. Kontynuować M4d.3 → M4e → M4f, następnie M3b i dalszą roadmapę; każdy podetap osobnym PR, bez scalania i wdrożeń.
+3. Po akceptacji M4e.2 kontynuować M4f, następnie M3b i dalszą roadmapę; każdy podetap osobnym PR, samodzielne merge po kontrolach D33, bez wdrożeń.
 
 ## Roadmapa i warunki zakończenia
 
@@ -105,9 +107,9 @@ Przegląd oficjalnych źródeł wskazuje aktualną ortofotomapę GUGiK jako gł�
 | M2/M3a | Powłoka i fikcyjny słownik w `main` | Nadal jawne oznaczenie danych testowych |
 | M4a–M4c | Analiza, mapa i wyszukiwanie w `main` | Porównanie z baseline właściciela nie jest domyślnie zaliczone |
 | M4d.1 | EGiB, zaznaczanie, popupy i monitor w `main`, PR #12 | Zewnętrzna kompletność KIEG pozostaje ograniczeniem pomiarów |
-| M4d.2 | Implementacja na gałęzi `feat/m4d2-planning-layers`: pięć warstw, trzy informacje, wspólne popupy, gminny POG z lokalną projekcją i monitory | 139/139 testów PASS w 0,74 s; Edge headed live 11/11, offline + mobile 12/12; tabela źródłowych żądań i ograniczenia w `docs/dzialki-planning.md`; odbiór baseline właściciela pozostaje |
-| M4d.3 | Implementacja na `feat/m4d3-risks-infrastructure`: cztery warstwy, legendy, własność z uzupełnianiem grup i wspólny popup | Test startowy, URL-e, headed offline/mobile i live; szczegóły i ograniczenia w `reports/m4d3-thematic.md`; baseline D6 pozostaje do odbioru |
-| M4e | Kolory, czyszczenie, menu mapy, pomiary i Street View; dalsza praca po akceptacji | Osiem kolorów, anulowanie i cleanup; rodzina numerów pominięta zgodnie z D31 |
+| M4d.2 | Scalone do main w #17: pięć warstw, gminny POG i monitory | Testy i punktowe smoke opisane w `docs/dzialki-planning.md`; odbiór baseline właściciela pozostaje |
+| M4d.3 | Scalone do main w #20: RWDZ, ISOK, KIUT, własność z uzupełnieniem grup | Dowody w `reports/m4d3-thematic.md`; baseline D6 pozostaje do odbioru |
+| M4e | M4e.1 w main (#23); M4e.2 ukończone w bieżącym PR: menu, pomiary i Street View | 155 testów i headed offline/mobile 9/9 PASS; odbiór ręczny pozostaje; rodzina numerów pominięta D31 |
 | M4f | Lista i eksport PDF, biblioteki lokalne | Dodawanie/usuwanie/czyszczenie działek i widoków, zachowanie między zakładkami, oględziny PDF |
 | M3b | Oficjalne TERC/SIMC i walidacja D9 | Próba pobrania przez agenta; fallback do plików od właściciela tylko przy faktycznej blokadzie; zera wiodące, nazwy powtarzalne, R=4/5 |
 | M3c | Jedno wyszukiwanie w Start, D28; po M3b | Kontrakt v2 i migracja v1, obręb oraz ulica, wspólna kaskada, adapter Działek i kolejnych modułów; bez powielania wyboru lokalizacji |
@@ -150,7 +152,7 @@ Poniższy inwentarz pochodzi z odczytu frontów we wskazanych rewizjach i histor
 5. Zrzuty obejrzyj, zapisz PASS/FAIL i ograniczenia. Pliki pomiarów i dane właściciela zostają w ignorowanych `.local/` / `.local-results/`; w repo wyłącznie fikcyjne przykłady. Mechanizm jednorazowego lokalnego zestawu danych właściciela jest jeszcze do dodania, nie został ogłoszony wykonanym.
 6. Mały commit, osobna gałąź, PR do main lub gałęzi zależności. Uzupełnij ten plik i pełny RAPORT. Sprawdź CI i oczekiwany SHA; scal samodzielnie zgodnie z D33, bez wdrażania. Po większym etapie zatrzymaj pracę do akceptacji kontynuacji.
 
-## RAPORT dla kierownika — przejęcie (stan bieżący)
+## RAPORT dla kierownika — przejęcie (historyczny, M4d.2)
 
 1. Status: CZĘŚCIOWO — dwie poprawki techniczne, handover, licznik budżetów i M4d.2 są w otwartych PR-ach; dalsza roadmapa w realizacji.
 2. Repozytorium: centrum-analiz-nieruchomosci; początek `3ebed06`; PR #13 (`f49444d`), #14 (`a1f8221`), #15 (`f4ca961`), #16 (`a240d95`), implementacja #17 (`6ff3262`). Końcowe SHA i statystyki aktualnych głów są w PR-ach.

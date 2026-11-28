@@ -685,7 +685,7 @@ export function mountEgibLayers(container, options = {}) {
   }
 
   async function handleMapClick(event) {
-    if (disposed || !map || map.getZoom() < EGiB_MIN_ZOOM
+    if (options.isMapInteractionBlocked?.() || disposed || !map || map.getZoom() < EGiB_MIN_ZOOM
         || !(readLayerOptions().numbers || readLayerOptions().parcels)) return;
     clickController?.abort();
     const controller = new AbortController();
@@ -857,6 +857,7 @@ export function mountEgibLayers(container, options = {}) {
     restoreSelections,
     refreshAppearance,
     clearSelections,
+    cancelMapInteraction: () => clickController?.abort(),
     refresh: () => scheduleRefresh(true),
     retryFailedTiles() {
       const parcels = parcelTileRetry?.retryVisible() ?? false;

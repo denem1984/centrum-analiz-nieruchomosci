@@ -4,7 +4,7 @@ Samodzielna aplikacja do pracy z modułami analiz nieruchomości: Działki, RCN,
 
 ## Status
 
-**Stan na 2026-11-27:** M0–M3a, M4a–M4c oraz M4d.1 są w `main` (PR #12). Na gałęzi M4d.2 dodano pięć warstw planowania, popupy, gminny POG i monitory; testy i smoke z rzeczywistymi usługami w jednym widoku przeszły, a odbiór baseline pozostaje po stronie właściciela. Kolejne narzędzia Działek i pozostałe moduły wymagają implementacji. Kompletność KIEG nie została potwierdzona dla wszystkich historycznych pomiarów; scalenie nie oznacza odbioru usług zewnętrznych.
+**Stan na 2026-11-28:** M0–M3a i M4a–M4e.1 w main; kolejkę #13–#24 scalono po sprawdzeniu CI. M4e.2: menu mapy, odległość/pole/obwód i Street View, 155 testów oraz headed offline/mobile 9/9 PASS. [Raport i podgląd](reports/m4e2-map-tools.md). Pozostały PDF, Start z mapą i słownikami, nowszy podkład, RCN i pozostałe moduły oraz AI. Scalenie nie oznacza odbioru baseline ani kompletności usług.
 
 Aktualny stan, dowody, plan i **kolejka PR-ów**: [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md). Agent sam planuje, implementuje, testuje, otwiera i scala sprawdzone PR-y (zgoda właściciela 2026-11-28, D33). Właściciel podejmuje decyzje produktowe i autoryzuje wdrożenia. Po większym etapie agent zatrzymuje pracę do akceptacji kontynuacji.
 

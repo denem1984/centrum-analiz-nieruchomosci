@@ -123,6 +123,8 @@ export class FakeElement {
     this.ownerDocument.activeElement = this;
   }
 
+  getBoundingClientRect() { return { left: 0, top: 0, width: 260, height: 150 }; }
+
   querySelectorAll(selector) {
     const found = [];
     const visit = (node) => {
@@ -195,6 +197,10 @@ export function createFakeDom() {
   const windowListeners = new Map();
   const historyCalls = [];
   const window = {
+    innerWidth: 1000,
+    innerHeight: 800,
+    requestAnimationFrame: (callback) => setTimeout(callback, 0),
+    cancelAnimationFrame: (id) => clearTimeout(id),
     location,
     history: {
       replaceState(state, title, url) {
@@ -208,6 +214,9 @@ export function createFakeDom() {
       const listeners = windowListeners.get(type) ?? [];
       listeners.push(listener);
       windowListeners.set(type, listeners);
+    },
+    removeEventListener(type, listener) {
+      windowListeners.set(type, (windowListeners.get(type) ?? []).filter(item => item !== listener));
     },
     dispatch(type, properties = {}) {
       const event = { type, ...properties };

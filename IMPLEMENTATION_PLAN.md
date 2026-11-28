@@ -1,6 +1,6 @@
 # IMPLEMENTATION_PLAN.md — plan M0–M10
 
-**Status na 2026-11-27:** M0–M3a, M4a/M4b/M4b.2, M4c/M4c.1 i M4d.1 są scalone do `main` (ostatni PR #12, SHA `3ebed06`). Historyczny pomiar KIEG nie potwierdza 100% w trzech z trzech prób do 20 s; scalenie nie zamyka ograniczenia. Poprawka czasu testów jest w PR #13; poprawka Edge/CDP z potwierdzonym lokalnym startem z oknem w PR #14. M4d.2 nie jest wdrożone. Aktualna kolejka, dowody i podział M5–M10: [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md). D2/D9 nadal otwarte; D5 zamknięte — aplikacja bez logowania. Pięć repozytoriów źródłowych pozostaje tylko do odczytu.
+**Status na 2026-11-28:** M0–M3a i M4a–M4e.1 w main, kolejka #13–#24 scalona. M4e.2 ukończone w bieżącym PR: pomiary, menu i Street View; 155 testów i headed offline/mobile 9/9 PASS. Następne M4f po akceptacji. D33 pozwala samodzielnie scalać sprawdzone PR-y, bez wdrażania. Aktualne dowody: [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md). Ograniczenia KIEG i odbiór baseline pozostają; D5 bez logowania, źródła tylko do odczytu.
 
 ## Kolejność dalszej realizacji
 

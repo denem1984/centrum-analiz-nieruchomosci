@@ -559,3 +559,13 @@
 .dzialki-thematic-popup section { margin-top:.7rem; padding-top:.4rem; border-top:1px solid #d3dfe9; }
 .dzialki-thematic-popup p { margin:.3rem 0; overflow-wrap:anywhere; }
 .dzialki-thematic-popup button { min-height:2.75rem; }
+.dzialki-measure-buttons { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+.dzialki-map-tools button, #dzialki-measure-panel button { min-height: 44px; margin: .2rem; }
+#dzialki-measure-panel { border: 1px solid #0f766e; border-radius: .5rem; padding: .75rem; margin-top: .5rem; }
+#dzialki-measure-panel h4 { margin: 0; }
+#dzialki-measure-values { font-weight: 600; overflow-wrap: anywhere; }
+.dzialki-map-menu { position: fixed; z-index: 1200; width: min(260px, calc(100vw - 12px)); padding: .4rem; background: white; color: #162c40; border: 1px solid #bdcbd5; border-radius: .5rem; box-shadow: 0 6px 24px #162c4033; }
+.dzialki-map-menu[hidden] { display: none; }
+.dzialki-map-menu button, .dzialki-map-menu a { display: block; box-sizing: border-box; width: 100%; min-height: 44px; text-align: left; padding: .65rem; border: 0; border-radius: .25rem; background: white; color: inherit; font: inherit; text-decoration: none; cursor: pointer; }
+.dzialki-map-menu button:hover, .dzialki-map-menu a:hover { background: #e8f4f1; }
+.dzialki-map-menu :focus-visible { outline: 2px solid #0f766e; outline-offset: -2px; }

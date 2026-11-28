@@ -353,6 +353,7 @@ export function mountPlanningLayers(container, options = {}) {
     return root;
   }
   async function standaloneClick(event) {
+    if (options.isMapInteractionBlocked?.()) return;
     popupController?.abort();
     if (disposed || !map || !L || !(enabled().mpzp || enabled().pogAdopted || enabled().pogDraftGugik || options.hasAdditionalPopup?.())) return;
     const egib = getDzialkiState().egibLayers;
@@ -368,6 +369,7 @@ export function mountPlanningLayers(container, options = {}) {
   };
   return {
     extendPopup,
+    cancelMapInteraction: cancelPopupRequests,
     onPopupOpen(popup) { activePopup = popup; },
     attach(nextMap, nextL) {
       map = nextMap;
