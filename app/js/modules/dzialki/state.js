@@ -17,6 +17,7 @@ const initialState = Object.freeze({
   selectedMapParcels: Object.freeze([]),
   mapSelectionInitialized: false,
   egibLayers: Object.freeze({ numbers: true, parcels: true, buildings: false }),
+  planningLayers: Object.freeze({ mpzp: false, buildingLines: false, pogAdopted: false, pogDraftRu: false, pogDraftGugik: false }),
   layerGroups: Object.freeze({ base: true, egib: true, planning: false, investments: false, infrastructure: false, tools: false }),
 });
 
@@ -38,6 +39,7 @@ export function getDzialkiState() {
     selectedParcel: copyPlain(current.selectedParcel),
     selectedMapParcels: copyPlain(current.selectedMapParcels),
     egibLayers: copyPlain(current.egibLayers),
+    planningLayers: copyPlain(current.planningLayers),
     layerGroups: copyPlain(current.layerGroups),
   };
 }
@@ -74,6 +76,9 @@ export function updateDzialkiState(patch) {
   }
   if (patch.layerGroups && typeof patch.layerGroups === "object" && !Array.isArray(patch.layerGroups)) {
     current.layerGroups = { ...current.layerGroups, ...copyPlain(patch.layerGroups) };
+  }
+  if (patch.planningLayers && typeof patch.planningLayers === "object" && !Array.isArray(patch.planningLayers)) {
+    current.planningLayers = { ...current.planningLayers, ...copyPlain(patch.planningLayers) };
   }
   return getDzialkiState();
 }

@@ -6,6 +6,7 @@ import { loadLeaflet } from "./leaflet-loader.js";
 import { getDzialkiState, updateDzialkiState } from "./state.js";
 import { mountParcelSearch } from "./search-ui.js";
 import { mountEgibLayers } from "./egib-layers.js";
+import { mountPlanningLayers } from "./planning-layers.js";
 
 const STATUS_LABELS = Object.freeze({
   idle: "Nie sprawdzono",
@@ -49,6 +50,7 @@ export function mountDzialki(container, ctx = {}) {
   let leaflet = null;
   let activeLayer = null;
   let egibLayerController = null;
+  let planningLayerController = null;
   let pendingSearchSelection = null;
   let retryController = null;
   let baseFailedTileCount = 0;
@@ -198,6 +200,8 @@ export function mountDzialki(container, ctx = {}) {
   baseGroup.body.append(archiveControls);
 
   egibLayerController = mountEgibLayers(mapLayersPanel, {
+    extendPopup: (content, event, selection) => planningLayerController?.extendPopup(content, event, selection) ?? content,
+    onPopupOpen: (popup) => planningLayerController?.onPopupOpen(popup),
     getBackendStatus: ctx.getBackendStatus ?? getBackendStatus,
     checkBackend: ctx.checkBackend ?? checkBackend,
     subscribeBackendStatus: ctx.subscribeBackendStatus,
@@ -208,8 +212,15 @@ export function mountDzialki(container, ctx = {}) {
     },
   });
 
+  const planningGroup = createGroup("planning", "Planowanie przestrzenne", "planning", groups.planning);
+  mapLayersPanel.append(planningGroup.details);
+  planningLayerController = mountPlanningLayers(planningGroup.body, {
+    getBackendStatus: ctx.getBackendStatus ?? getBackendStatus,
+    checkBackend: ctx.checkBackend ?? checkBackend,
+    subscribeBackendStatus: ctx.subscribeBackendStatus,
+  });
+
   const upcomingGroups = [
-    ["planning", "Planowanie przestrzenne", "planning"],
     ["investments", "Inwestycje i zagrożenia", "investments"],
     ["infrastructure", "Infrastruktura i własność", "infrastructure"],
     ["tools", "Wygląd i narzędzia działek", "tools"],
@@ -392,6 +403,7 @@ export function mountDzialki(container, ctx = {}) {
       map.addLayer(activeLayer);
       attachRetry(activeLayer);
       egibLayerController.attach(map, L);
+      planningLayerController.attach(map, L);
       map.on("zoomend", syncZoom);
       map.on("moveend", () => {
         if (!map || disposed) return;
@@ -424,6 +436,7 @@ export function mountDzialki(container, ctx = {}) {
     unmountSearch();
     detachRetry();
     egibLayerController?.cleanup();
+    planningLayerController?.cleanup();
     if (map) {
       map.off("zoomend", syncZoom);
       map.remove();

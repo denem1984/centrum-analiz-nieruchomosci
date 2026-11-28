@@ -33,7 +33,8 @@ Agent wykonuje plan, implementację, testy, dokumentację i PR-y. Właściciel p
 | 1 | `fix/dzialki-test-cleanup` | Odmontowanie map po teście startowym, także przy błędzie asercji | [PR #13](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/13), 119/119 PASS, 0,69 s |
 | 2 | `fix/edge-headed-cdp` | Osobny profil, port z DevToolsActivePort, lokalny sprawdzian Edge | [PR #14](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/14); baza #13 |
 | 3 | `docs/handover` | Stan, zasady autonomii, aktualna D5, plan i procedury | [PR #15](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/15); baza #14 |
-| 4 | `fix/smoke-task-budgets` | Trwały wspólny licznik 4/400/300, blokowanie przekroczeń | PR do utworzenia; baza #15 |
+| 4 | `fix/smoke-task-budgets` | Trwały wspólny licznik 4/400/300, blokowanie przekroczeń | [PR #16](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/16); baza #15 |
+| 5 | `feat/m4d2-planning-layers` | Pięć warstw planowania, gminny POG, popupy, monitory i smoke | [PR #17](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/17); baza #16 |
 
 Scalaj od góry. PR-y zależne porównują zmianę z gałęzią poprzednika; po scaleniu poprzednika ich bazą powinno zostać `main`. Agent nie scala i nie uruchamia wdrożeń.
 
@@ -55,10 +56,9 @@ Sprawdzenie właściciela (opcjonalne dla tej poprawki): w PowerShell w folderze
 
 ## Następna praca
 
-1. Potwierdzić pełny zestaw testów poniżej 5 s i wykonać oba skany sekretów.
-2. Naprawić połączenie CDP w trybie Edge z oknem; osobny PR.
-3. Uzupełnić dokumentację przejęcia i plan M4d.2–M10 w PR `docs: handover`.
-4. Zrealizować podetapy według zlecenia właściciela, bez scalania PR-ów i wdrożeń.
+1. M4d.2 jest w PR #17: 139 testów PASS, rzeczywisty smoke 11/11, offline + mobile 12/12. Szczegółowy [RAPORT](../reports/m4d2-planning.md) i instrukcja baseline pozostają do odbioru właściciela.
+2. Zrealizować dodany plan nowszego podkładu: porównanie źródeł i rekomendacja, bez usuwania opcji.
+3. Kontynuować M4d.3 → M4e → M4f, następnie M3b i dalszą roadmapę; każdy podetap osobnym PR, bez scalania i wdrożeń.
 
 ## Roadmapa i warunki zakończenia
 
@@ -68,7 +68,7 @@ Sprawdzenie właściciela (opcjonalne dla tej poprawki): w PowerShell w folderze
 | M2/M3a | Powłoka i fikcyjny słownik w `main` | Nadal jawne oznaczenie danych testowych |
 | M4a–M4c | Analiza, mapa i wyszukiwanie w `main` | Porównanie z baseline właściciela nie jest domyślnie zaliczone |
 | M4d.1 | EGiB, zaznaczanie, popupy i monitor w `main`, PR #12 | Zewnętrzna kompletność KIEG pozostaje ograniczeniem pomiarów |
-| M4d.2 | Następna implementacja: pięć warstw planistycznych, trzy przyciski informacji i sekcje popupów | Wszystkie źródła starego frontu, w tym uzupełnienie uchwalonego POG z usługi gminnej; monitory/retry, test startowy, pełne URL-e i smoke |
+| M4d.2 | Implementacja na gałęzi `feat/m4d2-planning-layers`: pięć warstw, trzy informacje, wspólne popupy, gminny POG z lokalną projekcją i monitory | 139/139 testów PASS w 0,74 s; Edge headed live 11/11, offline + mobile 12/12; tabela źródłowych żądań i ograniczenia w `docs/dzialki-planning.md`; odbiór baseline właściciela pozostaje |
 | M4d.3 | RWDZ, ISOK, KIUT, własność | Legendy, style i sekcje popupów; własność z uzupełnianiem brakujących grup; kompletność |
 | M4e | Kolory, czyszczenie, rodzina działek, menu mapy, pomiary i Street View | Osiem kolorów, orientacyjność rodziny numerów, obsługa anulowania i cleanup; bez pomijania pomiarów z macierzy |
 | M4f | Lista i eksport PDF, biblioteki lokalne | Dodawanie/usuwanie/czyszczenie działek i widoków, zachowanie między zakładkami, oględziny PDF |
@@ -92,6 +92,8 @@ Poniższy inwentarz pochodzi z odczytu frontów we wskazanych rewizjach i histor
 
 ## Znane problemy i rzeczy do weryfikacji
 
+- **Nowe zadanie właściciela (2026-11-27): aktualniejsze zdjęcia w podkładzie.** Właściciel ocenia, że Esri może być nieaktualne; rzeczywista data zobrazowania pozostaje do sprawdzenia [HIP]. Bez przerywania bieżących podetapów zaplanowano porównanie alternatywnych zdjęć satelitarnych i aktualnej ortofotomapy. Kryteria: udokumentowana data zdjęcia dla danego obszaru, rozdzielczość przy analizie działki, pokrycie Polski, jakość obrazu, stabilność, dostęp bez ujawniania kluczy, licencja i ewentualny koszt. Wynik ma wskazać rekomendowany nowszy podkład i sposób pokazywania daty/źródła. Nie zastępować szczegółowego obrazu świeższym, ale zbyt mało dokładnym bez jasnego uzasadnienia. Zachować istniejące opcje parytetu; płatny wariant wymaga decyzji właściciela. Kolejność: po zamknięciu bieżącej implementacji M4d.2, równolegle z planowaniem M4d.3, przed docelowym wyborem podkładu w odbiorze.
+
 - Ortofotomapa archiwalna: w historycznym pomiarze 67/144 GET-ów bez odpowiedzi po 35 s. Backlog M4b.3: limit czasu na kafelek i ocena 512 px. Nie uznawać awarii usługi za pusty poprawny wynik.
 - KIEG: V0 headless dawał ORB dla węzła 01, a frakcje wynosiły 0/12, 11/12 i 12/12. Wpływ User-Agent pozostaje [HIP]; nie zmieniamy nagłówków. Aktualny sprawdzian Edge/CDP nie testował usług KIEG. [Źródło: D23 i docs/dzialki-module.md]
 - Nowy budżet właściciela to 4 pełne smoke, 400 żądań Działek, 300 na usługę. `fix/smoke-task-budgets` dodaje wspólny licznik wymagający `--task`, utrwalany przed wysłaniem żądania; przekierowania KIEG dzielą licznik. Stary licznik M4d.1c jest używany dodatkowo tylko w historycznym eksperymencie, bez kasowania jego stanu. Nie zwiększa nowych limitów. Sprawdzian samego CDP nie zużywa budżetu usług.
@@ -111,14 +113,14 @@ Poniższy inwentarz pochodzi z odczytu frontów we wskazanych rewizjach i histor
 
 ## RAPORT dla kierownika — przejęcie (stan bieżący)
 
-1. Status: CZĘŚCIOWO — dwa problemy techniczne poprawione; dokumentacja i plan przygotowane; roadmapa pozostaje w realizacji.
-2. Repozytorium: centrum-analiz-nieruchomosci; początek `3ebed06`; PR #13 (`f49444d`), PR #14 (`a1f8221`), następnie `docs/handover`. Końcowe SHA i statystyki są w PR-ach, nie przewidujemy identyfikatora własnego commitu.
-3. Zmiany #13: dwa pliki, +45/-0. #14: cztery pliki, +170/-44. Dokumentacja przejęcia: lista i statystyki w jej PR.
-4. Kryteria: testy <5 s — TAK (119/119, 0,69 s); Edge headed/CDP — TAK (lokalny sprawdzian i obejrzany PNG); pełny smoke KIEG — NIE, nie był celem sprawdzianu CDP; handover/plan — przygotowane; M4d.2–M10 — NIE.
+1. Status: CZĘŚCIOWO — dwie poprawki techniczne, handover, licznik budżetów i M4d.2 są w otwartych PR-ach; dalsza roadmapa w realizacji.
+2. Repozytorium: centrum-analiz-nieruchomosci; początek `3ebed06`; PR #13 (`f49444d`), #14 (`a1f8221`), #15 (`f4ca961`), #16 (`a240d95`), implementacja #17 (`6ff3262`). Końcowe SHA i statystyki aktualnych głów są w PR-ach.
+3. Zmiany #13: dwa pliki +45/-0; #14: cztery +170/-44; #15: osiem +152/-23; #16: pięć +203/-4; implementacja #17: 29 +1398/-18, plus aktualizacja metadanych raportu po utworzeniu PR. Szczegóły #17 w reports/m4d2-planning.md i statystyce PR.
+4. Kryteria: testy <5 s — TAK (aktualnie 139/139, 0,74 s); Edge headed/CDP — TAK; handover i plan — TAK; M4d.2 — implementacja i punktowy smoke TAK, baseline właściciela NIE; M4d.3–M10 — NIE. Nowy smoke nie zamyka historycznych ograniczeń EGiB/KIEG.
 5. Uruchomiono: odczyty dokumentów/kodu, `git clone --bare` i odtworzenie metadanych bez nadpisania plików, status/log/branch/diff, testy, oba skany, `node --check scripts/browser-smoke.mjs`, lokalny `--headed --check-browser`, commity i push dwóch gałęzi; utworzono dwa otwarte PR-y. Weryfikacja dokumentacji dopisywana w jej PR.
 6. [FAKT] Załącznik nie odpowiadał w pełni plikom (brak .git i .gitattributes, brak SRI loadera). [HIP] Przyczyna ORB pozostaje niepotwierdzona.
 7. Zakazane obszary: NIE — bez zmian źródeł, portalu, usług i wdrożeń.
 8. Sekrety: nie odczytywano ani nie zapisywano sekretów lub wartości środowiska. Publiczna konfiguracja starego frontu pojawiła się w odpowiedzi narzędzia; nie utrwalono ani nie używano jej.
 9. Otwarte: pełne dane D2/D9, D10 i produktowe kwestie wyżej. D5 zamknięte: aplikacja zawsze bez logowania.
 10. Test ręczny: opcjonalnie polecenia testów i `--headed --check-browser` opisane w scripts/README-run.md; mapowe scenariusze wymagają osobnego przebiegu po wdrożeniu nowych limitów.
-11. Następny krok: M4d.2 z pełną macierzą żądań, lokalną biblioteką projekcji dla uzupełniającego POG, monitorami i scenariuszem smoke.
+11. Następny krok: porównanie aktualniejszych podkładów według nowego planu właściciela oraz M4d.3. Nie wykonywać dodatkowego smoke m4d2 po 4/4 startach.

@@ -27,4 +27,4 @@ export const BACKENDS = Object.freeze({
 
 export const BACKEND_IDS = Object.freeze(Object.keys(BACKENDS));
 
-export const APP_STAGE = "M4d1";
+export const APP_STAGE = "M4d2";
