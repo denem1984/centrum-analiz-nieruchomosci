@@ -4,6 +4,22 @@
 
 Użytkownik ustala lokalizację raz w zakładce Start. Każda kolejna zakładka pobiera potrzebne pola z tego samego stanu. Moduły nie wymagają ponownego wyboru województwa, powiatu, gminy, obrębu, miejscowości i ulicy.
 
+Uzupełnienie właściciela: wynik wyszukiwania jest pokazany na mapie w Start. Można zacząć od tych danych, które użytkownik ma — nazwy miejscowości, adresu albo numeru/identyfikatora działki — bez obowiązku ręcznego wypełnienia wszystkich list.
+
+### Proponowany interfejs
+
+Trzy tryby wybierane przyciskami radiowymi: **Obszar**, **Adres**, **Działka**. Checkboksy nie są potrzebne do wyboru wzajemnie wykluczających się sposobów wyszukania jednego celu.
+
+| Tryb | Wprowadzanie | Wynik na mapie |
+|---|---|---|
+| Obszar | Wyszukiwanie gminy lub miejscowości po nazwie; listy województwa/powiatu/gminy do zawężenia i rozróżniania powtarzalnych nazw | Granica dostępnego obszaru i dopasowanie widoku; punkt środka jest orientacyjny |
+| Adres | Miejscowość i ulica; numer adresowy opcjonalny, jeśli wspierany przez wybrane źródło. Wybór miejscowości uzupełnia potwierdzoną gminę, powiat i województwo | Ulica jako obszar/linia lub potwierdzony punkt adresowy. Sama ulica nie oznacza ustalonej działki |
+| Działka | Gmina/jednostka ewidencyjna → obręb → numer albo bezpośrednio pełny identyfikator działki | Obrys działki, dopasowany widok i dane identyfikujące wynik |
+
+Pod formularzem jeden przycisk „Ustal lokalizację” oraz mapa i opis wybranego celu. Wyniki niejednoznaczne wymagają wyboru z listy opisanej gminą/powiatem/województwem. Pokazać komplet dostępnych pól, ich pochodzenie w kontrakcie i dokładność wskazania; brak potwierdzenia pozostaje brakiem.
+
+Wybranie działki nie gwarantuje automatycznego ustalenia miejscowości i ulicy. Nie dopasowywać ich przez podobieństwo nazw, najbliższą ulicę lub środek wieloboku. Uzupełnić z wiarygodnej relacji przestrzennej/adresowej albo poprosić o wybór brakującego pola w tym samym Start. Analogicznie sam adres bez numeru nie wskazuje jednoznacznej działki.
+
 [FAKT z kodu] Start ma już wyszukiwanie na fikcyjnych danych i wspólny magazyn DenemContext v1. Działki w bieżącym repo mają formularz powiat → gmina → obręb → numer działki. Nie mają jeszcze osobnego wyboru miejscowości ani ulicy. Docelowa lista właściciela opisuje rozszerzenie wspólnego formularza, a nie komplet już dostępnych pól. Źródła: `app/js/modules/registry.js`, `app/js/location/search-ui.js`, `app/js/modules/dzialki/search-ui.js`.
 
 ## Przepływ docelowy
@@ -32,4 +48,4 @@ Użytkownik ustala lokalizację raz w zakładce Start. Każda kolejna zakładka 
 
 ## Akceptacja
 
-Jednokrotny wybór gminy, obrębu, miejscowości i ulicy w Start zasila wszystkie właściwe moduły bez ponownego wyszukiwania; brak pola ma czytelną ścieżkę uzupełnienia. Sprawdzić powtarzalne nazwy, brak ulic w miejscowości, miasto na prawach powiatu, gminę miejsko-wiejską, niezależność obrębu i miejscowości, stare linki v1, czyszczenie zależności i anulowanie spóźnionych odpowiedzi. Obowiązują test startowy DOM, dokładne testy URL-i dla nowych wywołań, headed smoke z budżetem oraz oględziny desktop/mobile. Ta dostawa zapisuje decyzję i plan; nie wdraża jeszcze kontraktu v2 ani wspólnej kaskady.
+Jednokrotny wybór lokalizacji w Start pokazuje wynik na mapie i zasila właściwe moduły bez powtarzania wyszukiwania; brak pola ma czytelną ścieżkę uzupełnienia. Sprawdzić wszystkie trzy tryby, bezpośredni identyfikator działki, powtarzalne nazwy, brak ulic, miasto na prawach powiatu, gminę miejsko-wiejską, niezależność obrębu i miejscowości, stare linki v1, czyszczenie zależności i anulowanie spóźnionych odpowiedzi. Obowiązują test startowy DOM, dokładne testy URL-i, headed smoke z budżetem oraz oględziny desktop/mobile. Ta dostawa zapisuje decyzję i plan; nie wdraża jeszcze kontraktu v2 ani wspólnej kaskady z mapą.

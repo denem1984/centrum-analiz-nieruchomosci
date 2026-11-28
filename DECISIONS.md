@@ -197,6 +197,26 @@
 - Filtry analizy pozostają w modułach. Podobne korzysta ze wspólnej lokalizacji dla nieruchomości analizowanej; nieruchomości porównawcze zachowują własne adresy. Zmiana kontekstu unieważnia stare wyniki, nie uruchamia automatycznie ciężkich zapytań i czyści zależne pola. Nie utożsamiamy obrębu z miejscowością.
 - Alternatywę powielania pełnej kaskady w każdej zakładce odrzucono. Działający formularz Działek zastąpić dopiero wraz z gotowym Start i adapterem, bez przejściowej utraty funkcji.
 
+## D29 — AI czyta mapę i internet, raport bez źródeł (2026-11-27)
+
+- **Wymaganie właściciela:** profesjonalne raporty RCN, Działek i podobieństwa gmin, z odczytem istniejącej mapy i rzeczywistym internetem, bez wewnętrznej bazy wiedzy DENEM, bez sekcji źródeł/odnośników w raporcie i bez generowania obrazów. Odczyt screenshotu jest osobnym kosztem wejścia, nie generacją obrazu.
+- **Analiza, nie aktywacja:** `docs/ai-reports-feasibility.md`. Preferencja Gemini wymaga osobnej usługi serwerowej i limitów kosztów przy zachowaniu braku logowania. Wbudowane Google Grounding ma warunki wyświetlania linków; osobne wyszukiwanie jest rekomendowanym kierunkiem do weryfikacji dla raportu bez przypisów. Nie kupiono usług, nie wywołano modelu, nie dotknięto DENEM ani infrastruktury.
+
+## D30 — Odbiór większych etapów i lokalny podgląd (2026-11-27)
+
+- **Decyzja właściciela:** po większym etapie agent zatrzymuje pracę, podsumowuje wykonane i pozostałe zadania, publikuje zaktualizowaną estymację procentową i udostępnia lokalną aplikację do testów. Kontynuacja następnego etapu dopiero po wyraźnym zatwierdzeniu. Zastępuje wcześniejsze polecenie pracy nieprzerwanej do końca roadmapy; rutynowe wybory wewnątrz etapu pozostają samodzielne.
+- Bieżący odbiór: M4d.2/M4d.3, podgląd M4d.3 z rewizji `9c07bb4` w oddzielnym ignorowanym katalogu, bez rozpoczętego szkicu M4e.1. Szkic jest nieukończony, nie podlega teraz odbiorowi. Stan i estymacja w `docs/PROJECT_STATE.md`.
+
+## D31 — Bez heurystycznej „rodziny działek” (2026-11-27)
+
+- Właściciel odrzucił rozpoznawanie po wspólnym numerze bazowym. Sprawdzony opis publicznych danych nie dał potwierdzonej relacji podziału; nie dodajemy tej opcji. Rozpoczęty szkic usunięto przed dostawą. To jawna zgoda na odstępstwo od historycznego parytetu, nie zadanie do przywrócenia przez kolejną heurystykę.
+- Wiarygodny powrót wymaga danych zdarzeń przed/po z datą i geometrią lub zweryfikowanej dokumentacji. Sama zbieżność numerów, sąsiedztwo lub AI nie wystarcza. Ocena: `docs/parcel-history-assessment.md`.
+
+## D32 — RCN wykorzystuje obecny kod i dane R2 (2026-11-27)
+
+- **Decyzja właściciela:** wykorzystać bazę i kod `rcn-web-app`; właściciel aktualizuje pliki RCN Geoportalu w Cloudflare R2. Nie zmieniamy danych, importu ani istniejącego backendu. Przegląd dotyczy możliwych poprawek prezentacji i adaptacji do wspólnej aplikacji.
+- Źródło pozostaje tylko do odczytu; wszystkie przyszłe zmiany UI w repo Centrum. Zachować obecne filtry, obliczenia i eksporty. `docs/rcn-presentation-review.md` zawiera przegląd z liniami dowodowymi, bez twierdzenia o wykonanym teście produkcji lub odczycie konfiguracji R2.
+
 ## Zasady repozytorium
 
 [FAKT: decyzja właściciela z 2026-10-26] Repozytorium jest publiczne. Nie zapisujemy w nim wartości sekretów, konfiguracji, tokenów, kluczy, danych osobowych ani identyfikatorów kont lub usług. Wyjątkiem jest niesekretna wartość trybu źródło danych RCN. Pięć repozytoriów źródłowych jest tylko do odczytu.

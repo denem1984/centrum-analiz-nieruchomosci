@@ -1,6 +1,34 @@
 # Stan projektu — Centrum Analiz Nieruchomości
 
-Aktualizacja: 2026-11-27. Bieżące źródło stanu i kolejki akceptacji; starsze raporty są dowodami historycznymi, nie bieżącą listą wykonanych funkcji.
+Aktualizacja: 2026-11-28. Bieżące źródło stanu i kolejki akceptacji; starsze raporty są dowodami historycznymi, nie bieżącą listą wykonanych funkcji.
+
+## Obecnie: wznowiony etap M4e.1
+
+Właściciel polecił „Kontynuuj” 2026-11-28. Wznowiono kolory i czyszczenie zaznaczeń; po zakończeniu M4e.1 ponownie obowiązuje zatrzymanie i podgląd do akceptacji. Poniższy odbiór starszych warstw pozostaje dostępny; nie oznaczono wszystkich przypadków baseline jako potwierdzonych.
+
+Zgodnie z D30 praca nad następnym większym etapem jest zatrzymana do wyraźnego zatwierdzenia. Ukończone do odbioru: M4d.2/M4d.3 (planowanie oraz RWDZ/ISOK/KIUT/własność). Lokalny podgląd M4d.3: **http://localhost:8080/#/dzialki**, kod `9c07bb4` w ignorowanym `.local/preview-m4d3`. Serwer działa oddzielnie od roboczego katalogu; sprawdzono HTTP 200 strony i nowego modułu. Nie jest to wdrożenie produkcyjne.
+
+Jeśli serwer po zamknięciu komputera przestanie działać: w terminalu katalogu projektu uruchomić `node .local/preview-m4d3/scripts/serve.mjs --port 8080`, a następnie otworzyć powyższy adres. Przy zajętym porcie nie uruchamiać drugiej kopii — najpierw sprawdzić działający podgląd.
+
+M4e.1 — kolory i czyszczenie — pozostaje lokalnym szkicem poza podglądem, bez PR dostawy i bez browser-smoke. Heurystykę rodziny działek usunięto na polecenie właściciela D31; [ocena](parcel-history-assessment.md). Start z mapą i raporty AI są zaplanowane, nie wdrożone. RCN i pozostałe nieprzeniesione moduły pokazują stan przygotowania; Start nadal używa jawnych fikstur.
+
+**Szacunkowo około 30% projektu wykonane, około 70% pozostało.** To zgrubny szacunek nakładu całego aktualnego zakresu, zaokrąglony do dziesiątek procent, a nie odsetek testów ani potwierdzenie gotowości produkcyjnej. Obejmuje nowy Start z mapą, wizualne AI z internetem, brak logowania i ponowne wykorzystanie RCN/R2. Aktualizować po każdym nowym poleceniu zmieniającym zakres oraz po odbiorze etapu.
+
+| Obszar | Waga w szacunku | Zrealizowana część w punktach całości |
+|---|---:|---:|
+| Powłoka, kontekst v1, zdrowie usług, narzędzia i porządek projektu | 10 | 9 |
+| Wspólne wyszukiwanie Start z mapą i prawdziwymi słownikami | 15 | 3 |
+| Działki: mapa, wyszukiwanie, warstwy, narzędzia i PDF | 22 | 15 |
+| RCN: adaptacja istniejącego kodu i prezentacja z obecnym R2 | 12 | 1 |
+| Oferty | 9 | 0 |
+| Podobne | 9 | 0 |
+| Gminy i dane wskaźników | 10 | 0 |
+| Raporty AI: odczyt mapy, internet, tekst i eksport | 9 | 0 |
+| Raport zbiorczy, pełna regresja i odbiór wdrożenia | 4 | 0 |
+
+Suma robocza 28/100, prezentowana jako około 30%. Nowe wymagania Start i AI zwiększyły zakres, ponowne wykorzystanie RCN go ogranicza, a pominięcie rodziny numerów usuwa mały podzakres. To pierwsza opublikowana estymacja; brak wcześniejszego zmierzonego % do porównania. Nieukończonych szkiców nie zaliczono jako gotowych.
+
+Test właściciela: otworzyć podgląd → Działki → wyszukać znaną działkę → sprawdzić pięć opcji Planowania i cztery Inwestycji/Infrastruktury, legendy oraz popupy → zmienić zakładkę i wrócić. Przekazać uwagi albo wyraźnie zatwierdzić M4d.3. Akceptacja etapu nie oznacza zgody agentowi na merge, wdrożenie lub opłaty AI.
 
 ## Cel i zasady odbioru
 
@@ -40,6 +68,7 @@ Agent wykonuje plan, implementację, testy, dokumentację i PR-y. Właściciel p
 | 7 | `fix/windows-budget-replace` | Krótkie blokady atomowego zapisu licznika na Windows | [PR #19](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/19); baza #18 |
 | 8 | `feat/m4d3-risks-infrastructure` | RWDZ, ISOK, KIUT, własność i wspólne popupy | [PR #20](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/20); baza #19; 149 testów PASS |
 | 9 | `docs/shared-location-start` | D28: wspólne wyszukiwanie Start i plan M3c | [PR #21](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/21); baza #20 |
+| 10 | `docs/location-map-ai-reports` | Start z mapą, analiza AI, przegląd RCN, D30/D31 i estymacja | [PR #22](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/22); baza #21 |
 
 Scalaj od góry. PR-y zależne porównują zmianę z gałęzią poprzednika; po scaleniu poprzednika ich bazą powinno zostać `main`. Agent nie scala i nie uruchamia wdrożeń.
 
@@ -77,13 +106,14 @@ Przegląd oficjalnych źródeł wskazuje aktualną ortofotomapę GUGiK jako gł�
 | M4d.1 | EGiB, zaznaczanie, popupy i monitor w `main`, PR #12 | Zewnętrzna kompletność KIEG pozostaje ograniczeniem pomiarów |
 | M4d.2 | Implementacja na gałęzi `feat/m4d2-planning-layers`: pięć warstw, trzy informacje, wspólne popupy, gminny POG z lokalną projekcją i monitory | 139/139 testów PASS w 0,74 s; Edge headed live 11/11, offline + mobile 12/12; tabela źródłowych żądań i ograniczenia w `docs/dzialki-planning.md`; odbiór baseline właściciela pozostaje |
 | M4d.3 | Implementacja na `feat/m4d3-risks-infrastructure`: cztery warstwy, legendy, własność z uzupełnianiem grup i wspólny popup | Test startowy, URL-e, headed offline/mobile i live; szczegóły i ograniczenia w `reports/m4d3-thematic.md`; baseline D6 pozostaje do odbioru |
-| M4e | Kolory, czyszczenie, rodzina działek, menu mapy, pomiary i Street View | Osiem kolorów, orientacyjność rodziny numerów, obsługa anulowania i cleanup; bez pomijania pomiarów z macierzy |
+| M4e | Kolory, czyszczenie, menu mapy, pomiary i Street View; dalsza praca po akceptacji | Osiem kolorów, anulowanie i cleanup; rodzina numerów pominięta zgodnie z D31 |
 | M4f | Lista i eksport PDF, biblioteki lokalne | Dodawanie/usuwanie/czyszczenie działek i widoków, zachowanie między zakładkami, oględziny PDF |
 | M3b | Oficjalne TERC/SIMC i walidacja D9 | Próba pobrania przez agenta; fallback do plików od właściciela tylko przy faktycznej blokadzie; zera wiodące, nazwy powtarzalne, R=4/5 |
 | M3c | Jedno wyszukiwanie w Start, D28; po M3b | Kontrakt v2 i migracja v1, obręb oraz ulica, wspólna kaskada, adapter Działek i kolejnych modułów; bez powielania wyboru lokalizacji |
-| M5–M8 | Plan podetapów poniżej | Pełny parytet, nie tylko podstawowe wyszukiwanie |
+| M5–M8 | Plan podetapów poniżej; RCN według D32 | RCN wykorzystuje istniejący kod, obliczenia i bazę R2; poprawki prezentacji według przeglądu. Pozostałe moduły zachowują pełny parytet |
 | M9 | Widoki zbiorcze i raport po decyzji D10 | Wyniki zgodne ze źródłami; brakujące moduły oznaczone |
 | M10 | Instrukcja wdrożenia podglądowego i odbiór | Wdrożenie wykonuje właściciel; smoke prawdziwej domeny |
+| AI | [Analiza możliwości](ai-reports-feasibility.md), implementacja po zatwierdzeniu zakresu etapu i decyzjach kosztowych | Widok mapy + internet, raporty RCN/Działek/Gmin bez bibliografii, bez bazy DENEM i bez generacji obrazów |
 
 ## Inwentarz i plan M5–M10
 
