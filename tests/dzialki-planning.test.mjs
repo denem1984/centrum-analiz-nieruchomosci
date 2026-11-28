@@ -118,6 +118,18 @@ test("panel ma pięć wyłączonych opcji i trzy informacje; monitor nie uznaje 
   assert.equal(fake.timers.size, 0);
 });
 
+test("pomiar blokuje popup planowania, zakończenie przywraca obsługę", t => {
+  let blocked = true, opened = 0;
+  const fake = setup(t, { isMapInteractionBlocked: () => blocked, hasAdditionalPopup: () => true,
+    onPopupOpen: () => opened++, extendStandalonePopup: content => content,
+  });
+  fake.map.fire("click", { latlng: { lat: 53, lng: 17 } });
+  assert.equal(opened, 0); assert.equal(fake.map.popup, undefined);
+  blocked = false;
+  fake.map.fire("click", { latlng: { lat: 53, lng: 17 } });
+  assert.equal(opened, 1); assert.ok(fake.map.popup);
+});
+
 test("odmontowanie blokuje spóźnione odpowiedzi popupu", async (t) => {
   const releases = [];
   const fake = setup(t, { fetchImpl: async () => {

@@ -109,6 +109,12 @@ export class FakeMap extends FakeEventTarget {
     this.center = { lat: 52.07, lng: 19.48 };
     this.zoom = 6;
     this.panes = new Map();
+    let doubleClickZoomEnabled = true;
+    this.doubleClickZoom = {
+      enabled: () => doubleClickZoomEnabled,
+      enable: () => { doubleClickZoomEnabled = true; },
+      disable: () => { doubleClickZoomEnabled = false; },
+    };
   }
 
   setView(center, zoom) {
@@ -122,6 +128,7 @@ export class FakeMap extends FakeEventTarget {
   }
 
   getCenter() { return { ...this.center }; }
+  getContainer() { return this.container; }
   getZoom() { return this.zoom; }
   getSize() { return { x: 1000, y: 800 }; }
   latLngToContainerPoint() { return { x: 500, y: 400 }; }
@@ -192,11 +199,27 @@ class FakePopup {
   openOn(map) { map.openPopup(this); return this; }
 }
 
+class FakeVector {
+  constructor(points, options) { this.points = points; this.options = options; }
+  addTo(target) { target.addLayer(this); return this; }
+}
+
+class FakeLayerGroup {
+  constructor() { this.layers = new Set(); }
+  addTo(map) { map.addLayer(this); return this; }
+  addLayer(layer) { this.layers.add(layer); return this; }
+  clearLayers() { this.layers.clear(); return this; }
+}
+
 export function createFakeLeaflet() {
   const maps = [];
   const layers = [];
   const geoJsonLayers = [];
   const fake = {
+    layerGroup: () => new FakeLayerGroup(),
+    polygon: (points, options) => new FakeVector(points, { ...options, kind: "polygon" }),
+    polyline: (points, options) => new FakeVector(points, { ...options, kind: "polyline" }),
+    circleMarker: (point, options) => new FakeVector(point, { ...options, kind: "circle" }),
     CRS: { EPSG3857: "EPSG:3857", EPSG4326: "EPSG:4326" },
     map(container, options) {
       const map = new FakeMap(container, options);

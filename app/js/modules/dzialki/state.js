@@ -21,6 +21,7 @@ const initialState = Object.freeze({
   selectedMapParcels: Object.freeze([]),
   mapSelectionInitialized: false,
   appearance: Object.freeze({outlineColor:"#2563eb",selectionColor:"#dc2626"}),
+  measurement: null,
   egibLayers: Object.freeze({ numbers: true, parcels: true, buildings: false }),
   planningLayers: Object.freeze({ mpzp: false, buildingLines: false, pogAdopted: false, pogDraftRu: false, pogDraftGugik: false }),
   thematicLayers: Object.freeze({ rwdz: false, flood: false, kiut: false, ownership: false }),
@@ -48,11 +49,18 @@ export function getDzialkiState() {
     planningLayers: copyPlain(current.planningLayers),
     thematicLayers: copyPlain(current.thematicLayers),
     appearance: copyPlain(current.appearance),
+    measurement: copyPlain(current.measurement),
     layerGroups: copyPlain(current.layerGroups),
   };
 }
 
 export function updateDzialkiState(patch) {
+  if (patch.measurement === null) current.measurement = null;
+  else if (patch.measurement && ["distance", "area"].includes(patch.measurement.mode)
+      && Array.isArray(patch.measurement.points) && patch.measurement.points.every(p => p
+        && Number.isFinite(p.lat) && Math.abs(p.lat) <= 90 && Number.isFinite(p.lng) && Math.abs(p.lng) <= 180)) {
+    current.measurement = copyPlain(patch.measurement);
+  }
   if (patch.baseLayer && ["osm", "esri", "archive"].includes(patch.baseLayer)) {
     current.baseLayer = patch.baseLayer;
   }

@@ -302,6 +302,7 @@ test("kliknięcie przełącza wiele działek i bezpieczny popup zawiera pola EGi
   const leaflet = createFakeLeaflet();
   const container = fake.document.createElement("aside");
   let clickNumber = 0;
+  let measuring = true;
   const clickRequests = [];
   const fetchImpl = async (url, options) => {
     if (String(url).includes("/api/wfs?")) {
@@ -312,11 +313,15 @@ test("kliknięcie przełącza wiele działek i bezpieczny popup zawiera pola EGi
     clickNumber += 1;
     return { ok: true, status: 200, text: async () => kiegXml(clickNumber === 2 ? idB : idA) };
   };
-  const controller = mountEgibLayers(container, readyOptions(fetchImpl));
+  const controller = mountEgibLayers(container, { ...readyOptions(fetchImpl), isMapInteractionBlocked: () => measuring });
   const map = leaflet.L.map(container, {});
   map.setZoom(17);
   controller.attach(map, leaflet.L);
   await wait(25);
+  map.fire("click", { latlng: { lat: 53.2, lng: 16.9 } });
+  await wait();
+  assert.equal(clickRequests.length, 0, "pomiar nie pobiera ani nie zaznacza działki");
+  measuring = false;
   map.fire("click", { latlng: { lat: 53.2, lng: 16.9 } });
   await wait();
   assert.ok(map.popup, controller.status.textContent);

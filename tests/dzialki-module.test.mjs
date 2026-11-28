@@ -96,6 +96,16 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
   const thematicInputs = fake.document.querySelectorAll("[data-thematic-layer]");
   assert.equal(thematicInputs.length,4);
   assert.ok(thematicInputs.every((input) => input.checked === false));
+  const measureButton = fake.document.getElementById("dzialki-measure-distance");
+  assert.equal(measureButton.disabled, false, "narzędzia uruchamiają się wraz z mapą");
+  measureButton.click();
+  firstMap.fire("click", { latlng: { lat: 52, lng: 19 } });
+  firstMap.fire("click", { latlng: { lat: 52.001, lng: 19 } });
+  fake.document.getElementById("dzialki-measure-finish").click();
+  assert.match(fake.document.getElementById("dzialki-measure-values").textContent, /111,19 m/);
+  assert.equal(getDzialkiState().measurement.active, false);
+  assert.equal(firstMap.doubleClickZoom.enabled(), true);
+  fake.document.getElementById("dzialki-measure-clear").click();
   assert.match(view.children[0].attributes.get("aria-labelledby"), /dzialki-title/);
 
   const esriRadio = fake.document.querySelectorAll("[data-base-layer]")
