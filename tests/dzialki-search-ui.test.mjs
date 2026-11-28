@@ -67,7 +67,9 @@ test("formularz szuka działki, rysuje obrys, ustawia kontekst i zachowuje wybó
     }
     throw new Error("Unexpected synthetic request");
   };
+  let cleanup=()=>{};
   t.after(() => {
+    cleanup();
     if (previous.document === undefined) delete globalThis.document;
     else globalThis.document = previous.document;
     if (previous.window === undefined) delete globalThis.window;
@@ -90,7 +92,7 @@ test("formularz szuka działki, rysuje obrys, ustawia kontekst i zachowuje wybó
   };
   const mountTarget = fake.document.createElement("main");
   fake.document.body.append(mountTarget);
-  let cleanup = mountDzialki(mountTarget, ctx);
+  cleanup = mountDzialki(mountTarget, ctx);
   await flush();
   assert.match(fake.document.getElementById("dzialki-parcel-report").textContent, /Nie wybrano działki/);
 
@@ -157,12 +159,20 @@ test("formularz szuka działki, rysuje obrys, ustawia kontekst i zachowuje wybó
   assert.match(css, /@media\s*\(max-width:\s*28rem\)[\s\S]*?\.dzialki-report-identifier-label,[\s\S]*?grid-column:\s*1\s*\/\s*-1/);
   assert.match(fake.document.getElementById("dzialki-search-status").textContent, /Powierzchnia i klasoużytki pobrane z EGiB/);
   assert.deepEqual(getDzialkiState().center, [52.05, 20.05]);
+  fake.document.querySelectorAll("[data-selection-color]")[1].click();
+  assert.equal(selectedLayer.options.style.fillColor,"#f97316","kolor aktualizuje istniejącą geometrię");
+  fake.document.getElementById("dzialki-clear-selection").click();
+  assert.equal(leaflet.maps[0].hasLayer(selectedLayer),false);
+  assert.equal(getDzialkiState().selectedMapParcels.length,0);
+  assert.equal(getDzialkiState().selectedParcel.parcel.id,contexts[0].parcel.id,"czyszczenie nie usuwa wyniku wyszukiwania");
+  assert.match(report.textContent,/0,4449 ha/);
 
   cleanup();
   cleanup = mountDzialki(mountTarget, ctx);
   await flush();
   assert.equal(leaflet.maps.length, 2);
-  assert.equal(leaflet.geoJsonLayers.length, 2);
+  assert.equal(leaflet.geoJsonLayers.length, 1,"powrót nie przywraca wyczyszczonego zaznaczenia");
+  assert.equal(getDzialkiState().selectedMapParcels.length,0);
   assert.equal(fake.document.getElementById("dzialki-search-powiat").value, "2899");
   assert.equal(fake.document.getElementById("dzialki-search-numer").value, "12/3");
   assert.equal(requests.filter((request) => {
