@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Weryfikacja słowników lokalizacji</title>
+  <style>
+    body { font: 1rem/1.5 system-ui, sans-serif; background: #f4f8f9; color: #15333d; margin: 0; }
+    main { max-width: 62rem; margin: auto; padding: 1.25rem; }
+    form, section { background: white; border: 1px solid #c7d9df; border-radius: .6rem; padding: 1rem; }
+    section { margin-top: 1rem; }
+    form { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; }
+    form[hidden] { display: none; }
+    label { display: grid; gap: .2rem; }
+    input, select, button { font: inherit; padding: .4rem; }
+    select, input { width: 100%; box-sizing: border-box; }
+    button { cursor: pointer; }
+    li { margin-block: .3rem; }
+  </style>
+</head>
+<body>
+<main>
+  <a href="../../#/dzialki">Wróć do Działek</a>
+  <h1>Weryfikacja słowników lokalizacji</h1>
+  <p id="summary" role="status">Wczytywanie katalogów GUS…</p>
+  <form id="search" hidden>
+    <label>Województwo <select id="region" required></select></label>
+    <label>Powiat <select id="county"></select></label>
+    <label>Gmina <select id="commune"></select></label>
+    <label>Miejscowość lub kod SIMC <input id="place" required></label>
+    <button type="submit">Szukaj miejscowości</button>
+  </form>
+  <p id="status" role="status"></p>
+  <ul id="places"></ul>
+  <section id="details" hidden aria-labelledby="selection">
+    <h2 id="selection"></h2>
+    <p id="codes"></p>
+    <label>Ulica lub kod ULIC <input id="street"></label>
+    <p id="street-status" role="status"></p>
+    <ul id="streets"></ul>
+  </section>
+</main>
+<script type="module">
+  import { normalizeQuery } from "../../js/location/normalize.js";
+
+  const get = (id) => document.getElementById(id);
+  const region = get("region");
+  const county = get("county");
+  const commune = get("commune");
+  const search = get("search");
+  const nameOrder = new Intl.Collator("pl");
+  const regionCache = new Map();
+  let units;
+  let municipalities;
+  let streetRows = [];
+  let searchVersion = 0;
+
+  async function readJson(file) {
+    const response = await fetch(file);
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    return response.json();
+  }
+
+  function fill(select, choices, placeholder) {
+    const options = choices.sort((a, b) => nameOrder.compare(a[1], b[1]))
+      .map(([code, label]) => new Option(label, code));
+    select.replaceChildren(new Option(placeholder, ""), ...options);
+  }
+
+  function refreshCounties() {
+    fill(county, Object.entries(units).filter(([code]) => code.length === 4 && code.startsWith(region.value))
+      .map(([code, unit]) => [code, unit[0]]), "Wszystkie powiaty");
+    refreshCommunes();
+  }
+
+  function refreshCommunes() {
+    fill(commune, Object.entries(units).filter(([code]) => /^[0-9]{6}[123]$/.test(code)
+      && code.startsWith(county.value || region.value))
+      .map(([code, unit]) => [code, unit[0] + " (" + unit[1] + ")"]), "Wszystkie gminy");
+    clearResults();
+  }
+
+  function clearResults() {
+    searchVersion += 1;
+    get("places").replaceChildren();
+    get("details").hidden = true;
+    get("status").textContent = "";
+  }
+
+  function isMatch(query, code, name) {
+    return /^[0-9]+$/.test(query) ? code === query : normalizeQuery(name).includes(query);
+  }
+
+  function showStreets() {
+    const query = normalizeQuery(get("street").value);
+    const matches = streetRows.filter(([code, name]) => isMatch(query, code, name));
+    get("street-status").textContent = matches.length
+      ? "Ulice w tej miejscowości — " + matches.length + (matches.length > 50 ? " (pierwsze 50)" : "")
+      : "Brak ulic spełniających kryteria w tym katalogu.";
+    get("streets").replaceChildren(...matches.slice(0, 50).map(([code, name]) => {
+      const item = document.createElement("li");
+      item.textContent = name + " · ULIC " + code;
+      return item;
+    }));
+  }
+
+  function choose(place, data) {
+    const [simc, name, code] = place;
+    const municipality = municipalities[code];
+    const bdl = units[municipality][2];
+    get("selection").textContent = name;
+    get("codes").textContent = [
+      "SIMC " + simc, "TERC jednostki " + code,
+      ...(municipality !== code ? ["TERC gminy " + municipality] : []),
+      ...(bdl ? ["BDL " + bdl] : []),
+    ].join(" · ");
+    streetRows = (data.streets[simc] ?? []).sort((a, b) => nameOrder.compare(a[1], b[1]));
+    get("details").hidden = false;
+    get("street").value = "";
+    showStreets();
+    get("street").focus();
+  }
+
+  search.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    clearResults();
+    const query = normalizeQuery(get("place").value);
+    if (!query) return;
+    const version = searchVersion;
+    const regionCode = region.value;
+    const countyCode = county.value;
+    const communeCode = commune.value;
+    get("status").textContent = "Szukam…";
+    try {
+      if (!regionCache.has(regionCode)) {
+        const data = await readJson("region-" + regionCode + ".json");
+        regionCache.set(regionCode, { ...data, names: new Map(data.places.map((row) => [row[0], row[1]])) });
+      }
+      if (version !== searchVersion) return;
+      const data = regionCache.get(regionCode);
+      const results = data.places.filter(([simc, name, code]) =>
+        code.startsWith(countyCode) && (!communeCode || municipalities[code] === communeCode)
+        && isMatch(query, simc, name)
+      ).sort((a, b) => Number(normalizeQuery(b[1]) === query) - Number(normalizeQuery(a[1]) === query)
+        || nameOrder.compare(a[1], b[1]) || a[0].localeCompare(b[0]));
+      get("status").textContent = results.length
+        ? "Wyniki — " + results.length + (results.length > 50 ? " (pierwsze 50)" : "")
+        : "Brak miejscowości spełniających kryteria.";
+      get("places").replaceChildren(...results.slice(0, 50).map((row) => {
+        const [simc, name, code, kind, parentSimc] = row;
+        const button = document.createElement("button");
+        const parent = parentSimc === simc ? "" : " miejscowości " + (data.names.get(parentSimc) ?? parentSimc);
+        button.type = "button";
+        button.textContent = name + " (" + kind + parent + ") · " + units[code][0]
+          + " (" + units[code][1] + "), powiat " + units[code.slice(0, 4)][0] + " · SIMC " + simc;
+        button.addEventListener("click", () => choose(row, data));
+        const item = document.createElement("li");
+        item.append(button);
+        return item;
+      }));
+    } catch {
+      if (version === searchVersion) get("status").textContent = "Nie udało się wczytać katalogu województwa.";
+    }
+  });
+
+  region.addEventListener("change", refreshCounties);
+  county.addEventListener("change", refreshCommunes);
+  commune.addEventListener("change", clearResults);
+  get("street").addEventListener("input", showStreets);
+  try {
+    const catalog = await readJson("index.json");
+    units = catalog.units;
+    municipalities = catalog.municipalities;
+    const { snapshot, communes, simc, ulic } = catalog.summary;
+    get("summary").textContent = "Archiwum GUS z " + snapshot + " · " + communes.toLocaleString("pl")
+      + " gmin · " + simc.toLocaleString("pl") + " wpisów miejscowości · "
+      + ulic.toLocaleString("pl") + " wpisów ulic.";
+    fill(region, Object.entries(units).filter(([code]) => code.length === 2)
+      .map(([code, unit]) => [code, unit[0].toLocaleLowerCase("pl")]), "Wybierz województwo");
+    search.hidden = false;
+    refreshCounties();
+  } catch {
+    get("summary").textContent = "Nie udało się wczytać lokalnych danych GUS.";
+  }
+</script>
+</body>
+</html>
