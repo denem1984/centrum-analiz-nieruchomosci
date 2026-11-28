@@ -246,6 +246,7 @@ function renderCurrentView() {
     rcnDemo: isModuleDemo("rcn"),
     ofertyDemo: isModuleDemo("oferty"),
     podobneDemo: isModuleDemo("podobne"),
+    gminyDemo: isModuleDemo("gminy"),
     localPreview: isLocalPreview(),
   };
   const cleanup = MODULE_BY_ID[route].mount(view, ctx);
@@ -273,7 +274,7 @@ function init() {
   });
   renderCurrentView();
   window.addEventListener("hashchange", renderCurrentView);
-  if (!["rcn", "oferty", "podobne"].some(isModuleDemo)) startHealthChecks();
+  if (!["rcn", "oferty", "podobne", "gminy"].some(isModuleDemo)) startHealthChecks();
 }
 
 if (typeof document !== "undefined" && typeof window !== "undefined") {

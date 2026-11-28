@@ -56,7 +56,7 @@
 
 ## D9 — Mapowanie BDL ↔ TERYT (2026-10-27)
 
-- **Status:** zweryfikowane w M3b dla publicznego katalogu BDL i pełnego TERC z 2026 r. Każda z 2479 gmin ma jedno dopasowanie. Plik wskaźników modułu Gminy wymaga kontroli przy imporcie w M8.
+- **Status:** zweryfikowane w M3b dla katalogu i w M8 dla rzeczywistego pliku wskaźników. Każda z 2479 gmin ma jedno dopasowanie i komplet wartości za 2025 r. Sześć gmin korzysta z potwierdzonego kodu z roku danych zgodnie z D41.
 - **Decyzja:** [FAKT: odczyt właściciela z panelu 2026-10-27] `gus_bdl_commune_wide` nie ma kolumny TERYT. [FAKT z danych] Dołączony CSV zawiera 100 jednostek i tylko jeden kod województwa; wyprowadzona reguła daje 100 unikalnych kandydatów TERC7, ale tylko jeden kandydat można porównać z lokalnym 22-wierszowym fallbackiem RCN. Szczegóły są w reports/m1c-d9-mapping.md.
 - **Reguła dla zweryfikowanego zbioru:** z publicznego BDL wybieramy poziom 6 i rodzaje 1–3, wyprowadzamy kandydata TERC7 i potwierdzamy go w TERC z właściwego okresu. Dopasowanie wymaga relacji 1:1. Walidacja odrzuciła 226 rekordów spoza tego wykazu. [Wyniki M3b](reports/m3b-location-dictionaries.md).
 - **Wpływ architektury:** dla Gminy w M8 użyć jawnej, wersjonowanej mapy wygenerowanej z rejestrów i sprawdzić pokrycie dla faktycznego pliku wskaźników oraz lat analizy.
@@ -267,6 +267,12 @@
 - Publiczne Nominatim ogranicza wykorzystanie przez aplikacje i wymaga od dewelopera świadomej decyzji o zgodności z polityką usługi. Centrum używa do adresów GUGiK UUG po zatwierdzeniu formularza. Przy wielu wynikach użytkownik wybiera punkt. [Zasady Nominatim](https://operations.osmfoundation.org/policies/nominatim/) · [API GUGiK](https://services.gugik.gov.pl/uug/opis.html)
 - Podobne zachowują PRG, listę obrębów i ULDK z dotychczasowego API. Awaryjny wynik wyszukania działki po nazwie obrębu jest akceptowany tylko przy identycznym identyfikatorze. Punkt pochodzi z geometrii działki.
 - Na mapie pozostały oba dotychczasowe podkłady Esri. Osobny plan poprawy aktualności zdjęć pozostaje w M4b.4.
+
+## D41 — Zbiór BDL i rok odniesienia w Gminach (2026-11-28)
+
+- Moduł odczytuje jeden lokalny plik JSON z siedmioma seriami GUS BDL. Rok 2025 jest wspólny dla wszystkich wskaźników. Wskaźnik 747072 to średnia trzyletnia opublikowana przez GUS.
+- Gminy są identyfikowane bieżącym TERC i odpowiadającym mu identyfikatorem BDL dla roku danych. Sześć zmian rodzaju od 1 stycznia 2026 r. ma jawne powiązania z 2025 r. Filtr rodzaju i prezentacja statystyk używają klasyfikacji z roku danych. Sprawdzono komplet 2479 gmin. [Wykaz zmian TERC](https://dziennikustaw.gov.pl/D2025000157101.pdf)
+- Gminy z brakami można znaleźć w słowniku. Do rankingu wchodzą gminy z siedmioma wartościami. Wagi i algorytm przepisano z kodu modułu źródłowego. Podobieństwo dotyczy wskaźników w wybranej puli. [Porównanie frontów](docs/parity-gminy.md)
 
 ## Zasady repozytorium
 

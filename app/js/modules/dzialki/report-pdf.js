@@ -111,9 +111,14 @@ export function createParcelPdf(JsPDF, font, parcels, snapshots, date = new Date
   return doc;
 }
 
-export async function downloadParcelPdf(parcels, snapshots, signal) {
+export async function loadPdfResources(signal) {
   const [JsPDF, font] = await Promise.all([loadLibrary(), loadFont()]);
   signal.throwIfAborted();
+  return { JsPDF, font };
+}
+
+export async function downloadParcelPdf(parcels, snapshots, signal) {
+  const { JsPDF, font } = await loadPdfResources(signal);
   const doc = createParcelPdf(JsPDF, font, parcels, snapshots);
   doc.save("raport-nieruchomosc-" + new Date().toISOString().slice(0, 10) + ".pdf");
 }
