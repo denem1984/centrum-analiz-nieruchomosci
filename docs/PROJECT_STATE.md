@@ -36,6 +36,7 @@ Agent wykonuje plan, implementację, testy, dokumentację i PR-y. Właściciel p
 | 4 | `fix/smoke-task-budgets` | Trwały wspólny licznik 4/400/300, blokowanie przekroczeń | [PR #16](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/16); baza #15 |
 | 5 | `feat/m4d2-planning-layers` | Pięć warstw planowania, gminny POG, popupy, monitory i smoke | [PR #17](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/17); baza #16 |
 | 6 | `docs/imagery-freshness-plan` | Porównanie źródeł i plan nowszego podkładu M4b.4 | [PR #18](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/18); baza #17 |
+| 7 | `fix/windows-budget-replace` | Krótkie blokady atomowego zapisu licznika na Windows | PR w przygotowaniu; baza #18 |
 
 Scalaj od góry. PR-y zależne porównują zmianę z gałęzią poprzednika; po scaleniu poprzednika ich bazą powinno zostać `main`. Agent nie scala i nie uruchamia wdrożeń.
 
