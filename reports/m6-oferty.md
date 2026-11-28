@@ -65,4 +65,4 @@ W razie zamknięcia serwera uruchom z katalogu projektu `node scripts/serve.mjs 
 
 ## 11. Proponowany następny krok
 
-Odbiór M6 i decyzja o scaleniu. Po zatwierdzeniu rozpocząć M7 Podobne. Szacunkowy postęp całego projektu to **55% wykonane i 45% pozostało**.
+Odbiór M6 i decyzja o scaleniu. Po zatwierdzeniu rozpocząć M7 Podobne. Wspólne wyszukiwanie Start i opcjonalną analizę Ofert w raporcie RCN zaplanowano w D39. Po dodaniu zakresu **około 52% projektu jest wykonane, około 48% pozostało**.

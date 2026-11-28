@@ -12,7 +12,7 @@ D37 zatwierdzono i scalono w [PR #28](https://github.com/denem1984/centrum-anali
 
 M3b potwierdził relacje pełnych katalogów TERC, SIMC, ULIC i pokrycie 2479 gmin w publicznym BDL. Właściciel zatwierdził [PR #29](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/29), scalony jako `bd5ead3`. [Podgląd słowników](http://localhost:8082/.local/m3b/index.html) i [raport M3b](../reports/m3b-location-dictionaries.md).
 
-Właściciel zatwierdził M4f i samodzielne scalenie po testach dla [PR #27](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/27). Lista działek i widoków mapy, edycja listy i PDF są dostępne w podglądzie 8082. [Raport M4f](../reports/m4f-report-pdf.md). D35 przywraca własne wyszukiwanie lokalizacji w każdym module.
+Właściciel zatwierdził M4f i samodzielne scalenie po testach dla [PR #27](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/27). Lista działek i widoków mapy, edycja listy i PDF są dostępne w podglądzie 8082. [Raport M4f](../reports/m4f-report-pdf.md).
 
 ### Historia M4e i poprawki przewijania
 
@@ -26,9 +26,9 @@ D30 wymaga wyraźnej akceptacji po każdym większym etapie. Scalenie potwierdza
 
 Jeśli serwer po zamknięciu komputera przestanie działać: w terminalu katalogu projektu uruchomić `node .local/preview-m4d3/scripts/serve.mjs --port 8080`, a następnie otworzyć powyższy adres. Przy zajętym porcie nie uruchamiać drugiej kopii — najpierw sprawdzić działający podgląd.
 
-**Aktualny podgląd M4f działa pod http://localhost:8082/#/dzialki.** Wznowienie z katalogu projektu poleceniem `node .local/preview-m4e2/scripts/serve.mjs --port 8082`. Start korzysta z jawnych fikstur. Następne moduły otrzymają osobne formularze lokalizacji zgodnie z D35.
+**Aktualny podgląd M4f działa pod http://localhost:8082/#/dzialki.** Wznowienie z katalogu projektu poleceniem `node .local/preview-m4e2/scripts/serve.mjs --port 8082`. Start korzysta obecnie z jawnych fikstur. Docelowe wspólne wyszukiwanie według D39 wraca do planu M3c.
 
-**Szacunkowo około 55% projektu wykonane, około 45% pozostało.** Oferty dodają osiem punktów za przeniesienie funkcji i weryfikację na danych przykładowych. Ostatni punkt Ofert obejmuje próbę istniejącego API.
+**Szacunkowo około 52% projektu wykonane, około 48% pozostało.** Wspólne wyszukiwanie zwiększa zakres o trzy punkty, a dołączenie analizy Ofert do raportu RCN o kolejne dwa. Ostatni punkt Ofert obejmuje próbę istniejącego API.
 
 | Obszar | Waga w szacunku | Zrealizowana część w punktach całości |
 |---|---:|---:|
@@ -41,8 +41,10 @@ Jeśli serwer po zamknięciu komputera przestanie działać: w terminalu katalog
 | Gminy i dane wskaźników | 10 | 0 |
 | Raporty AI: odczyt mapy, internet, tekst i eksport | 9 | 0 |
 | Raport zbiorczy, pełna regresja i odbiór wdrożenia | 4 | 0 |
+| Wspólne wyszukiwanie Start i podłączenie modułów | 3 | 0 |
+| Dołączenie analizy Ofert do raportu RCN | 2 | 0 |
 
-Suma robocza 53/97, czyli około 55%. Przed M6 było 45/97.
+Suma robocza 53/102, czyli około 52%. Przed dodaniem obu funkcji zakres wynosił 97 punktów.
 
 Test właściciela: podgląd 8082 → Działki → wyszukać działkę lub wskazać ją przez PPM → dodać do raportu → zapisać widok mapy → zmienić zakładkę i wrócić → pobrać PDF. [Scenariusz](../reports/m4f-report-pdf.md).
 
@@ -58,7 +60,7 @@ Agent wykonuje plan, implementację, testy, dokumentację i PR-y oraz sam scala 
 - Historyczny dostarczony HEAD nie miał `.gitattributes`; M4d.2 dodało ochronę końców linii vendor. Proj4 ma SRI; Leaflet nadal korzysta z testu integralności blobu bez SRI loadera. [FAKT: `.gitattributes`, loader Leaflet i projekcji, testy vendor]
 - Router hashowy, sześć natywnych zakładek, rejestr mount/unmount i cztery równoległe sondy GET zdrowia. `DenemContext v1` zawiera osobne tekstowe kody TERC/SIMC/BDL i limit 2048 B; aktualny kształt jest w `docs/denem-context-v1.md`. Przykład w starszym MEGA_PROJECT.md nie jest kontraktem implementacji.
 - Kontekst ustawia wyszukiwanie; kliknięcie działki na mapie go nie zmienia. Bez trwałego zapisu analiz; pamięć modułów znika po odświeżeniu.
-- D35 (2026-11-28) zastępuje D28. Formularz wyszukiwania jest osobny dla każdego modułu. Słowniki administracyjne można współdzielić, a istniejący kontekst nadal obsługuje odnośniki.
+- D39 (2026-11-28) przywraca wspólne wyszukiwanie ze Startu. Każdy moduł użyje odpowiedniej części wybranej lokalizacji i swoich filtrów. Rozbudowa kontekstu zachowa działanie odnośników v1. Formularze działające obecnie służą odbiorowi modułów przed integracją.
 - Backendów nie zmieniamy. Produkcyjny tryb RCN potwierdzony przez właściciela w CONFIG.md. Historyczne pomiary pierwszej odpowiedzi: 22–52 s; hipoteza zimnego startu, nie bieżący pomiar. UI ma obsługiwać do 120 s i licznik oczekiwania.
 - Gminy: plik danych (opcja B), bez Supabase. D5 zamknięte: **aplikacja w ogóle nie będzie miała logowania** (właściciel, 2026-11-27). D8 nie dotyczy. Nie jest to tylko zwolnienie na pierwszy odbiór.
 - Lista PDF: pamięć aplikacji między zakładkami, czyszczona przy odświeżeniu (D15). TERC7→TERYT6 jest czystą funkcją; R=4/5→3 nadal [HIP] do walidacji na pełnym TERC.
@@ -111,6 +113,7 @@ Sprawdzenie właściciela (opcjonalne dla tej poprawki): w PowerShell w folderze
 
 1. Odbiór Ofert w lokalnym podglądzie. Po zatwierdzeniu rozpocząć M7 Podobne od macierzy funkcji i porównania URL-i.
 2. Zrealizować plan nowszego podkładu po uzgodnieniu kolejności z właścicielem.
+3. Po M7–M8 zrealizować wspólne wyszukiwanie Start (M3c), a następnie opcję dołączenia Ofert do raportu RCN w M9.
 
 Przegląd oficjalnych źródeł wskazuje aktualną ortofotomapę GUGiK jako głównego kandydata [HIP do porównania dat w danym miejscu]. [Plan M4b.4, źródła i kryteria](imagery-freshness-plan.md) rozróżnia datę zdjęcia, publikację serwisu i rozdzielczość. Nie zmieniono jeszcze podkładu i nie wykonano dodatkowego ruchu mapowego.
 
@@ -127,9 +130,9 @@ Przegląd oficjalnych źródeł wskazuje aktualną ortofotomapę GUGiK jako gł�
 | M4e | M4e.1 w main (#23); M4e.2 ukończone w bieżącym PR: menu, pomiary i Street View | 155 testów i headed offline/mobile 9/9 PASS; odbiór ręczny pozostaje; rodzina numerów pominięta D31 |
 | M4f | Lista raportu i PDF w Działkach | Testy startu, raportu i pobierania w Edge. Oględziny PDF z mapą i polskimi znakami |
 | M3b | Oficjalne TERC/SIMC i walidacja D9 | Próba pobrania przez agenta; fallback do plików od właściciela tylko przy faktycznej blokadzie; zera wiodące, nazwy powtarzalne, R=4/5 |
-| M3c | Dawny plan centralnego wyszukiwania zastąpiony przez D35 | Osobne wyszukiwania zasilane właściwymi danymi w etapach poszczególnych modułów |
+| M3c | Wspólne wyszukiwanie Start i mapa według D39 | Jedno wskazanie jednostki, adresu lub działki zasila pięć modułów. Testy obejmują powtarzalne nazwy, brak pola, ograniczoną dokładność i zmianę lokalizacji. |
 | M5–M8 | Plan podetapów poniżej; RCN według D32 | RCN wykorzystuje istniejący kod, obliczenia i bazę R2; poprawki prezentacji według przeglądu. Pozostałe moduły zachowują pełny parytet |
-| M9 | Widoki zbiorcze i raport po decyzji D10 | Wyniki zgodne ze źródłami; brakujące moduły oznaczone |
+| M9 | Raport RCN z opcjonalną sekcją Ofert oraz raport zbiorczy po doprecyzowaniu D10 | Wspólna lokalizacja, osobne ceny transakcyjne i ofertowe, widoczne filtry i braki wyników |
 | M10 | Instrukcja wdrożenia podglądowego i odbiór | Wdrożenie wykonuje właściciel; smoke prawdziwej domeny |
 | AI | [Analiza możliwości](ai-reports-feasibility.md), implementacja po zatwierdzeniu zakresu etapu i decyzjach kosztowych | Widok mapy + internet, raporty RCN/Działek/Gmin bez bibliografii, bez bazy DENEM i bez generacji obrazów |
 
@@ -143,7 +146,7 @@ Poniższy inwentarz pochodzi z odczytu frontów we wskazanych rewizjach i histor
 | Oferty, `596451b`, `index.html:73–91` i dodatki z `server.js:11` | Cztery rodzaje, podpowiedzi i potwierdzenie miejscowości, promienie 0/1/2/5/10/20/30 km, brak filtra/procent 10–50%/zakres, sześć portali, sortowanie, wybór ofert, kalkulator i XLSX | Gotowe do lokalnego odbioru. [Macierz opcji i adresów](parity-oferty.md) dokumentuje frontend faktycznie składany przez punkt wejścia usługi. |
 | Podobne, `a750201`, `index.html:269–317,644–674`; raport B3 | Analizowana nieruchomość i dowolne porównawcze, adres albo działka z listami jednostek, lokalizowanie/usuwanie; cena/data; przełączniki linii/adresu/ceny/daty; mapa/satelita, pokaż wszystkie | M7a macierz i dokładne URL-e; M7b edytor i lokalizowanie; M7c markery/linie/etykiety, błędy i regresja. Przed bezpośrednim geokodowaniem zweryfikować oficjalne zasady Nominatim i ograniczenia. |
 | Gminy, `c1b682c`, `index.html:27–30,110–111,195–228`; raport B4 | Gmina docelowa, kraj/województwo, trzy profile, ten sam typ; siedem wskaźników i ich lata, ranking/top20, szczegóły „dlaczego”, zaznaczanie i porównanie, objaśnienia, PDF | M8a pełny plik GUS/BDL z pochodzeniem i walidacją D9; M8b odwzorowanie wag/normalizacji/braków i ranking; M8c wszystkie filtry, porównanie i PDF. Siedem identyfikatorów BDL jest w źródłowym froncie. Spróbować publicznego BDL; pełny eksport właściciela tylko jako fallback. Brak logowania jest już decyzją ostateczną. |
-| M9, wymaganie właściciela i D10 | Kontekst lokalizacji, widoki zbiorcze i raport z wynikami modułów | M9a kontrakt wyników i źródeł, M9b widok zbiorczy, M9c raport. D10 nadal otwarte: odpowiedź właściciela z 2026-11-27 rozstrzygnęła logowanie, nie potwierdziła zakresu raportu. Rekomendacja: lokalizacja + wyniki pięciu modułów + źródła + oznaczenie braków. |
+| M9, D10 i D39 | Raport RCN z opcją dołączenia Ofert dla tej samej lokalizacji, widoki zbiorcze i raport z wynikami modułów | M9a kontrakt wyników po wspólnym wyszukiwaniu, M9b integracja RCN i Ofert, M9c widok i raport zbiorczy po potwierdzeniu pozostałego zakresu D10. |
 | M10, IMPLEMENTATION_PLAN.md | Podgląd statyczny, pełna macierz regresji, działanie z prawdziwego origin | Instrukcja klik po kliku dla właściciela, bez wykonywania wdrożenia przez agenta. Właściciel wybiera nazwę/domenę i ewentualny koszt hostingu. |
 
 ## Znane problemy i rzeczy do weryfikacji
