@@ -42,4 +42,7 @@
 
 ## Metadane dostawy
 
-Do uzupełnienia po zapisaniu implementacji i uruchomieniu przypiętego podglądu.
+- SHA bazowy `0fb6a8ff71359d94aafa2be59064912ff2058a0b` → SHA implementacji `1cb6625105d9b30b3ec9ddfe82150e8763f86eff`; późniejszy commit obejmuje wyłącznie metadane tej dostawy. Implementacja: 24 pliki +589/-30. Dokładne końcowe +/- i SHA merge dostępne w [PR #25](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/25).
+- `git diff --cached --check` PASS; skan plików PASS (119), skan historii PASS po implementacji (89 commitów). Nie zmieniono konfiguracji CI ani wdrożeń.
+- `git worktree add --detach .local/preview-m4e2 HEAD` przypiął `1cb6625`. Ukryty Start-Process uruchomił serwer lokalny; strona i `/js/modules/dzialki/map-tools.js` HTTP 200, konfiguracja frontu wskazuje M4e2. **Podgląd: http://localhost:8082/#/dzialki**. Restart: `node .local/preview-m4e2/scripts/serve.mjs --port 8082` z katalogu projektu. Podgląd zawiera cały kod funkcji; późniejsze metadane nie zmieniają UI.
+- Po zielonym CI dokładnej końcowej głowy PR agent wykonuje merge zgodnie z D33. Ostateczny stan scalenia i SHA są widoczne w podlinkowanym PR; wynik podany też w komunikacie właścicielowi. To nie jest zgoda ani operacja wdrożenia.

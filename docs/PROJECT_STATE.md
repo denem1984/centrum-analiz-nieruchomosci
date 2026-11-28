@@ -73,7 +73,7 @@ Wszystkie poniższe PR-y scalono do main 2026-11-28 po sprawdzeniu oczekiwanego 
 | 10 | `docs/location-map-ai-reports` | Start z mapą, analiza AI, przegląd RCN, D30/D31 i estymacja | [PR #22](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/22); baza #21 |
 | 11 | `feat/m4e1-parcel-appearance` | Kolory i czyszczenie zaznaczeń, bez rodziny numerów | [PR #23](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/23); baza #22; 149 testów i headed offline 8/8 PASS |
 
-Po #23 scalono także [PR #24](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/24), `docs/agent-merge-authorization`, zapisujący D33. M4e.2 powstaje na main w `feat/m4e2-map-measurements`; aktualny PR i wynik podaje raport. Agent sam scala sprawdzone PR-y, nie uruchamia wdrożeń.
+Po #23 scalono także [PR #24](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/24), `docs/agent-merge-authorization`, zapisujący D33. Dostawa M4e.2: [PR #25](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/25), `feat/m4e2-map-measurements`, baza main; implementacja `1cb6625`. Po zielonym CI agent scala sam; ostateczny status i SHA w PR. [Pełny raport](../reports/m4e2-map-tools.md). Nie uruchamia wdrożeń; po etapie czeka na akceptację M4f.
 
 ## Weryfikacja poprawki testu
 
