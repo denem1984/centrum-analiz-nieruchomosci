@@ -2,7 +2,7 @@ import { EMAPA_POG_BASE } from "./planning-services.js";
 
 export const PROJ4_INTEGRITY = "sha256-tsjlDiRXDSAsuQALr13ta74LzDw1fOf0yfPGMB2FmfU=";
 const pending = new WeakMap();
-export async function loadPlanningProjection(documentRef = globalThis.document, windowRef = globalThis.window) {
+export async function loadPlanningProjection(documentRef = globalThis.document, windowRef = globalThis.window, { inverse = false } = {}) {
   if (!windowRef.proj4) {
     if (!pending.has(windowRef)) {
       const task = new Promise((resolve, reject) => {
@@ -22,7 +22,9 @@ export async function loadPlanningProjection(documentRef = globalThis.document, 
   const proj = windowRef.proj4;
   if (typeof proj !== "function") throw new Error("Brak biblioteki projekcji.");
   proj.defs("EPSG:2180", "+proj=tmerc +lat_0=0 +lon_0=19 +k=0.9993 +x_0=500000 +y_0=-5300000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs");
-  return (coordinates) => proj("EPSG:4326", "EPSG:2180", coordinates);
+  return inverse
+    ? (coordinates) => proj("EPSG:2180", "EPSG:4326", coordinates)
+    : (coordinates) => proj("EPSG:4326", "EPSG:2180", coordinates);
 }
 
 export function emapaTileRequest(teryt, coords, project) {
