@@ -116,6 +116,8 @@ test("panel ma pięć wyłączonych opcji i trzy informacje; monitor nie uznaje 
   assert.equal(fake.map.layers.size, 0);
   assert.equal(layer.listenerCount("tileerror"), 0);
   assert.equal(fake.timers.size, 0);
+  fake.change("buildingLines", true);
+  assert.match(fake.status("buildingLines").textContent, /dużego zbliżenia.*1:5 000.*danych wektorowych/);
 });
 
 test("pomiar blokuje popup planowania, zakończenie przywraca obsługę", t => {

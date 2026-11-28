@@ -28,6 +28,8 @@ Wszystkie pięć warstw ma maxZoom 22, `updateWhenZooming:false`, `updateWhenIdl
 
 ## Zachowanie i różnice jakościowe
 
+Aktualizacja 2026-11-28 (D34): warstwę linii zachowano po rzeczywistym teście w publicznym przykładzie GUGiK: widoczne linie z pustymi i pełnymi trójkątami oraz zgodna legenda. Opis i status informują o wymaganym dużym zbliżeniu i publikacji wektorowej przez gminę. Nie zmieniono URL-i ani parametrów WMS. [Dowody i ograniczenia](map-panel-scroll.md); same kompletne kafelki nie dowodzą obecności danych w dowolnym miejscu.
+
 - Pięć przełączników jest domyślnie wyłączonych; stan grupy i wyborów pozostaje w pamięci przy przełączaniu zakładek. Trzy przyciski `?` mają etykiety, aria-expanded i aria-controls; legendy nie wykonują żądań przed otwarciem.
 - Gminny POG uzupełnia uchwalony POG z RU, jak `index.html:269`; nie jest usunięty na rzecz jednego krajowego rastra. Zmiana widoku anuluje poprzednie sprawdzanie, usuwa stary raster gminny i z opóźnieniem 500 ms ustala właściwą gminę.
 - Każda opcja ma monitor obrazów widocznych kafelków: 0/0 nie jest sukcesem. Standardowe błędy podlegają K0 (2 ponowienia); monitor do 40 s sprawdza kompletność co 3 s i daje ręczne ponowienie. Źródło w toku nie jest uruchamiane drugi raz. Dla rysowanego POG gminnego błąd, timeout i błąd canvas są jawne — stary front kończył błędny kafelek jako poprawny pusty canvas (`index.html:261–264`).

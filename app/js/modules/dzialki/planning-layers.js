@@ -9,7 +9,7 @@ import { renderMpzp, renderAdoptedPog, renderDraftPog } from "./planning-popup.j
 
 const HELP = {
   mpzp: "Typowe oznaczenia MPZP — dokładne znaczenie ustala konkretna uchwała: MN – zabudowa jednorodzinna; MW – wielorodzinna; MU – mieszkaniowo-usługowa; U – usługi; UC – handel wielkopowierzchniowy; UO – oświata; UZ – zdrowie; US – sport/rekreacja; P – produkcja, składy, magazyny; PU – produkcyjno-usługowa; R – rolnictwo; RM – zabudowa zagrodowa; ZL/LS – lasy; ZP – parki; ZN – zieleń nieurządzona; ZC – cmentarze; ZD – ogrody działkowe; WS – wody; KDG/KDZ/KDL/KDD – drogi; KK – kolej; KS – parkingi; E/W/K/G/C – infrastruktura techniczna.",
-  buildingLines: "Warstwa krajowa pokazuje udostępnione wektorowo linie zabudowy, w tym nieprzekraczalne. Usługa nie rozróżnia rodzaju wszystkich linii. Publikacja zależy od gminy; plany wyłącznie rastrowe nie mają tu osobnej warstwy linii. Widoczność od skali 1:5 000 i większego przybliżenia. Źródło: Geoportal / KIMPZP.",
+  buildingLines: "Linie zabudowy, w tym nieprzekraczalne, z planów publikowanych wektorowo przez gminy. Rodzaje oznaczeń pokazuje legenda poniżej. Wymagają dużego zbliżenia (skala 1:5 000 lub bliższa); brak linii na mapie nie oznacza braku ograniczeń w planie. Plany dostępne wyłącznie jako raster nie mają osobnej geometrii linii. Źródło: Geoportal / KIMPZP.",
   pogDraftGugik: "Legenda stref planistycznych – GUGiK. Kliknij mapę w obrębie strefy, aby zobaczyć jej oznaczenie i dane.",
 };
 export const PLANNING_LEGEND_URLS = Object.freeze({
@@ -112,6 +112,7 @@ export function mountPlanningLayers(container, options = {}) {
     entry.status.dataset.state = complete ? "complete" : exhausted ? "incomplete" : "loading";
     entry.status.textContent = (complete ? "Kafelki wczytane: " : exhausted ? "Niepełne wczytanie: " : "Wczytywanie: ")
       + stats.loaded + "/" + stats.total + (entry.coverageText ? ". " + entry.coverageText : "");
+    if (entry.id === "buildingLines") entry.status.textContent += ". Linie wymagają dużego zbliżenia (1:5 000 lub bliżej) i danych wektorowych gminy.";
     entry.retry.hidden = complete || !exhausted;
     if (!complete && !exhausted) entry.timer = setTimer(() => {
       entry.timer = null;

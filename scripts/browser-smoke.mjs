@@ -15,10 +15,16 @@ import { isAllowedThematicRequest } from "./thematic-allowlist.mjs";
 import { runThematicSmoke } from "./thematic-smoke.mjs";
 import { runAppearanceSmoke } from "./appearance-smoke.mjs";
 import { runMapToolsSmoke } from "./map-tools-smoke.mjs";
+import { runMapLayoutSmoke } from "./map-layout-smoke.mjs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, "..");
 export const SCENARIO_TIMEOUT_MS = 25000;
+
+export function isCanceledFixtureInterception(error, record) {
+  return String(error?.message).includes("CDP Fetch.fulfillRequest: Invalid InterceptionId")
+    && (record?.canceled === true || record?.errorText === "net::ERR_ABORTED");
+}
 export const DEFAULT_TILE_EXPERIMENT_SETTLE_MS = 35000;
 export const MAX_TILE_EXPERIMENT_ORTHO_REQUESTS = 800;
 export const TILE_EXPERIMENT_REPEATS = 3;
@@ -1350,8 +1356,11 @@ async function runBrowserSmoke() {
   const planningLayersMode = argv.includes("--planning-layers");
   const thematicLayersMode = argv.includes("--thematic-layers");
   const appearanceMode = argv.includes("--appearance-tools");
-  const mapToolsMode = argv.includes("--map-tools");
-  const offlineMapTools = argv.includes("--offline-map-tools");
+  const mapLayoutMode = argv.includes("--map-layout");
+  const verifyLines = argv.includes("--verify-building-lines");
+  if(verifyLines&&!mapLayoutMode)throw new Error("--verify-building-lines wymaga --map-layout.");
+  const mapToolsMode = argv.includes("--map-tools") || mapLayoutMode;
+  const offlineMapTools = argv.includes("--offline-map-tools") || mapLayoutMode;
   if (offlineMapTools && !mapToolsMode) throw new Error("--offline-map-tools wymaga --map-tools.");
   const offlinePlanning = argv.includes("--offline-planning");
   const offlineThematic = argv.includes("--offline-thematic");
@@ -1682,7 +1691,7 @@ async function runBrowserSmoke() {
             : isAllowedBrowserRequest(requestUrl, request.method, {
               appOrigins,
               healthRoutes,
-              planningLayers: planningLayersMode,
+              planningLayers: planningLayersMode || (mapLayoutMode && verifyLines),
               thematicLayers: thematicLayersMode,
               allowRedirectKiutHosts: isRedirectDestination,
               allowDirectKiegHosts: kiegExperimentArgs?.id === "V3",
@@ -1760,7 +1769,9 @@ async function runBrowserSmoke() {
             }
             orthophotoRequestCount += 1;
           }
-          if ((offlinePlanning || offlineThematic || offlineAppearance || offlineMapTools) && parsedRequestUrl && !appOrigins.includes(parsedRequestUrl.origin)) {
+          const liveLine = mapLayoutMode && verifyLines && (parsedRequestUrl?.searchParams.get("layers") === "wektor-lzb"
+            || requestUrl === "https://opendata.geoportal.gov.pl/Geoportal/ikony/mpzp/mpzp-lzb.png");
+          if ((offlinePlanning || offlineThematic || offlineAppearance || offlineMapTools) && !liveLine && parsedRequestUrl && !appOrigins.includes(parsedRequestUrl.origin)) {
             if (networkRecord) networkRecord.mocked = true;
             await pageCdp.command("Fetch.fulfillRequest", { requestId: params.requestId, ...planningSmokeFixture(requestUrl) });
             return;
@@ -1779,7 +1790,17 @@ async function runBrowserSmoke() {
             requestId: params.requestId,
             ...(requestUrl !== request.url ? { url: requestUrl } : {}),
           }).catch(() => {});
-        })().catch((error) => {
+        })().catch(async (error) => {
+          if ((offlinePlanning || offlineThematic || offlineAppearance || offlineMapTools)
+              && String(error?.message).includes("Invalid InterceptionId")) {
+            // Resizing/navigating can cancel a tile while its fixture is being fulfilled.
+            await sleep(50);
+            const record = requestsById.get(params.networkId);
+            if (isCanceledFixtureInterception(error, record)) {
+              record.fixtureCanceled = true;
+              return;
+            }
+          }
           runError = error;
           void pageCdp.command("Fetch.failRequest", {
             requestId: params.requestId,
@@ -2672,13 +2693,13 @@ async function runBrowserSmoke() {
     }
 
     if(appearanceMode || mapToolsMode){
-      currentScenario = mapToolsMode ? "m4e2-map-tools" : "m4e1-appearance";
+      currentScenario = mapLayoutMode ? "map-panel-scroll" : mapToolsMode ? "m4e2-map-tools" : "m4e1-appearance";
       const offline = mapToolsMode ? offlineMapTools : offlineAppearance;
       const capture=async(filename)=>{const shot=await pageCdp.command("Page.captureScreenshot",{format:"png",captureBeyondViewport:true});await writeFile(join(resultDir,filename),Buffer.from(shot.data,"base64"));};
-      const result=await (mapToolsMode ? runMapToolsSmoke : runAppearanceSmoke)({evaluate,command:(method,params)=>pageCdp.command(method,params),sleep,origin:appOrigin,context:contextEncoded,waitForMap,setZoom:setZoomForTest,offline,capture});
+      const result=await (mapLayoutMode ? runMapLayoutSmoke : mapToolsMode ? runMapToolsSmoke : runAppearanceSmoke)({evaluate,command:(method,params)=>pageCdp.command(method,params),sleep,origin:appOrigin,context:contextEncoded,waitForMap,setZoom:setZoomForTest,offline,capture,verifyLines});
       result.assertions.push({name:"Brak wyjątków JavaScript",pass:pageExceptions.length===0});await Promise.all([...pendingFetchHandlers]);if(runError)throw runError;
       const passed=result.assertions.every(assertion=>assertion.pass)&&blockedRequests.length===0;
-      runReport={scenario:currentScenario,browserMode:headed?"headed":"headless",offline,passed,...result,externalRequests,blockedRequests,consoleErrors,pageExceptions,budget:taskBudget.snapshot()};
+      runReport={scenario:currentScenario,browserMode:headed?"headed":"headless",offline:verifyLines?"fixtures-except-building-lines":offline,passed,...result,externalRequests,blockedRequests,consoleErrors,pageExceptions,budget:taskBudget.snapshot()};
       await writeFile(join(resultDir,"report.json"),JSON.stringify(runReport,null,2),"utf8");
       const summary=result.assertions.map(assertion=>(assertion.pass?"PASS":"FAIL")+" | "+assertion.name).join("\n")+"\nŻądania zablokowane: "+blockedRequests.length+"\nWyniki: "+resultDir+"\n";
       await writeFile(join(resultDir,"summary.txt"),summary,"utf8");process.stdout.write(summary);if(!passed)process.exitCode=1;return;

@@ -2,7 +2,9 @@
 
 Aktualizacja: 2026-11-28. Bieżące źródło stanu i kolejki akceptacji; starsze raporty są dowodami historycznymi, nie bieżącą listą wykonanych funkcji.
 
-## Obecnie: M4e.2 — pomiary i menu mapy
+## Obecnie: M4e.2 i poprawka przewijania panelu
+
+Aktualizacja po uwagach właściciela 2026-11-28 (D34): panel Działek przewija się niezależnie od mapy, również przy jego końcu; na telefonie mapa jest nad panelem. Linie zabudowy zostają po potwierdzeniu rzeczywistych nieprzekraczalnych linii w KIMPZP przy dużym zbliżeniu. 156 testów PASS i końcowy headed smoke 20/20 PASS; dotychczasowe adresy usług bez zmian. [Raport poprawki](../reports/map-panel-scroll.md), [scenariusz i ograniczenia](map-panel-scroll.md). Gałąź `fix/map-panel-scroll`, baza main po scalonym #25 (`4c445b9`); PR i SHA implementacji podaje raport. Agent scala po zielonym CI zgodnie z D33. Podgląd nadal na porcie 8082, aktualizowany do zapisanej poprawki; odświeżyć Ctrl+F5. Postęp bez zmiany: około 31% / 69%. M4f nadal czeka na akceptację kontynuacji.
 
 Właściciel polecił 2026-11-28 „Kontynuuj. I rób sam to merge”. PR-y #13–#24 scalono kolejno do main po zielonych kontrolach; main `0fb6a8f` ma CI push SUCCESS. D33 zezwala na samodzielne merge, bez wdrażania. Ukończono M4e.2: odległość, pole i pełny obwód, menu miejsca i odnośnik Street View. 155 testów PASS i headed Edge offline/mobile 9/9 PASS; PNG obejrzane. Po tym etapie praca zatrzymana do akceptacji kontynuacji M4f.
 
