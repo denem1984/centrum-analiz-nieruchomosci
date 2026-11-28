@@ -268,7 +268,7 @@ function geometryCenter(geometry) {
   return { lat: latitudeSum / totalArea, lon: longitudeSum / totalArea };
 }
 
-function geometryExtent(geometry) {
+export function geometryExtent(geometry) {
   const positions = [];
   const visit = (value) => {
     if (!Array.isArray(value)) return;

@@ -245,6 +245,7 @@ function renderCurrentView() {
     providerConfig: { provider: "fixture" },
     rcnDemo: isModuleDemo("rcn"),
     ofertyDemo: isModuleDemo("oferty"),
+    podobneDemo: isModuleDemo("podobne"),
     localPreview: isLocalPreview(),
   };
   const cleanup = MODULE_BY_ID[route].mount(view, ctx);
@@ -272,7 +273,7 @@ function init() {
   });
   renderCurrentView();
   window.addEventListener("hashchange", renderCurrentView);
-  if (!isModuleDemo("rcn") && !isModuleDemo("oferty")) startHealthChecks();
+  if (!["rcn", "oferty", "podobne"].some(isModuleDemo)) startHealthChecks();
 }
 
 if (typeof document !== "undefined" && typeof window !== "undefined") {

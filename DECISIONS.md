@@ -262,6 +262,12 @@
 - W M9 raport RCN otrzyma opcjonalną sekcję z wynikami Ofert dla tej samej lokalizacji. Podczas dołączania trzeba sprawdzić powiązanie identyfikatorów, pokazać zastosowane filtry i przedstawić ceny transakcyjne RCN oraz ceny ofertowe w osobnych sekcjach z własnymi statystykami. Wynik z innej lokalizacji lub brak wyników trzeba pokazać przed wygenerowaniem raportu. Zakres dołączanych wierszy i format załącznika są do potwierdzenia w M9. Udostępnianie wyników Ofert nadal podlega decyzji D12.
 - Kolejność robocza to odbiór M6, pozostałe moduły M7–M8, wspólne wyszukiwanie M3c i raport M9. Ten zapis aktualizuje plan bieżącego etapu.
 
+## D40 — Lokalizowanie adresu i działki w Podobnych (2026-11-28)
+
+- Publiczne Nominatim ogranicza wykorzystanie przez aplikacje i wymaga od dewelopera świadomej decyzji o zgodności z polityką usługi. Centrum używa do adresów GUGiK UUG po zatwierdzeniu formularza. Przy wielu wynikach użytkownik wybiera punkt. [Zasady Nominatim](https://operations.osmfoundation.org/policies/nominatim/) · [API GUGiK](https://services.gugik.gov.pl/uug/opis.html)
+- Podobne zachowują PRG, listę obrębów i ULDK z dotychczasowego API. Awaryjny wynik wyszukania działki po nazwie obrębu jest akceptowany tylko przy identycznym identyfikatorze. Punkt pochodzi z geometrii działki.
+- Na mapie pozostały oba dotychczasowe podkłady Esri. Osobny plan poprawy aktualności zdjęć pozostaje w M4b.4.
+
 ## Zasady repozytorium
 
 [FAKT: decyzja właściciela z 2026-10-26] Repozytorium jest publiczne. Nie zapisujemy w nim wartości sekretów, konfiguracji, tokenów, kluczy, danych osobowych ani identyfikatorów kont lub usług. Wyjątkiem jest niesekretna wartość trybu źródło danych RCN. Pięć repozytoriów źródłowych jest tylko do odczytu.
