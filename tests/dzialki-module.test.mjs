@@ -71,6 +71,7 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
 
   assert.equal(leaflet.maps.length, 1);
   const firstMap = leaflet.maps[0];
+  assert.equal(firstMap.listenerCount("resize"), 1, "otwarty popup dopasuje się po zmianie rozmiaru");
   assert.equal(resizeObservers[0].node, firstMap.getContainer());
   resizeObservers[0].callback();
   assert.equal(firstMap.invalidateCount, 1, "Leaflet aktualizuje rozmiar po zmianie układu");

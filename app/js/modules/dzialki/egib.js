@@ -65,6 +65,12 @@ function contains(point, polygon) {
   return ringContains(point, polygon[0]) && !polygon.slice(1).some((ring) => ringContains(point, ring));
 }
 
+export function parcelContainsPoint(geometry, { lat, lng }) {
+  const polygons = geometry?.type === "Polygon" ? [geometry.coordinates]
+    : geometry?.type === "MultiPolygon" ? geometry.coordinates : [];
+  return polygons.some(polygon => polygon?.[0]?.length && contains([lng, lat], polygon));
+}
+
 export function interiorPoint(geometry) {
   const polygons = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.coordinates;
   for (const polygon of polygons) {

@@ -294,14 +294,13 @@ test("zmiana widoku lub unmount anuluje zaplanowane retry KIEG", () => {
   resetDzialkiState();
 });
 
-test("kliknięcie przełącza wiele działek i bezpieczny popup zawiera pola EGiB", async () => {
+test("lewy klik pokazuje EGiB, a osobne akcje zmieniają wielokrotne zaznaczenie", async (t) => {
   resetDzialkiState();
   contextStore.clear();
   const originalContext = contextStore.get();
   const fake = createFakeDom();
   const leaflet = createFakeLeaflet();
   const container = fake.document.createElement("aside");
-  let clickNumber = 0;
   let measuring = true;
   const clickRequests = [];
   const fetchImpl = async (url, options) => {
@@ -310,13 +309,13 @@ test("kliknięcie przełącza wiele działek i bezpieczny popup zawiera pola EGi
     }
     assert.equal(options.method, "GET");
     clickRequests.push(String(url));
-    clickNumber += 1;
-    return { ok: true, status: 200, text: async () => kiegXml(clickNumber === 2 ? idB : idA) };
+    return { ok: true, status: 200, text: async () => kiegXml(String(url) === buildMapClickFeatureInfoUrl({ lat: 53.201, lng: 16.921 }) ? idB : idA) };
   };
   const controller = mountEgibLayers(container, { ...readyOptions(fetchImpl), isMapInteractionBlocked: () => measuring });
   const map = leaflet.L.map(container, {});
   map.setZoom(17);
   controller.attach(map, leaflet.L);
+  t.after(() => { controller.cleanup(); resetDzialkiState(); });
   await wait(25);
   map.fire("click", { latlng: { lat: 53.2, lng: 16.9 } });
   await wait();
@@ -329,19 +328,21 @@ test("kliknięcie przełącza wiele działek i bezpieczny popup zawiera pola EGi
   assert.equal(map.popup.content.textContent.includes("Powierzchnia: 0,1234 ha"), true);
   assert.equal(map.popup.content.textContent.includes("Grupa rejestrowa: 7 – osoby fizyczne"), true);
   assert.match(map.popup.content.textContent, /Klasoużytki: RVI, B/);
-  assert.equal(map.layers.size, 5);
-  map.fire("click", { latlng: { lat: 53.201, lng: 16.921 } });
-  await wait();
+  assert.equal(getDzialkiState().selectedMapParcels.length, 0);
+  controller.addSearchSelection({ parcel: { id: idA }, geometry: feature(idA).geometry });
+  await controller.setSelectionAt({ lat: 53.201, lng: 16.921 }, true);
   assert.equal(map.layers.size, 6, "dwie różne działki mogą pozostać zaznaczone");
   assert.deepEqual(getDzialkiState().selectedMapParcels.map((item) => item.parcel.id), [idA, idB]);
   map.fire("click", { latlng: { lat: 53.2, lng: 16.9 } });
   await wait();
-  assert.equal(map.popup.content.textContent.includes("Odznaczono tę działkę."), true);
-  assert.equal(map.layers.size, 5, "ponowne kliknięcie usuwa zaznaczenie tylko tej działki");
+  assert.match(map.popup.content.textContent, /Działka zaznaczona/);
+  assert.equal(getDzialkiState().selectedMapParcels.length, 2);
+  const requestCount = clickRequests.length;
+  await controller.setSelectionAt({ lat: 53.203, lng: 16.904 }, false);
+  assert.equal(clickRequests.length, requestCount, "wyszukaną działkę można odznaczyć na podstawie jej geometrii");
+  assert.equal(map.layers.size, 5, "odznaczanie usuwa tylko wskazaną działkę");
   assert.deepEqual(getDzialkiState().selectedMapParcels.map((item) => item.parcel.id), [idB]);
   assert.deepEqual(contextStore.get(), originalContext, "kliknięcie mapy nie zmienia DenemContext");
-  controller.cleanup();
-  resetDzialkiState();
 });
 
 test("zmiana widoku anuluje poprzedni WFS i nie nakłada żądań; cleanup przerywa pracę", async () => {

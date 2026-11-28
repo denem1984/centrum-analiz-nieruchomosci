@@ -127,3 +127,4 @@ Scenariusz: `node scripts/browser-smoke.mjs --headed --map-layout --task map-pan
 ### PDF w Działkach
 
 `node scripts/browser-smoke.mjs --headed --report-pdf --task m4f` sprawdza listę, mapę i rzeczywiste pobranie PDF w Edge. Odpowiedzi usług są fikcyjne. Plik PDF i zrzuty trafiają do ignorowanego katalogu wyników. [Test ręczny i ograniczenia](../reports/m4f-report-pdf.md).
+`node scripts/browser-smoke.mjs --headed --planning-presentation --task dzialki-feedback` sprawdza kolory własności, długi popup, akcje PPM, odnośnik MPZP i eksport z oddzielnymi legendami. Przeglądarka używa atrap usług. [Instrukcja i dowody](../reports/dzialki-planning-presentation.md).

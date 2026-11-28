@@ -3,9 +3,10 @@ import { getDzialkiState, updateDzialkiState } from "./state.js";
 import { attachTileRetry } from "./tile-retry.js";
 import { buildMapClickFeatureInfoUrl, countVisibleKiegTiles, EGiB_MIN_ZOOM } from "./egib-layers.js";
 import { loadPlanningProjection, createEmapaLayer } from "./planning-projection.js";
-import { PLANNING_LAYERS, POG_GUGIK_WMS, NO_MPZP, NO_DRAFT_ZONE, buildEmapaCapabilitiesUrl,
+import { PLANNING_LAYERS, MPZP_WMS, POG_GUGIK_WMS, NO_MPZP, NO_DRAFT_ZONE, buildEmapaCapabilitiesUrl, buildMpzpMapInfoLink,
   buildEmapaInfoUrl, buildDraftZoneInfoUrl, parseEmapaInfo, parseDraftZoneInfo, planningRequest, loadMpzp } from "./planning-services.js";
 import { renderMpzp, renderAdoptedPog, renderDraftPog } from "./planning-popup.js";
+import { mapPopupOptions } from "./map-popup.js";
 
 const HELP = {
   mpzp: "Typowe oznaczenia MPZP — dokładne znaczenie ustala konkretna uchwała: MN – zabudowa jednorodzinna; MW – wielorodzinna; MU – mieszkaniowo-usługowa; U – usługi; UC – handel wielkopowierzchniowy; UO – oświata; UZ – zdrowie; US – sport/rekreacja; P – produkcja, składy, magazyny; PU – produkcyjno-usługowa; R – rolnictwo; RM – zabudowa zagrodowa; ZL/LS – lasy; ZP – parki; ZN – zieleń nieurządzona; ZC – cmentarze; ZD – ogrody działkowe; WS – wody; KDG/KDZ/KDL/KDD – drogi; KK – kolej; KS – parkingi; E/W/K/G/C – infrastruktura techniczna.",
@@ -280,7 +281,7 @@ export function mountPlanningLayers(container, options = {}) {
     let idTask;
     const parcelId = () => idTask ??= selection?.parcel?.id
       ? Promise.resolve(selection.parcel.id) : parcelIdAt(event.latlng, signal);
-    function section(label, load, render, empty) {
+    function section(label, load, render, empty, enableMapLink = false) {
       const section = node(document, "section");
       section.append(node(document, "h4", label));
       const status = node(document, "p", "Wczytywanie…");
@@ -293,6 +294,21 @@ export function mountPlanningLayers(container, options = {}) {
       retry.hidden = true;
       section.append(body, retry);
       root.append(section);
+      function appendMapLink() {
+        // An ordinary link also works when the provider does not expose CORS for HTML.
+        const anchor = node(document, "a", "Otwórz usługę MPZP w Geoportalu");
+        anchor.href = MPZP_WMS;
+        anchor.target = "_blank";
+        anchor.rel = "noopener noreferrer";
+        body.append(anchor);
+        void Promise.resolve().then(() => (options.loadProjection ?? loadPlanningProjection)())
+          .then(project => {
+            if (signal.aborted || disposed || !body.contains(anchor)) return;
+            anchor.href = buildMpzpMapInfoLink(project([event.latlng.lng, event.latlng.lat]));
+            anchor.textContent = "Sprawdź ten punkt w usłudze MPZP Geoportalu";
+            updatePopupLayout();
+          }).catch(() => {});
+      }
       async function run() {
         retry.hidden = true;
         body.replaceChildren();
@@ -305,12 +321,14 @@ export function mountPlanningLayers(container, options = {}) {
           const incomplete = result?.incomplete;
           section.dataset.state = incomplete ? "incomplete" : found ? "ready" : "empty";
           status.textContent = incomplete ? "Nie udało się sprawdzić wszystkich źródeł planu. Wynik jest niepełny." : found ? "Wczytano." : empty;
+          if (enableMapLink && !found) appendMapLink();
           retry.hidden = !incomplete;
           updatePopupLayout();
         } catch {
           if (signal.aborted || disposed) return;
           section.dataset.state = "error";
           status.textContent = "Nie udało się pobrać informacji z usługi. Spróbuj ponownie.";
+          if (enableMapLink) appendMapLink();
           retry.hidden = false;
           updatePopupLayout();
         }
@@ -336,7 +354,7 @@ export function mountPlanningLayers(container, options = {}) {
       await backendReady(signal);
       const result = await loadMpzp(event.latlng, id, { signal, fetchImpl });
       return { ...result, incomplete: result.incomplete || parcelFailed };
-    }, renderMpzp, NO_MPZP);
+    }, renderMpzp, NO_MPZP, true);
     if (enabled().pogAdopted) section("Uchwalony plan ogólny – usługa gminna", async () => {
       const id = await parcelId();
       if (!id) throw new Error("Nie ustalono gminy.");
@@ -362,7 +380,7 @@ export function mountPlanningLayers(container, options = {}) {
     if (map.getZoom() >= EGiB_MIN_ZOOM && (egib.numbers || egib.parcels)) return;
     const base = node(document,"p","Informacje dla wskazanego miejsca.");
     const content = options.extendStandalonePopup ? options.extendStandalonePopup(base,event) : extendPopup(base,event);
-    activePopup = L.popup({ maxWidth: 380, maxHeight: 450 }).setLatLng(event.latlng).setContent(content).openOn(map);
+    activePopup = L.popup(mapPopupOptions(map)).setLatLng(event.latlng).setContent(content).openOn(map);
     options.onPopupOpen?.(activePopup);
   }
   const closePopup = (event) => {

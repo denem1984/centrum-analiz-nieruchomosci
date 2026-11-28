@@ -8,7 +8,7 @@ import { createFakeLeaflet, FakeTileLayer } from "./helpers/fake-leaflet.mjs";
 import { resetDzialkiState, updateDzialkiState } from "../app/js/modules/dzialki/state.js";
 import { mountPlanningLayers } from "../app/js/modules/dzialki/planning-layers.js";
 import { buildMpzpInfoUrl, buildDzinfoUrl, buildEmapaCapabilitiesUrl, buildEmapaInfoUrl, buildDraftZoneInfoUrl,
-  buildPlanningGetMapUrl, loadMpzp, safePlanningHref, parseDraftZoneInfo, NO_MPZP } from "../app/js/modules/dzialki/planning-services.js";
+  buildPlanningGetMapUrl, buildMpzpMapInfoLink, loadMpzp, safePlanningHref, parseDraftZoneInfo } from "../app/js/modules/dzialki/planning-services.js";
 import { emapaTileRequest, createEmapaLayer, PROJ4_INTEGRITY } from "../app/js/modules/dzialki/planning-projection.js";
 import { renderMpzp, renderAdoptedPog, renderDraftPog } from "../app/js/modules/dzialki/planning-popup.js";
 
@@ -149,19 +149,30 @@ test("odmontowanie blokuje spóźnione odpowiedzi popupu", async (t) => {
 
 test("popup odróżnia poprawny brak danych od niepełnego sprawdzenia źródeł", async (t) => {
   let fail = false;
-  const fake = setup(t, { fetchImpl: async (url) => fail ? { ok: false, status: 503 }
+  const fake = setup(t, { loadProjection: async () => () => [660000, 486500],
+    fetchImpl: async (url) => fail ? { ok: false, status: 503 }
     : { ok: true, json: async () => url.includes("gmina") ? { plans: [] } : url.includes("/dzinfo") ? { mpzp: null } : { found: false, plany: [] } } });
   fake.change("mpzp", true);
   const event = { latlng: { lat: 53, lng: 17 } }, selection = { parcel: { id: "998877_2.0001.12/3" } };
   const empty = fake.controller.extendPopup("Działka testowa", event, selection);
   await flush();
   assert.equal(empty.querySelector("section").dataset.state, "empty");
-  assert.match(empty.textContent, /brak w Rejestrze Urbanistycznym i w usłudze gminnej/);
+  assert.match(empty.textContent, /Rysunek MPZP na mapie może nadal pokazywać plan/);
+  assert.equal(empty.querySelector("a").href, buildMpzpMapInfoLink([660000, 486500]));
   fail = true;
   const partial = fake.controller.extendPopup("Działka testowa", event, selection);
   await flush();
   assert.equal(partial.querySelector("section").dataset.state, "incomplete");
-  assert.doesNotMatch(partial.textContent, /brak w Rejestrze Urbanistycznym i w usłudze gminnej/);
+  assert.match(partial.textContent, /Wynik jest niepełny/);
+  assert.equal(partial.querySelector("a").href, buildMpzpMapInfoLink([660000, 486500]));
+});
+
+test("link do źródła rysunku kieruje do wskazanego punktu, w metrach EPSG:2180", () => {
+  const layers = "granice%2Craster%2Cwektor-str%2Cwektor-lzb%2Cwektor-lin%2Cwektor-pow%2Cwektor-pkt";
+  assert.equal(buildMpzpMapInfoLink([660000, 486500]), MPZP + "?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&LAYERS="
+    + layers + "&QUERY_LAYERS=" + layers + "&SRS=EPSG%3A2180&BBOX=659950.00%2C486450.00%2C660050.00%2C486550.00"
+    + "&WIDTH=101&HEIGHT=101&X=50&Y=50&FORMAT=image%2Fpng&INFO_FORMAT=text%2Fhtml&TRANSPARENT=TRUE");
+  assert.throws(() => buildMpzpMapInfoLink([NaN, 0]));
 });
 
 test("zimny backend pokazuje sekundy i nie otrzymuje żądań planu przed gotowością", async (t) => {
@@ -230,7 +241,6 @@ test("renderer nie montuje HTML i przepuszcza tylko bezpieczne linki HTTPS; zach
   assert.equal(renderDraftPog(document, root, [{ Oznaczenie: "SU", "Profil dodatkowy": "Test" }]), true);
   assert.match(root.textContent, /Projektowany POG – strefa: SU/);
   assert.equal(renderMpzp(document, root, { plans: [], mpzp: null }), false);
-  assert.equal(NO_MPZP, "Szczegóły planu miejscowego niedostępne (brak w Rejestrze Urbanistycznym i w usłudze gminnej).");
 });
 
 test("parser HTML usuwa zasoby przed parsowaniem i odrzuca wyjątek WMS", () => {

@@ -241,6 +241,13 @@
 - Lista działek i zapisanych widoków pozostaje w pamięci zgodnie z D15. Działkę można dodać z wyniku wyszukania lub menu mapy. Widok utrwala geometrię, etykiety i dostępne rastry. PDF wymienia ograniczenia widoku, a dane działki obejmują wynik sprawdzenia MPZP.
 - Do pobierania PDF użyto lokalnych jsPDF i Noto Sans z weryfikacją integralności. PDF zachowuje polskie znaki, a aktualną mapę zapisuje do obrazu PNG w chwili dodawania widoku. Kafelki z ograniczeniami CORS mogą zostać pominięte z informacją w raporcie.
 
+## D37 — Informacja o działce, zaznaczenie i legendy (2026-11-28)
+
+- Lewy klik pokazuje informacje. Prawy przycisk udostępnia osobne „Zaznacz działkę” i „Odznacz działkę”, również dla działki wskazanej wcześniej w wyszukiwaniu. Odznaczenie dotyczy obrysu na mapie. Wyszukany wynik nadal jest dostępny w formularzu i raporcie.
+- Mapa własności i obie legendy (panel i PDF) używają wspólnej palety. Własność ma kryjące wypełnienie. Zaznaczenie nad nią jest obrysem. Aby zobaczyć rysunki warstw pod działkami, można wyłączyć mapę własności.
+- Popup dopasowuje wymiary do mapy. Pusty wynik szczegółów MPZP pozostawia informację o rysunku i odnośnik do sprawdzenia wskazanego miejsca bezpośrednio w KIMPZP. Przejście do usługi jest inicjowane przez użytkownika.
+- Każdy zapisany widok PDF dobiera legendy do własnych warstw. MPZP ma przykładowe kody rysunku, POG ma słownik 13 stref z rozróżnieniem włączonych warstw uchwalonych i projektowanych. Widok z oboma rodzajami dostaje obie legendy.
+
 ## Zasady repozytorium
 
 [FAKT: decyzja właściciela z 2026-10-26] Repozytorium jest publiczne. Nie zapisujemy w nim wartości sekretów, konfiguracji, tokenów, kluczy, danych osobowych ani identyfikatorów kont lub usług. Wyjątkiem jest niesekretna wartość trybu źródło danych RCN. Pięć repozytoriów źródłowych jest tylko do odczytu.

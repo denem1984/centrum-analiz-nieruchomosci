@@ -1,7 +1,9 @@
 import { BACKENDS } from "../../config.js";
 import { checkBackend, getBackendStatus, subscribeBackendStatus } from "../../health.js";
 import { getDzialkiState, updateDzialkiState } from "./state.js";
-import { KIEG_ENDPOINT, parseKiegFeatureInfo } from "./egib.js";
+import { KIEG_ENDPOINT, parseKiegFeatureInfo, readKiegParcelId, parcelContainsPoint } from "./egib.js";
+import { mapPopupOptions } from "./map-popup.js";
+import { createSearchApi } from "./search.js";
 import { attachTileRetry, resolveTileRetryConfig } from "./tile-retry.js";
 
 export const PARCEL_WFS_URL = BACKENDS.Dzialki.baseUrl + "/api/wfs";
@@ -622,7 +624,8 @@ export function mountEgibLayers(container, options = {}) {
     const layer = leaflet.geoJSON(selection.geometry, {
       pane: "dzialki-selection-pane",
       style: () => ({
-        color: getDzialkiState().appearance.selectionColor, weight: 5, fillColor: getDzialkiState().appearance.selectionColor, fillOpacity: 0.42,
+        color: getDzialkiState().appearance.selectionColor, weight: 5, fillColor: getDzialkiState().appearance.selectionColor,
+        fillOpacity: getDzialkiState().thematicLayers.ownership ? 0 : 0.42,
         className: "dzialki-selected-parcel", bubblingMouseEvents: true,
       }),
     });
@@ -642,7 +645,7 @@ export function mountEgibLayers(container, options = {}) {
   function updateBoundPopup(entry) {
     if (!entry?.layer || typeof entry.layer.bindPopup !== "function") return;
     entry.layer.bindPopup(popupContent(document, entry.selection,
-      "✓ Zaznaczono tę działkę (klik ponownie, aby odznaczyć)."));
+      "Działka zaznaczona. Opcja odznaczenia jest w menu pod prawym przyciskiem."), mapPopupOptions(map));
   }
 
   function addSearchSelection(selection) {
@@ -672,9 +675,11 @@ export function mountEgibLayers(container, options = {}) {
   }
 
   function refreshAppearance() {
-    const {outlineColor,selectionColor}=getDzialkiState().appearance;
+    const { appearance: { outlineColor, selectionColor }, thematicLayers } = getDzialkiState();
     outlineLayer?.setStyle({color:outlineColor});
-    for (const {layer} of selected.values()) layer.setStyle({color:selectionColor,fillColor:selectionColor});
+    for (const {layer} of selected.values()) {
+      layer.setStyle({ color: selectionColor, fillColor: selectionColor, fillOpacity: thematicLayers.ownership ? 0 : 0.42 });
+    }
   }
   function clearSelections() {
     clickController?.abort();
@@ -687,55 +692,84 @@ export function mountEgibLayers(container, options = {}) {
   async function handleMapClick(event) {
     if (options.isMapInteractionBlocked?.() || disposed || !map || map.getZoom() < EGiB_MIN_ZOOM
         || !(readLayerOptions().numbers || readLayerOptions().parcels)) return;
+    return runParcelAction(event.latlng, "info", event);
+  }
+
+  async function setSelectionAt(point, shouldSelect) {
+    if (disposed || !map || options.isMapInteractionBlocked?.()) return;
+    const entry = [...selected.values()].find(item => parcelContainsPoint(item.selection.geometry, point));
+    if (entry) {
+      clickController?.abort();
+      if (shouldSelect) setStatus("Ta działka jest już zaznaczona.", "ready");
+      else removeSelected(entry.selection.parcel.id, entry);
+      return;
+    }
+    if (map.getZoom() < EGiB_MIN_ZOOM) {
+      setStatus("Przybliż mapę co najmniej do poziomu 13, aby wskazać działkę.", "ready");
+      return;
+    }
+    return runParcelAction(point, shouldSelect ? "select" : "deselect");
+  }
+
+  function removeSelected(id, entry) {
+    map.removeLayer(entry.layer);
+    selected.delete(id);
+    persistSelections();
+    setStatus("Odznaczono tę działkę.", "ready");
+  }
+
+  async function runParcelAction(point, action, event) {
     clickController?.abort();
     const controller = new AbortController();
     clickController = controller;
+    if (action !== "info") setStatus("Sprawdzanie wskazanej działki…", "loading");
     try {
-      const response = await fetchImpl(buildMapClickFeatureInfoUrl(event.latlng), {
-        method: "GET", signal: controller.signal, redirect: "error",
+      const response = await fetchImpl(buildMapClickFeatureInfoUrl(point), {
+        method: "GET", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]), redirect: "error",
       });
       if (!response?.ok) throw new Error("Usługa EGiB nie odpowiedziała prawidłowo.");
       const text = await response.text();
       if (controller.signal.aborted || disposed) return;
-      const match = text.match(/<Attribute\b[^>]*\bName\s*=\s*["']Identyfikator działki["'][^>]*>([\s\S]*?)<\/Attribute\s*>/i);
-      const id = match?.[1]?.replace(/^<!\[CDATA\[|\]\]>$/g, "").trim();
+      const id = readKiegParcelId(text);
       if (!id) {
         setStatus("Nie znaleziono działki w tym miejscu.", "ready");
-        if (options.extendPopup) openParcelPopup("Brak działki w tym miejscu.", event, null);
+        if (event && options.extendPopup) openParcelPopup("Brak działki w tym miejscu.", event, null);
         return;
       }
-      let entry = selected.get(id);
-      const feature = findFeature(id);
-      const geometry = entry?.selection?.geometry ?? feature?.geometry ?? null;
-      const parsed = parseKiegFeatureInfo(text, id, geometry);
-      let note;
-      if (entry) {
-        map.removeLayer(entry.layer);
-        selected.delete(id);
-        persistSelections();
-        note = "Odznaczono tę działkę.";
-      } else {
-        if (!geometry) {
-          setStatus("Dane działki są poza pobranym widokiem. Przesuń mapę i spróbuj ponownie.", "ready");
-          if (options.extendPopup) openParcelPopup("Działka " + id, event, { parcel: { id } });
-          return;
-        }
-        const selection = { parcel: { id, number: labelText(id) }, geometry, egib: parsed };
-        const layer = addSelected(selection);
-        entry = selected.get(id);
-        if (entry) entry.selection = selection;
-        if (layer) note = "✓ Zaznaczono tę działkę (klik ponownie, aby odznaczyć).";
+      const entry = selected.get(id);
+      if (action === "deselect") {
+        if (entry) removeSelected(id, entry);
+        else setStatus("Ta działka nie jest zaznaczona.", "ready");
+        return;
       }
-      const currentSelection = entry?.selection ?? {
-        parcel: { id }, geometry: findFeature(id)?.geometry, egib: parsed,
-      };
-      if (currentSelection.egib !== parsed && note?.startsWith("✓")) currentSelection.egib = parsed;
-      openParcelPopup(popupContent(document, currentSelection, note), event, currentSelection);
-      setStatus(note, "ready");
+      if (action === "select" && entry) {
+        setStatus("Ta działka jest już zaznaczona.", "ready");
+        return;
+      }
+      let geometry = entry?.selection.geometry ?? findFeature(id)?.geometry;
+      if (action === "select" && !geometry) {
+        const parts = /^(\d{6}_\d\.\d{4})\.(.+)$/.exec(id);
+        if (parts) {
+          const parcel = await createSearchApi({ fetchImpl, timeoutMs: 20000, retries: 0 })
+            .parcel(parts[1], parts[2], { signal: controller.signal });
+          if (parcel?.id === id) geometry = parcel.geometry;
+        }
+        controller.signal.throwIfAborted();
+      }
+      if (action === "select" && !geometry) throw new Error("Brak geometrii działki.");
+      const selection = { ...entry?.selection, parcel: { id, number: labelText(id) }, geometry,
+        egib: parseKiegFeatureInfo(text, id, geometry) };
+      if (event) {
+        openParcelPopup(popupContent(document, selection, entry ? "Działka zaznaczona." : ""), event, selection);
+      } else {
+        addSelected(selection);
+        setStatus("Zaznaczono tę działkę.", "ready");
+      }
     } catch (error) {
       if (controller.signal.aborted || error?.name === "AbortError" || disposed) return;
-      setStatus("Nie udało się pobrać informacji o działce.", "error", true);
-      if (options.extendPopup) openParcelPopup("Nie udało się pobrać danych działki.", event, null);
+      setStatus(event ? "Nie udało się pobrać informacji o działce."
+        : "Nie udało się zmienić zaznaczenia. Wskaż działkę ponownie.", "error", Boolean(event));
+      if (event && options.extendPopup) openParcelPopup("Nie udało się pobrać danych działki.", event, null);
     } finally {
       if (clickController === controller) clickController = null;
     }
@@ -744,7 +778,7 @@ export function mountEgibLayers(container, options = {}) {
   function openParcelPopup(content, event, selection) {
     if (!leaflet?.popup) return;
     const extended = options.extendPopup ? options.extendPopup(content, event, selection) : content;
-    const popup = leaflet.popup({ maxWidth: 380, maxHeight: 450 }).setLatLng(event.latlng).setContent(extended).openOn(map);
+    const popup = leaflet.popup(mapPopupOptions(map)).setLatLng(event.latlng).setContent(extended).openOn(map);
     options.onPopupOpen?.(popup);
   }
 
@@ -856,6 +890,7 @@ export function mountEgibLayers(container, options = {}) {
     updateSearchSelection,
     restoreSelections,
     refreshAppearance,
+    setSelectionAt,
     clearSelections,
     cancelMapInteraction: () => clickController?.abort(),
     refresh: () => scheduleRefresh(true),

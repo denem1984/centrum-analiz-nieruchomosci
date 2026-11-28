@@ -1,9 +1,8 @@
 import { checkBackend, getBackendStatus, subscribeBackendStatus } from "../../health.js";
 import { getDzialkiState, updateDzialkiState } from "./state.js";
-import { REGISTRATION_GROUP_DESCRIPTIONS } from "./egib.js";
 import { planningRequest } from "./planning-services.js";
 import { mountRasterMonitor } from "./raster-monitor.js";
-import { THEMATIC_LAYERS, THEMATIC_LEGENDS, OWNERSHIP_COLORS, KIUT_LEGEND,
+import { THEMATIC_LAYERS, THEMATIC_LEGENDS, OWNERSHIP_LEGEND, ownershipStyle, KIUT_LEGEND,
   buildOwnershipUrl, enrichOwnership, buildRwdzInfoUrl, parseRwdz } from "./thematic-services.js";
 
 const groupCache = new Map();
@@ -80,8 +79,9 @@ export function mountThematicLayers(investmentContainer,infrastructureContainer,
     if (id === "flood") mountFloodDialog(entry);
     if (id === "kiut" || id === "ownership") {
       entry.legend = element(document,"div",undefined,"dzialki-thematic-color-legend"); entry.legend.hidden = !input.checked;
-      colorLegend(entry.legend,id === "kiut" ? KIUT_LEGEND : Object.entries(OWNERSHIP_COLORS).map(([group,color]) => [color,group + " – " + REGISTRATION_GROUP_DESCRIPTIONS[group]]));
-      entry.legend.append(element(document,"p",id === "kiut" ? "Urządzenia techniczne mają kolor swojej sieci. Źródło: KIUT." : "Kolory oznaczają grupy rejestrowe, nie nazwiska właścicieli. Nieustalona grupa pozostaje szara.","dzialki-help"));
+      colorLegend(entry.legend, id === "kiut" ? KIUT_LEGEND : OWNERSHIP_LEGEND);
+      entry.legend.append(element(document, "p", id === "kiut" ? "Urządzenia techniczne mają kolor swojej sieci. Źródło: KIUT."
+        : "Kolory oznaczają grupy rejestrowe. Wyłącz mapę własności, aby odsłonić rysunek planu pod działkami.", "dzialki-help"));
       container.append(entry.legend);
     }
     const status = element(document,"p","Warstwa wyłączona.","dzialki-planning-status"); status.dataset.thematicStatus = id;
@@ -90,6 +90,7 @@ export function mountThematicLayers(investmentContainer,infrastructureContainer,
     entry.status = status; entry.retry = retry; container.append(status,retry);
     input.addEventListener("change",() => {
       updateDzialkiState({ thematicLayers:{...enabled(),[id]:input.checked} });
+      if (id === "ownership") options.onOwnershipChange?.();
       sync(entry);
     });
     retry.addEventListener("click",() => id === "ownership" ? scheduleOwnership(true) : entry.monitor?.retry());
@@ -185,15 +186,16 @@ export function mountThematicLayers(investmentContainer,infrastructureContainer,
         if (!data || data.type !== "FeatureCollection" || !Array.isArray(data.features)) throw new Error("Nieprawidłowa odpowiedź mapy własności.");
         if (disposed || controller.signal.aborted || generation !== ownershipGeneration) return;
         const features = data.features.filter((feature) => feature?.geometry);
-        ownershipLayer = L.geoJSON({type:"FeatureCollection",features},{pane:"overlayPane",style:(feature) => ({color:"#555",weight:0.8,
-          fillColor:OWNERSHIP_COLORS[String(feature?.properties?.GRUPA_REJESTROWA ?? "").trim()] || "#9ca3af",fillOpacity:0.55})}).addTo(map);
+        ownershipLayer = L.geoJSON({ type: "FeatureCollection", features }, {
+          pane: "dzialki-ownership-pane", interactive: false, style: ownershipStyle,
+        }).addTo(map);
         const result = await enrichOwnership(features,{fetchImpl,signal:controller.signal,cache,onProgress:(progress) => {
           if (disposed || controller.signal.aborted || generation !== ownershipGeneration) return;
-          ownershipLayer?.setStyle?.((feature) => ({color:"#555",weight:0.8,fillColor:OWNERSHIP_COLORS[String(feature?.properties?.GRUPA_REJESTROWA ?? "").trim()] || "#9ca3af",fillOpacity:0.55}));
+          ownershipLayer?.setStyle?.(ownershipStyle);
           entry.status.textContent = "Geometrie: " + features.length + "; sprawdzone grupy: " + progress.completed + "/" + progress.total + "; nadal nieustalone: " + progress.missing;
         }});
         if (disposed || controller.signal.aborted || generation !== ownershipGeneration) return;
-        ownershipLayer?.setStyle?.((feature) => ({color:"#555",weight:0.8,fillColor:OWNERSHIP_COLORS[String(feature?.properties?.GRUPA_REJESTROWA ?? "").trim()] || "#9ca3af",fillOpacity:0.55}));
+        ownershipLayer?.setStyle?.(ownershipStyle);
         const incomplete = result.missing > 0 || data.truncated === true || data.partial === true;
         entry.status.dataset.state = incomplete ? "incomplete" : features.length ? "ready" : "empty";
         entry.status.textContent = "Wczytano geometrię " + features.length + " obiektów. Nieustalone grupy: " + result.missing
