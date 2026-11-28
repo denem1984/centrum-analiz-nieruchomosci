@@ -6,7 +6,7 @@ Samodzielna aplikacja do pracy z modułami analiz nieruchomości: Działki, RCN,
 
 **Stan na 2026-11-27:** M0–M3a, M4a–M4c oraz M4d.1 są w `main` (PR #12). Na gałęzi M4d.2 dodano pięć warstw planowania, popupy, gminny POG i monitory; testy i smoke z rzeczywistymi usługami w jednym widoku przeszły, a odbiór baseline pozostaje po stronie właściciela. Kolejne narzędzia Działek i pozostałe moduły wymagają implementacji. Kompletność KIEG nie została potwierdzona dla wszystkich historycznych pomiarów; scalenie nie oznacza odbioru usług zewnętrznych.
 
-Aktualny stan, dowody, plan i **kolejka PR-ów do akceptacji**: [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md). Agent sam planuje, implementuje, testuje i otwiera PR-y. Właściciel podejmuje decyzje produktowe, scala i wykonuje wdrożenia.
+Aktualny stan, dowody, plan i **kolejka PR-ów**: [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md). Agent sam planuje, implementuje, testuje, otwiera i scala sprawdzone PR-y (zgoda właściciela 2026-11-28, D33). Właściciel podejmuje decyzje produktowe i autoryzuje wdrożenia. Po większym etapie agent zatrzymuje pracę do akceptacji kontynuacji.
 
 [FAKT: ustalenia właściciela] Gminy korzystają z pliku danych (2026-10-27). Cała aplikacja nigdy nie będzie miała logowania (D5, 2026-11-27); nie przenosimy bramek dostępu starych frontów.
 

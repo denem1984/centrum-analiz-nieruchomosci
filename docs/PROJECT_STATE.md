@@ -34,7 +34,7 @@ Test właściciela: otworzyć podgląd → Działki → wyszukać znaną działk
 
 Jedna samodzielna aplikacja, poza denem.pl, łącząca Działki, RCN, Oferty, Podobne i Gminy. Każda opcja starego frontu musi mieć odpowiednik; poprawki jakości nie mogą odbierać funkcji. Kompletność i poprawność danych są ważniejsze od szybkości. Nie ogłaszamy gotowości niekompletnych wyników.
 
-Agent wykonuje plan, implementację, testy, dokumentację i PR-y. Właściciel podejmuje decyzje produktowe, scala PR-y i wykonuje wdrożenia. Wszystkie pięć źródeł jest tylko do odczytu. Nie wykonujemy operacji zarządzania usługami ani odczytów wartości konfiguracji.
+Agent wykonuje plan, implementację, testy, dokumentację i PR-y oraz sam scala sprawdzone zmiany (D33, polecenie właściciela 2026-11-28). Właściciel podejmuje decyzje produktowe, zatwierdza kontynuację po większych etapach i autoryzuje wdrożenia. Wszystkie pięć źródeł jest tylko do odczytu. Nie wykonujemy operacji zarządzania usługami ani odczytów wartości konfiguracji.
 
 ## Architektura i decyzje
 
@@ -71,7 +71,7 @@ Agent wykonuje plan, implementację, testy, dokumentację i PR-y. Właściciel p
 | 10 | `docs/location-map-ai-reports` | Start z mapą, analiza AI, przegląd RCN, D30/D31 i estymacja | [PR #22](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/22); baza #21 |
 | 11 | `feat/m4e1-parcel-appearance` | Kolory i czyszczenie zaznaczeń, bez rodziny numerów | [PR #23](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/23); baza #22; 149 testów i headed offline 8/8 PASS |
 
-Scalaj od góry. PR-y zależne porównują zmianę z gałęzią poprzednika; po scaleniu poprzednika ich bazą powinno zostać `main`. Agent nie scala i nie uruchamia wdrożeń.
+Scalaj od góry. PR-y zależne porównują zmianę z gałęzią poprzednika; po scaleniu poprzednika ich bazą powinno zostać `main`. Agent sam scala po zielonych kontrolach zgodnie z D33; nie uruchamia wdrożeń. Zapis zgody na merge powstaje w `docs/agent-merge-authorization`, na bazie #23; po nim kontynuacja M4e.2.
 
 ## Weryfikacja poprawki testu
 
@@ -148,7 +148,7 @@ Poniższy inwentarz pochodzi z odczytu frontów we wskazanych rewizjach i histor
 3. `node scripts/check-no-secrets.mjs` i `node scripts/check-no-secrets.mjs --history`; nowy plik musi wejść do indeksu przed skanem plików. `git diff --check`; lokalne GET 200 dla nowych plików aplikacji.
 4. Przed mapowym smoke: tabelka URL, allowlista nie szersza niż funkcja starego frontu, nowe budżety w pliku stanu. Rzeczywisty Edge z oknem; bez zmiany nagłówków, cache-bustingu i POST do usług. Nie obserwuj ruchu starego frontu bez osobnej zgody.
 5. Zrzuty obejrzyj, zapisz PASS/FAIL i ograniczenia. Pliki pomiarów i dane właściciela zostają w ignorowanych `.local/` / `.local-results/`; w repo wyłącznie fikcyjne przykłady. Mechanizm jednorazowego lokalnego zestawu danych właściciela jest jeszcze do dodania, nie został ogłoszony wykonanym.
-6. Mały commit, osobna gałąź, PR do main lub gałęzi zależności. Uzupełnij ten plik i pełny RAPORT. Bez scalania i wdrażania.
+6. Mały commit, osobna gałąź, PR do main lub gałęzi zależności. Uzupełnij ten plik i pełny RAPORT. Sprawdź CI i oczekiwany SHA; scal samodzielnie zgodnie z D33, bez wdrażania. Po większym etapie zatrzymaj pracę do akceptacji kontynuacji.
 
 ## RAPORT dla kierownika — przejęcie (stan bieżący)
 
