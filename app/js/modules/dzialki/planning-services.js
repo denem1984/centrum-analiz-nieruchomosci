@@ -12,8 +12,21 @@ export const PLANNING_LAYERS = Object.freeze({
   pogDraftGugik: { label: "Plan ogólny gminy – projektowany (GUGiK)", url: POG_GUGIK_WMS, layers: "strefaPlanistyczna", version: "1.3.0", styles: "default", crs: "EPSG3857", opacity: 0.6, tileSize: 256 },
 });
 
-export const NO_MPZP = "Szczegóły planu miejscowego niedostępne (brak w Rejestrze Urbanistycznym i w usłudze gminnej).";
+export const NO_MPZP = "Sprawdzone źródła nie zwróciły szczegółów dla tego punktu. Rysunek MPZP na mapie może nadal pokazywać plan.";
 export const NO_DRAFT_ZONE = "Brak danych projektowanej strefy w tym miejscu.";
+
+// Public GetFeatureInfo example from GUGiK's KIMPZP documentation. Opened by the user.
+export function buildMpzpMapInfoLink([east, north]) {
+  if (![east, north].every(Number.isFinite)) throw new TypeError("Nieprawidłowy punkt EPSG:2180.");
+  const layers = "granice,raster,wektor-str,wektor-lzb,wektor-lin,wektor-pow,wektor-pkt";
+  return MPZP_WMS + "?" + new URLSearchParams({
+    SERVICE: "WMS", VERSION: "1.1.1", REQUEST: "GetFeatureInfo",
+    LAYERS: layers, QUERY_LAYERS: layers, SRS: "EPSG:2180",
+    BBOX: [east - 50, north - 50, east + 50, north + 50].map(value => value.toFixed(2)).join(","),
+    WIDTH: "101", HEIGHT: "101", X: "50", Y: "50",
+    FORMAT: "image/png", INFO_FORMAT: "text/html", TRANSPARENT: "TRUE",
+  });
+}
 
 function point(latlng) {
   const { lat, lng } = latlng ?? {};

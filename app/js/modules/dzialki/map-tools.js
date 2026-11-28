@@ -84,6 +84,18 @@ export function mountMapTools(container, options = {}) {
   street.textContent = "Otwórz Street View"; street.target = "_blank"; street.rel = "noopener noreferrer";
   street.addEventListener("click", () => closeMenu(true)); menu.append(street);
   const menuItems = [menuDistance, menuArea, street];
+  if (options.onSelection) {
+    for (const [id, label, select] of [
+      ["dzialki-menu-select-parcel", "Zaznacz działkę", true],
+      ["dzialki-menu-deselect-parcel", "Odznacz działkę", false],
+    ]) {
+      menuItems.push(button(menu, id, label, () => {
+        const point = menuPoint;
+        closeMenu(true);
+        options.onSelection(point, select);
+      }));
+    }
+  }
   if (options.onAddParcel) menuItems.push(button(menu, "dzialki-menu-add-parcel", "Dodaj działkę do raportu", () => {
     const point = menuPoint;
     closeMenu(true);

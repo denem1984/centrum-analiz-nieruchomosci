@@ -15,7 +15,7 @@ export async function runAppearanceSmoke({evaluate,command,sleep,origin,context,
   await command('Page.navigate',{url:origin+'/#/dzialki?ctx='+context});await waitForMap(origin);await setZoom();
   const outlines=await waitFor(state=>state.outlineStrokes.length>0);
   if(!outlines.outlineStrokes.length)throw new Error('Nie wczytano geometrii do próby kolorów.');
-  await evaluate(`(()=>{const el=document.querySelector('.dzialki-map'),r=el.getBoundingClientRect();el.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,clientX:r.left+r.width/2,clientY:r.top+r.height/2}));})()`);
+  await evaluate(`(()=>{const el=document.querySelector('.dzialki-map'),r=el.getBoundingClientRect();el.dispatchEvent(new MouseEvent('contextmenu',{button:2,bubbles:true,cancelable:true,clientX:r.left+r.width/2,clientY:r.top+r.height/2}));document.querySelector('#dzialki-menu-select-parcel').click();})()`);
   const selected=await waitFor(state=>state.selectedCount>0);
   if(!selected.selectedCount)throw new Error('Nie uzyskano zaznaczenia do próby kolorów.');
   await evaluate(`(()=>{document.querySelector('[data-layer-group="tools"]').open=true;document.querySelector('[data-selection-color="#7c3aed"]').click();const el=document.querySelector('#dzialki-outline-color');el.value='#010203';el.dispatchEvent(new Event('input',{bubbles:true}));})()`);

@@ -11,6 +11,7 @@ import { mountThematicLayers } from "./thematic-layers.js";
 import { mountParcelAppearance } from "./appearance-tools.js";
 import { mountMapTools } from "./map-tools.js";
 import { mountParcelPdf } from "./report-ui.js";
+import { fitOpenMapPopup } from "./map-popup.js";
 
 const STATUS_LABELS = Object.freeze({
   idle: "Nie sprawdzono",
@@ -246,6 +247,7 @@ export function mountDzialki(container, ctx = {}) {
   const infrastructureGroup = createGroup("infrastructure","Infrastruktura i własność","infrastructure",groups.infrastructure);
   mapLayersPanel.append(investmentGroup.details,infrastructureGroup.details);
   thematicLayerController = mountThematicLayers(investmentGroup.body,infrastructureGroup.body,{
+    onOwnershipChange: () => egibLayerController.refreshAppearance(),
     getBackendStatus:ctx.getBackendStatus ?? getBackendStatus,
     checkBackend:ctx.checkBackend ?? checkBackend,
     subscribeBackendStatus:ctx.subscribeBackendStatus,
@@ -329,6 +331,7 @@ export function mountDzialki(container, ctx = {}) {
     menuContainer: mapFrame,
     resultContainer: mapFrame,
     onChange: (measurement) => updateDzialkiState({ measurement }),
+    onSelection: (point, select) => egibLayerController.setSelectionAt(point, select),
     onAddParcel: (point) => parcelPdf.addParcel({ point }),
     onAddSnapshot: () => parcelPdf.addSnapshot(),
     onStart: () => {
@@ -454,6 +457,7 @@ export function mountDzialki(container, ctx = {}) {
     try {
       leaflet = L;
       map = createMap(L, mapContainer, view);
+      fitOpenMapPopup(map);
       if (typeof globalThis.ResizeObserver === "function") {
         mapResizeObserver = new ResizeObserver(() => {
           if (map && !disposed) map.invalidateSize({ pan: false, animate: false });

@@ -67,7 +67,7 @@ Stary front nie pobiera pól raportu o działce z trasy backendu Działek. Po wy
 
 Porównanie i testy adresów pochodzą z odczytu starego frontu `index.html` w rewizji `a1aa39d`. Nowy klient akceptuje wyłącznie te dwa dodatkowe kształty GET. Automatyczne testy używają syntetycznych odpowiedzi i nie potwierdzają zachowania usługi produkcyjnej.
 
-Raport pokazuje identyfikator, nazwy jednostek i numer z wybranych list/odpowiedzi oraz powierzchnię, grupę rejestrową i klasoużytki z KIEG. Komunikat po sukcesie brzmi: „Działka została znaleziona. Powierzchnia i klasoużytki pobrane z EGiB.”. Popup prezentuje te same pola EGiB i przełącza zaznaczenie kliknięciem. M4c.1 przełącza tylko wynik wyszukiwania; zaznaczanie wielu działek przez warstwę EGiB należy do M4d.
+Raport pokazuje identyfikator, nazwy jednostek i numer z wybranych list/odpowiedzi oraz powierzchnię, grupę rejestrową i klasoużytki z KIEG. Po D37 lewy klik otwiera popup z polami EGiB. Akcje „Zaznacz działkę” i „Odznacz działkę” są w menu PPM. Odznaczenie wyniku wyszukiwania usuwa jego wyróżnienie z mapy i zachowuje dane w panelu.
 
 Kod jednostki na początku identyfikatora parceli służy do wyprowadzenia kodów województwa/powiatu. Dla rodzaju 1/2/3 wyprowadzany jest odpowiadający kod TERC7; dla rodzajów 4/5 budowany jest kod rodzaju 3 [HIP do walidacji na pełnym TERC w M3b]. Nazwy pochodzą z list PRG. Pozostałe rodzaje nie ustawiają `gmina`, a `obrebTeryt` pozostaje pominięte bez niezależnego potwierdzenia.
 

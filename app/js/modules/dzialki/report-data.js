@@ -1,12 +1,27 @@
 import { buildMapClickFeatureInfoUrl } from "./egib-layers.js";
-import { parseKiegFeatureInfo, readKiegParcelId, interiorPoint, REGISTRATION_GROUP_DESCRIPTIONS } from "./egib.js";
+import { parseKiegFeatureInfo, readKiegParcelId, interiorPoint } from "./egib.js";
 import { createSearchApi, resolveParcelAdministrativeNames } from "./search.js";
 import { loadMpzp, planningRequest, PLANNING_LAYERS } from "./planning-services.js";
 import { BASE_LAYER_OPTIONS } from "./layers-base.js";
-import { KIUT_LEGEND, OWNERSHIP_COLORS, THEMATIC_LAYERS } from "./thematic-services.js";
+import { KIUT_LEGEND, OWNERSHIP_LEGEND, THEMATIC_LAYERS } from "./thematic-services.js";
 import { measureGeometry } from "./map-tools.js";
 
 const EGiB_LABELS = { numbers: "Numery działek (EGiB)", parcels: "Kontury działek (EGiB)", buildings: "Kontury budynków (EGiB)" };
+const POG_SYMBOLS = [
+  ["SW", "wielofunkcyjna z zabudową mieszkaniową wielorodzinną"],
+  ["SJ", "wielofunkcyjna z zabudową mieszkaniową jednorodzinną"],
+  ["SZ", "wielofunkcyjna z zabudową zagrodową"],
+  ["SU", "usługowa"],
+  ["SH", "handlu wielkopowierzchniowego"],
+  ["SP", "gospodarcza"],
+  ["SR", "produkcji rolniczej"],
+  ["SI", "infrastrukturalna"],
+  ["SN", "zieleni i rekreacji"],
+  ["SC", "cmentarzy"],
+  ["SG", "górnictwa"],
+  ["SO", "otwarta"],
+  ["SK", "komunikacyjna"],
+];
 
 export async function collectReportParcel({ selection, point, signal, fetchImpl = globalThis.fetch }) {
   const api = createSearchApi({ fetchImpl, timeoutMs: 20000, retries: 0 });
@@ -61,7 +76,7 @@ export async function collectReportParcel({ selection, point, signal, fetchImpl 
       ["Powierzchnia", area],
       ["Grupa rejestrowa", [egib?.group, egib?.groupDescription].filter(Boolean).join(" - ")],
       ["Klasoużytki", egib?.classUse?.map(item => [item.code, item.description].filter(Boolean).join(" - ")).join(", ")],
-      ["Zagospodarowanie (MPZP)", plan.filter(Boolean).join("\n") || "Brak wyniku w sprawdzonych źródłach."],
+      ["Zagospodarowanie (MPZP)", plan.filter(Boolean).join("\n") || "Sprawdzone źródła nie zwróciły szczegółów. Rysunek MPZP może nadal pokazywać plan."],
     ],
   };
 }
@@ -81,11 +96,20 @@ export function reportMapLegends(state, planningHelp) {
   const legends = [];
   if (state.thematicLayers.ownership) legends.push({
     label: "Mapa własności - grupy rejestrowe",
-    rows: Object.entries(OWNERSHIP_COLORS).map(([code, color]) => [color, code + " - " + REGISTRATION_GROUP_DESCRIPTIONS[code]]),
+    rows: OWNERSHIP_LEGEND,
   });
   if (state.thematicLayers.kiut) legends.push({ label: "Sieci uzbrojenia terenu (KIUT)", rows: KIUT_LEGEND });
-  if (["mpzp", "pogAdopted", "pogDraftRu", "pogDraftGugik"].some(id => state.planningLayers[id])) {
+  if (state.planningLayers.mpzp) {
     legends.push({ label: "Orientacyjne oznaczenia MPZP", rows: [[null, planningHelp]] });
+  }
+  const pog = ["pogAdopted", "pogDraftRu", "pogDraftGugik"]
+    .filter(id => state.planningLayers[id]).map(id => PLANNING_LAYERS[id].label);
+  if (pog.length) {
+    legends.push({
+      label: "Oznaczenia stref planu ogólnego (POG)",
+      rows: [[null, "Włączone warstwy POG: " + pog.join(", ")],
+        ...POG_SYMBOLS.map(([code, description]) => [null, code + " - strefa " + description])],
+    });
   }
   return legends;
 }

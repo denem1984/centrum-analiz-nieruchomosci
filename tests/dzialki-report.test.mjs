@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { collectReportParcel } from "../app/js/modules/dzialki/report-data.js";
+import { collectReportParcel, reportMapLegends } from "../app/js/modules/dzialki/report-data.js";
+import { getDzialkiState } from "../app/js/modules/dzialki/state.js";
 import { buildMapClickFeatureInfoUrl } from "../app/js/modules/dzialki/egib-layers.js";
 import { buildParcelUrl } from "../app/js/modules/dzialki/search.js";
 import { buildMpzpInfoUrl, buildDzinfoUrl } from "../app/js/modules/dzialki/planning-services.js";
@@ -44,4 +45,20 @@ test("lokalna czcionka i biblioteka PDF zachowują zgodność z przypiętymi zas
     const bytes = await readFile(new URL("../app/vendor/dzialki/pdf/" + name, import.meta.url));
     assert.equal(createHash("sha256").update(bytes).digest("hex"), hash);
   }
+});
+
+test("raport odróżnia legendy MPZP od POG dla każdego zapisanego widoku", () => {
+  const state = getDzialkiState();
+  assert.deepEqual(reportMapLegends(state, "MN - test"), []);
+  for (const key of ["pogAdopted", "pogDraftRu", "pogDraftGugik"]) {
+    const pog = { ...state, planningLayers: { [key]: true } };
+    const legends = reportMapLegends(pog, "MN - test");
+    assert.equal(legends.length, 1);
+    assert.match(legends[0].label, /POG/);
+    assert.match(legends[0].rows[2][1], /^SJ - strefa/);
+    assert.equal(legends[0].rows.length, 14);
+  }
+  assert.match(reportMapLegends({ ...state, planningLayers: { mpzp: true } }, "MN - test")[0].label, /MPZP/);
+  assert.deepEqual(reportMapLegends({ ...state, planningLayers: { mpzp: true, pogAdopted: true, pogDraftGugik: true } }, "MN")
+    .map(legend => legend.label), ["Orientacyjne oznaczenia MPZP", "Oznaczenia stref planu ogólnego (POG)"]);
 });

@@ -1,7 +1,8 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { inspectPlanningPresentation } from "./planning-presentation-smoke.mjs";
 
-export async function runReportPdfSmoke({ evaluate, command, sleep, origin, context, waitForMap, setZoom, capture, resultDir }) {
+export async function runReportPdfSmoke({ evaluate, command, sleep, origin, context, waitForMap, setZoom, capture, resultDir, planningReview }) {
   const url = origin + "/#/dzialki?ctx=" + context;
   const assertions = [];
   const click = id => evaluate("document.getElementById(" + JSON.stringify("dzialki-" + id) + ").click()");
@@ -34,6 +35,14 @@ export async function runReportPdfSmoke({ evaluate, command, sleep, origin, cont
   await sleep(1700);
   await click("pdf-add-map");
   const captured = await waitFor(state => state.maps === 1);
+  let planning = null;
+  const expectedMaps = planningReview ? 2 : 1;
+  if (planningReview) {
+    planning = await inspectPlanningPresentation({ evaluate, command, sleep, capture });
+    assertions.push(...planning.assertions);
+    await click("pdf-add-map");
+    await waitFor(state => state.maps === expectedMaps);
+  }
   await evaluate("document.querySelector('[data-module-link=\"rcn\"]').click()");
   await evaluate("document.querySelector('[data-module-link=\"dzialki\"]').click()");
   await waitForMap(origin);
@@ -69,11 +78,11 @@ export async function runReportPdfSmoke({ evaluate, command, sleep, origin, cont
     { name: "Pusta lista nie eksportuje dokumentu", pass: empty.saveDisabled },
     { name: "Menu mapy dodaje działkę po danych punktu", pass: parcel.parcels === 1 },
     { name: "Zapisano widok mapy z warstwami", pass: captured.maps === 1 && captured.text === "Dodano widok mapy do raportu." },
-    { name: "Zmiana zakładki zachowuje działkę i obraz", pass: restored.parcels === 1 && restored.maps === 1 },
+    { name: "Zmiana zakładki zachowuje działkę i obrazy", pass: restored.parcels === 1 && restored.maps === expectedMaps },
     { name: "Przeglądarka pobrała prawidłowy plik PDF", pass: !!pdf && pdf.subarray(0, 5).toString() === "%PDF-" && pdf.subarray(-30).includes(Buffer.from("%%EOF")) },
-    { name: "Usunięcie pozycji i wyczyszczenie listy", pass: removed.maps === 0 && removed.parcels === 1 && cleared.saveDisabled },
+    { name: "Usunięcie pozycji i wyczyszczenie listy", pass: removed.maps === expectedMaps - 1 && removed.parcels === 1 && cleared.saveDisabled },
     { name: "390 px bez poziomego przewijania strony", pass: mobile.body <= mobile.viewport + 1 },
     { name: "Odświeżenie usuwa roboczy raport", pass: reloaded.parcels === 0 && reloaded.maps === 0 && reloaded.saveDisabled },
   );
-  return { assertions, filename, bytes: pdf?.length ?? 0, captured, mobile };
+  return { assertions, filename, bytes: pdf?.length ?? 0, captured, mobile, planning };
 }

@@ -1,5 +1,5 @@
 import { BACKENDS } from "../../config.js";
-import { interiorPoint, parseKiegFeatureInfo } from "./egib.js";
+import { interiorPoint, parseKiegFeatureInfo, REGISTRATION_GROUP_DESCRIPTIONS } from "./egib.js";
 import { buildMapClickFeatureInfoUrl } from "./egib-layers.js";
 import { planningRequest } from "./planning-services.js";
 
@@ -12,6 +12,17 @@ export const THEMATIC_LAYERS = Object.freeze({
   kiut: { label: "Przyłącza i sieci – KIUT", url: KIUT_WMS, layers: "gesut,kgesut_dane,przewod_urzadzenia,przewod_specjalny,przewod_niezidentyfikowany,przewod_elektroenergetyczny,przewod_telekomunikacyjny,przewod_gazowy,przewod_cieplowniczy,przewod_kanalizacyjny,przewod_wodociagowy", styles: "", version: "1.1.1", opacity: 0.9 },
 });
 export const OWNERSHIP_COLORS = Object.freeze({ "1":"#ff7777", "2":"#b30000", "3":"#7f0000", "4":"#90ee90", "5":"#006400", "6":"#808000", "7":"#ffd92f", "8":"#ff9acb", "9":"#a66cff", "10":"#d8b4fe", "11":"#87cefa", "12":"#0047ab", "13":"#ffb366", "14":"#cc6600", "15":"#6ec6ff", "16":"#9ca3af" });
+export const UNKNOWN_OWNERSHIP_COLOR = "#e5e7eb";
+export const OWNERSHIP_LEGEND = Object.freeze([
+  ...Object.entries(OWNERSHIP_COLORS).map(([group, color]) => [color, group + " - " + REGISTRATION_GROUP_DESCRIPTIONS[group]]),
+  [UNKNOWN_OWNERSHIP_COLOR, "Nieustalona grupa rejestrowa"],
+]);
+
+export function ownershipStyle(feature) {
+  const group = String(feature?.properties?.GRUPA_REJESTROWA ?? "").trim();
+  const fillColor = Object.hasOwn(OWNERSHIP_COLORS, group) ? OWNERSHIP_COLORS[group] : UNKNOWN_OWNERSHIP_COLOR;
+  return { color: "#555", weight: 0.8, fillColor, fillOpacity: 1, className: "dzialki-ownership-shape", interactive: false };
+}
 export const KIUT_LEGEND = Object.freeze([
   ["#0000ff","Wodociągowa"], ["#803300","Kanalizacyjna"], ["#bfbf00","Gazowa"], ["#d200d2","Ciepłownicza"],
   ["#ff0000","Elektroenergetyczna"], ["#ff9100","Telekomunikacyjna"], ["#000000","Specjalna"], ["#000000","Niezidentyfikowana"], ["#000000","Urządzenia towarzyszące"],

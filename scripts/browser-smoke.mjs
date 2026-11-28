@@ -1358,7 +1358,8 @@ async function runBrowserSmoke() {
   const thematicLayersMode = argv.includes("--thematic-layers");
   const appearanceMode = argv.includes("--appearance-tools");
   const mapLayoutMode = argv.includes("--map-layout");
-  const reportPdfMode = argv.includes("--report-pdf");
+  const planningReview = argv.includes("--planning-presentation");
+  const reportPdfMode = argv.includes("--report-pdf") || planningReview;
   const verifyLines = argv.includes("--verify-building-lines");
   if(verifyLines&&!mapLayoutMode)throw new Error("--verify-building-lines wymaga --map-layout.");
   const mapToolsMode = argv.includes("--map-tools") || mapLayoutMode || reportPdfMode;
@@ -1775,7 +1776,7 @@ async function runBrowserSmoke() {
             || requestUrl === "https://opendata.geoportal.gov.pl/Geoportal/ikony/mpzp/mpzp-lzb.png");
           if ((offlinePlanning || offlineThematic || offlineAppearance || offlineMapTools) && !liveLine && parsedRequestUrl && !appOrigins.includes(parsedRequestUrl.origin)) {
             if (networkRecord) networkRecord.mocked = true;
-            await pageCdp.command("Fetch.fulfillRequest", { requestId: params.requestId, ...planningSmokeFixture(requestUrl) });
+            await pageCdp.command("Fetch.fulfillRequest", { requestId: params.requestId, ...planningSmokeFixture(requestUrl, { planningReview }) });
             return;
           }
           // Persist before dispatch; failed and redirected requests also consume budget.
@@ -2050,8 +2051,17 @@ async function runBrowserSmoke() {
       }
       const popupTimeMs = Date.now() - clickStarted;
 
-      const secondClickSent = await evaluate(clickCenter);
-      if (!secondClickSent) throw new Error("Nie udało się wykonać drugiego kliknięcia mapy.");
+      const contextCenter = clickCenter.replace("MouseEvent('click'", "MouseEvent('contextmenu'");
+      await evaluate(contextCenter);
+      await evaluate("document.querySelector('#dzialki-menu-select-parcel').click()");
+      const selectionDeadline = Date.now() + 15000;
+      let selectionState = await evaluate(buildEgibStateExpression());
+      while (Date.now() < selectionDeadline && !selectionState.selectedCount) {
+        await sleep(200);
+        selectionState = await evaluate(buildEgibStateExpression());
+      }
+      await evaluate(contextCenter);
+      await evaluate("document.querySelector('#dzialki-menu-deselect-parcel').click()");
       const deselectDeadline = Date.now() + 15000;
       let finalState = await evaluate(buildEgibStateExpression()).catch(() => popupState);
       while (Date.now() < deselectDeadline && !/Odznaczono tę działkę\./.test(finalState?.egibStatus ?? "")) {
@@ -2075,7 +2085,8 @@ async function runBrowserSmoke() {
         { name: "Po włączeniu konturów budynków pojawiły się kafelki", pass: afterBuildings.buildingTiles > 0 },
         { name: "Komunikat zimnego startu", pass: coldStartObserved || initial.backendState === "ready", observed: coldStartObserved },
         { name: "Popup zawiera powierzchnię, grupę i klasoużytki", pass: ["Powierzchnia:", "Grupa rejestrowa:", "Klasoużytki:"].every((part) => popupState?.popupText.includes(part)) },
-        { name: "Drugie kliknięcie odznacza działkę", pass: /Odznaczono tę działkę\./.test(finalState?.egibStatus ?? "") },
+        { name: "Lewe kliknięcie nie zaznacza, akcje w menu zaznaczają i odznaczają", pass: popupState?.selectedCount === 0
+            && selectionState.selectedCount > 0 && finalState?.selectedCount === 0 },
         { name: "Brak błędów konsoli", pass: scenarioErrors.length === 0 },
       ];
       const screenshot = await pageCdp.command("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
@@ -2699,7 +2710,7 @@ async function runBrowserSmoke() {
       const offline = mapToolsMode ? offlineMapTools : offlineAppearance;
       const capture=async(filename)=>{const shot=await pageCdp.command("Page.captureScreenshot",{format:"png",captureBeyondViewport:true});await writeFile(join(resultDir,filename),Buffer.from(shot.data,"base64"));};
       const runner = reportPdfMode ? runReportPdfSmoke : mapLayoutMode ? runMapLayoutSmoke : mapToolsMode ? runMapToolsSmoke : runAppearanceSmoke;
-      const result=await runner({evaluate,command:(method,params)=>pageCdp.command(method,params),sleep,origin:appOrigin,context:contextEncoded,waitForMap,setZoom:setZoomForTest,offline,capture,verifyLines,resultDir});
+      const result=await runner({evaluate,command:(method,params)=>pageCdp.command(method,params),sleep,origin:appOrigin,context:contextEncoded,waitForMap,setZoom:setZoomForTest,offline,capture,verifyLines,resultDir,planningReview});
       result.assertions.push({name:"Brak wyjątków JavaScript",pass:pageExceptions.length===0});await Promise.all([...pendingFetchHandlers]);if(runError)throw runError;
       const passed=result.assertions.every(assertion=>assertion.pass)&&blockedRequests.length===0;
       runReport={scenario:currentScenario,browserMode:headed?"headed":"headless",offline:verifyLines?"fixtures-except-building-lines":offline,passed,...result,externalRequests,blockedRequests,consoleErrors,pageExceptions,budget:taskBudget.snapshot()};
