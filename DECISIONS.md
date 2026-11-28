@@ -217,6 +217,12 @@
 - **Decyzja właściciela:** wykorzystać bazę i kod `rcn-web-app`; właściciel aktualizuje pliki RCN Geoportalu w Cloudflare R2. Nie zmieniamy danych, importu ani istniejącego backendu. Przegląd dotyczy możliwych poprawek prezentacji i adaptacji do wspólnej aplikacji.
 - Źródło pozostaje tylko do odczytu; wszystkie przyszłe zmiany UI w repo Centrum. Zachować obecne filtry, obliczenia i eksporty. `docs/rcn-presentation-review.md` zawiera przegląd z liniami dowodowymi, bez twierdzenia o wykonanym teście produkcji lub odczycie konfiguracji R2.
 
+## D33 — Agent sam scala sprawdzone PR-y (2026-11-28)
+
+- **Decyzja właściciela:** „Kontynuuj. I rób sam to merge”. Agent może sam scalać PR-y do main po pozytywnych kontrolach i sprawdzeniu zależności. Zastępuje wcześniejszy zakaz merge w AGENTS.md oraz podział tej czynności w D24.
+- Najpierw zielone testy i skany, potem scalenia w kolejności zależności, z kontrolą oczekiwanego SHA. Zależne PR-y przenosić na main po scaleniu poprzednika; zachować historię stosu przez merge commit.
+- D30 nadal obowiązuje: po większym etapie podsumowanie, lokalny podgląd, estymacja i zatrzymanie do akceptacji dalszej pracy. Merge nie oznacza odbioru danych produkcyjnych, zgody na wdrożenie, koszty AI ani zarządzanie usługami. Pięć źródeł i DENEM pozostają tylko do odczytu.
+
 ## Zasady repozytorium
 
 [FAKT: decyzja właściciela z 2026-10-26] Repozytorium jest publiczne. Nie zapisujemy w nim wartości sekretów, konfiguracji, tokenów, kluczy, danych osobowych ani identyfikatorów kont lub usług. Wyjątkiem jest niesekretna wartość trybu źródło danych RCN. Pięć repozytoriów źródłowych jest tylko do odczytu.

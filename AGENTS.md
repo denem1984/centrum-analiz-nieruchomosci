@@ -11,7 +11,7 @@ Aktualizacja właściciela z 2026-11-27 (zadanie przejęcia) ma pierwszeństwo p
 - Nie zmieniaj portalu denem.pl ani repozytorium denem1984/denem.
 - Pięć repozytoriów źródłowych — rcn-web-app, Analizator-cen-ofertowych, analizator-nieruchomosci, rozklad-nieruchomosci-podobnych i gminy — jest tylko do odczytu. Nie zapisuj w nich zmian.
 - Agent nie wykonuje operacji na panelach ani API zarządzania Render, Supabase i Cloudflare R2. Nie odczytuje ani nie zapisuje wartości zmiennych środowiskowych, także niesekretnych. Dopuszczone przez właściciela testy frontu korzystają wyłącznie z GET do publicznych hostów i ścieżek rzeczywiście używanych przez starą funkcję, objętych allowlistą browser-smoke i budżetem poniżej. Nie jest to zgoda na operacje zarządzania usługami.
-- Nie wdrażaj ani nie scalaj zmian do main. PR ma pozostać otwarty do decyzji właściciela.
+- Nie wdrażaj zmian. Aktualizacja właściciela 2026-11-28 („Kontynuuj. I rób sam to merge”) zezwala agentowi na samodzielne scalanie PR-ów do main po sprawdzeniu testów, skanów i zależności. Nie oznacza zgody na wdrożenia ani operacje zarządzania usługami.
 - Nie odczytuj, nie zapisuj ani nie wklejaj wartości sekretów, tokenów, haseł, kluczy ani wartości zmiennych środowiskowych. RCN_DATA_SOURCE jest niesekretną wartością trybu źródła i może zostać odczytana przez właściciela w M1.
 - Repozytorium jest publiczne. Nie dodawaj do niego wartości konfiguracji, tokenów, kluczy, danych osobowych ani identyfikatorów kont lub usług. Dozwolone są nazwy zmiennych i status ustawienia; wyjątek stanowi niesekretna wartość RCN_DATA_SOURCE.
 - Nie dopisuj nowych opisów luk bezpieczeństwa pięciu starych aplikacji. Ustalenia AUDIT.md pozostają historyczne.
@@ -23,12 +23,12 @@ Aktualizacja właściciela z 2026-11-27 (zadanie przejęcia) ma pierwszeństwo p
 - Agent sam planuje, implementuje, testuje, dokumentuje i otwiera PR-y. Nie wymaga osobnego kierownika ani zatwierdzenia rutynowych wyborów technicznych. Wybory zapisuje w DECISIONS.md.
 - Aktualizacja właściciela 2026-11-27: pracuj samodzielnie **wewnątrz bieżącego etapu**. Po większym etapie zatrzymaj pracę, podsumuj wykonane i pozostałe zadania, podaj szacunkowy procent ukończenia i pozostałej pracy oraz udostępnij lokalny podgląd. Następny etap dopiero po wyraźnym zatwierdzeniu właściciela. Nowe polecenia aktualizują zakres i estymację; nie są automatycznie akceptacją poprzedniego etapu.
 - Pracuj na osobnej gałęzi `feat/...`, `fix/...` lub `docs/...`, w małych i czytelnych commitach.
-- Otwórz PR do main i pozostaw go bez scalania.
+- Otwórz PR do main; po pozytywnych kontrolach agent może go sam scalić (D33).
 - Gdy zmiana zależy od otwartego PR, oprzyj ją na jego gałęzi i otwórz PR do tej gałęzi. Zapisz kolejność scalania w „Kolejce akceptacji” w docs/PROJECT_STATE.md; aktualizuj ten dokument przy każdym PR.
 - Nie zgaduj. Twierdzenia o produkcji oznaczaj [FAKT] albo [HIP] i podaj źródło, jeśli jest znane.
 - Przy niejasności zatrzymaj zależną część pracy i zapisz konkretne pytanie w raporcie. Kontynuuj niezależną pracę, jeśli to możliwe.
 - Raportuj tylko komendy faktycznie uruchomione i wyniki faktycznie sprawdzone.
-- Właściciel podejmuje decyzje, scala PR, autoryzuje wdrożenia i wykonuje testy ręczne.
+- Właściciel podejmuje decyzje produktowe, autoryzuje wdrożenia i wykonuje testy ręczne. Agent scala sprawdzone PR-y; zatrzymanie po większych etapach i akceptacja kontynuacji nadal obowiązują.
 - Pełny parytet wszystkich opcji jest wymagany. Kompletność i poprawność danych mają pierwszeństwo przed szybkością. Alternatywę opisz w DECISIONS.md i macierzy; utrata funkcji wymaga decyzji właściciela.
 - Wyjątek właściciela: nie przenoś „rodziny działek” opartej na wspólnym numerze bazowym. Funkcja wróci wyłącznie po znalezieniu i zweryfikowaniu wiarygodnych danych historii podziałów; brak takiego źródła oznacza pominięcie opcji (D31).
 - Raporty AI: widok mapy + bieżący internet, bez wewnętrznej bazy wiedzy DENEM i bez sekcji źródeł w raporcie. Nie generuj obrazów. Nie uruchamiaj płatnych wywołań ani nowej infrastruktury w ramach samej analizy możliwości. D5 bez logowania pozostaje w mocy.
