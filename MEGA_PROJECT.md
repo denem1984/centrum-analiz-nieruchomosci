@@ -13,7 +13,7 @@ Połączyć pięć istniejących modułów analiz nieruchomości w jednej aplika
 - Moduły są natywnymi zakładkami nowej aplikacji.
 - Zakładki wywołują istniejące backendy bezpośrednio przez API. Nie dodajemy pośredniej bramy API i nie przepisujemy backendów.
 - Nie zakładamy osadzania modułów w iframe.
-- Sposób logowania i dostępu właściciel rozstrzygnie przed M8. Do tego czasu aplikacja nie ma własnej bramki.
+- Aplikacja w ogóle nie będzie miała logowania (ostateczna decyzja D5 właściciela, 2026-11-27). Nie przenosimy bramek starych aplikacji.
 - DenemContext v1 pozostaje wspólnym kontraktem przekazywania kontekstu.
 
 [FAKT z audytu kodu AUDIT.md; do potwierdzenia pomiarem w M1] Cztery backendy — RCN, Oferty, Działki i Podobne — deklarują CORS *. M1 sprawdzi wywołanie z obcego origin, w tym preflight OPTIONS z nagłówkiem Authorization. To ustalenie nie zastępuje pomiaru rzeczywistych odpowiedzi.
@@ -63,7 +63,7 @@ TERYT/SIMC jest wspólnym kluczem wyszukiwania. D9 sprawdza osobno mapowanie BDL
 - **RCN:** natywny widok transakcji; pobiera dane z istniejącego API.
 - **Oferty:** natywny widok ofert; pobiera dane z istniejącego API.
 - **Podobne:** natywny widok nieruchomości porównawczych; pobiera dane z istniejącego API.
-- **Gminy:** natywny widok porównywania gmin; integracja rusza po decyzji o dostępie przed M8.
+- **Gminy:** natywny widok porównywania gmin z lokalnym plikiem danych, bez logowania i Supabase. D9 wymaga weryfikacji.
 
 Każdy moduł zachowuje funkcje swojego źródła. Zmiany w źródłach lub ich backendach są poza zakresem i wymagają osobnego polecenia właściciela.
 
@@ -72,6 +72,6 @@ Każdy moduł zachowuje funkcje swojego źródła. Zmiany w źródłach lub ich 
 1. **CORS i preflight:** [FAKT z audytu kodu AUDIT.md; do potwierdzenia pomiarem w M1] backendy deklarują CORS *. M1 zmierzy odpowiedzi z obcego origin, w tym OPTIONS z Authorization; wynik może ograniczyć bezpośrednią integrację.
 2. **Dostępność API i czasy odpowiedzi:** [HIP] wpływ zimnego startu i różnic między pierwszym a kolejnym wywołaniem będzie mierzony w M1.
 3. **Lokalizacja:** [HIP] mapowanie BDL ↔ TERYT nie jest jeszcze potwierdzone; D9 jest wymagane przed M8.
-4. **Dostęp:** model logowania i dostępu pozostaje decyzją właściciela przed M8. Gminy nie rozpoczyna się przed jej podjęciem.
+4. **Dostęp:** D5 rozstrzygnięte 2026-11-27 — aplikacja bez logowania we wszystkich etapach; D8 nie dotyczy.
 5. **Uruchamianie Ofert:** [FAKT: odczyt konfiguracji usługi przez kierownika 2026-10-26; do potwierdzenia w kodzie] usługa ma startować poleceniem `node server.js`; rozbieżność z opisem `npm start` w AUDIT.md wymaga sprawdzenia ścieżki startu w kodzie podczas M1.
 6. **Widoki zbiorcze:** zgodność liczb między modułami i zakres raportu wymagają osobnej weryfikacji w M9; D10 pozostaje otwarte.

@@ -26,13 +26,13 @@
 - **Decyzja:** moduły są natywnymi zakładkami aplikacji, a integracja odbywa się przez bezpośrednie wywołania API. Nie zakładamy iframe.
 - **Wpływ architektury:** kontrola nagłówków pod kątem osadzania nie jest wymagana. D4 wraca tylko wtedy, gdy właściciel ponownie rozważy iframe.
 
-## D5 — Logowanie i dostęp (2026-10-27)
+## D5 — Brak logowania (2026-11-27)
 
-- **Status:** otwarte; właściciel rozstrzyga przed M8.
-- **Decyzja:** do czasu tej decyzji aplikacja nie ma własnej bramki. Nie wdrażać własnego logowania ani kontroli dostępu w M0–M7.
+- **Status:** rozstrzygnięte przez właściciela 2026-11-27.
+- **Decyzja:** „w ogóle nie będzie logowania do aplikacji”. Brak logowania dotyczy całej aplikacji i wszystkich etapów. Nie przenosić bramek dostępu starych frontów.
 - **Wniosek techniczny:** [FAKT: pomiar właściciela 2026-10-27] preflight Ofert, Działek i Podobnych nie dopuszcza nagłówka Authorization; RCN go dopuszcza. [HIP] Nowa aplikacja nie powinna przekazywać tokenów do trzech pierwszych usług. To ograniczenie transportu CORS nie rozstrzyga modelu dostępu aplikacji.
 - [FAKT: ustalenie właściciela 2026-10-27] Moduł Gminy korzysta z pliku danych (opcja B) i nie zależy od Supabase ani logowania modułu.
-- **Wpływ architektury:** logowanie całej aplikacji pozostaje odrębną decyzją D5 do rozstrzygnięcia przed M8; szczegóły pomiaru są w CONFIG.md.
+- **Wpływ architektury:** D5 nie blokuje M8. Gminy korzystają z pliku danych. Nie dodawać integracji tożsamości ani przekazywania tokenów do usług. Szczegóły historycznych pomiarów CORS są w CONFIG.md.
 
 ## D6 — Technologia i automatyzacja testów (2026-10-27)
 
@@ -48,11 +48,11 @@
 - **Decyzja:** nie zmieniamy ani nie łączymy backendów w pięciu repozytoriach źródłowych. Ewentualne prace wymagają osobnego polecenia właściciela.
 - **Wpływ architektury:** nowa aplikacja łączy moduły przez API; nie wymaga łączenia usług.
 
-## D8 — Identyfikatory dostępu do modułów (2026-10-26)
+## D8 — Identyfikatory dostępu do modułów (zamknięte 2026-11-27)
 
-- **Status:** otwarte; do decyzji razem z D5 przed M8.
-- **Decyzja:** rekomendacja pozostaje: slug nowej aplikacji mega i uprawnienia do zakładek zgodne ze slugami modułów; właściciel potwierdzi to razem z D5 przed M8.
-- **Wpływ architektury:** brak zmiany statusu; do tego czasu nie implementować bramki.
+- **Status:** nie dotyczy po decyzji D5.
+- **Decyzja:** aplikacja nie będzie miała logowania; nie tworzyć identyfikatorów ani uprawnień dostępu do zakładek.
+- **Wpływ architektury:** wszystkie natywne moduły są dostępne bez bramki.
 
 ## D9 — Mapowanie BDL ↔ TERYT (2026-10-27)
 
@@ -161,6 +161,20 @@
 - **Ograniczenie pomiaru:** cztery uruchomienia przeglądarki zakończyły się przed CDP; piąte zebrało V0. W granicy zgody (5 uruchomień, 900 żądań) V1 headed, V2 i V3 nie zostały zbadane. Żaden dostępny wynik nie spełnia kryterium trzech z trzech wczytań do 20 s; wariant zwycięski nie został wybrany. Wpływ trybu przeglądarki, zachowanie sweepu oraz przełączenie węzła pozostają niezweryfikowane [HIP].
 - **Fallback WFS [HIP]:** GeoJSON `/api/wfs` daje geometrię parcel dla zwróconego bbox, z której aplikacja rysuje przerywane obrysy i etykiety. Może być częściowym fallbackiem dla tych działek, lecz nie potwierdzono równoważności pokrycia z KIEG; nie zastępuje konturów budynków ani stylu WMS. Nie wdrażać jako pełnego zastępstwa bez porównania.
 - **Pochodzenie strony:** hipoteza różnicy localhost/hostingu pozostaje do sprawdzenia po wdrożeniu podglądowym (M10), bez zmiany nagłówków ani podszywania się pod domenę.
+
+## D24 — Przejęcie i małe zależne PR-y (2026-11-27)
+
+- **Status:** polecenie właściciela w zadaniu przejęcia.
+- **Decyzja:** agent prowadzi plan, kod, testy, dokumentację i PR-y; właściciel podejmuje decyzje produktowe, scala oraz wdraża. Otwarty PR nie blokuje niezależnej pracy. Zmiana zależna jest PR-em do gałęzi poprzednika, z jawną kolejnością w PROJECT_STATE.md.
+- **Powód:** małe zakresy do samodzielnego sprawdzenia przy zachowaniu pełnego parytetu. Alternatywa: jeden zbiorczy PR obejmujący wiele modułów — odrzucona jako trudniejsza do odbioru.
+- **Sieć:** obowiązują nowe budżety zadania z AGENTS.md; stare limity eksperymentów nie są ponowną zgodą. Nie wykonuje się operacji zarządzania usługami, wdrożeń ani odczytów wartości konfiguracji.
+
+## D25 — Szybki test startowy i izolowany Edge/CDP (2026-11-27)
+
+- **Decyzja:** test startowy odmontowuje ostatnią mapę także po błędzie asercji, zamiast skracać produkcyjne okno kompletności. PR #13: 119/119 PASS w 0,69 s.
+- **Edge:** nowy profil na każdy start, port wybiera przeglądarka, `DevToolsActivePort` wskazuje instancję. Sprawdzenie portu i socketu ogranicza połączenie do lokalnej przeglądarki; wyjście launchera nie kończy od razu oczekiwania. Alternatywa: stały port wybrany przez wcześniejszy test wolnego gniazda — odrzucona, bo tworzy wyścig i nie identyfikuje profilu.
+- **Dowód:** PR #14, `--headed --check-browser` PASS w rzeczywistym Edge; zrzut obejrzany. Ten sprawdzian nie otwiera mapy i nie dowodzi dostępności usług.
+- **Ograniczenia źródeł:** lokalny checkout nie ma `.gitattributes` ani atrybutów SRI w loaderze Leaflet; istnieją testy SHA-256 plików vendor. Nie opisywać stanu z załącznika jako już wdrożonej ochrony.
 
 ## Zasady repozytorium
 
