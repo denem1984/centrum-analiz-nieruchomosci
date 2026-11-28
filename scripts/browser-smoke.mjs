@@ -13,6 +13,7 @@ import { isAllowedPlanningRequest } from "./planning-allowlist.mjs";
 import { planningSmokeFixture } from "./planning-smoke-fixtures.mjs";
 import { isAllowedThematicRequest } from "./thematic-allowlist.mjs";
 import { runThematicSmoke } from "./thematic-smoke.mjs";
+import { runAppearanceSmoke } from "./appearance-smoke.mjs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, "..");
@@ -1347,8 +1348,11 @@ async function runBrowserSmoke() {
   const egibLayersMode = argv.includes("--egib-layers");
   const planningLayersMode = argv.includes("--planning-layers");
   const thematicLayersMode = argv.includes("--thematic-layers");
+  const appearanceMode = argv.includes("--appearance-tools");
   const offlinePlanning = argv.includes("--offline-planning");
   const offlineThematic = argv.includes("--offline-thematic");
+  const offlineAppearance = argv.includes("--offline-appearance");
+  if(offlineAppearance&&!appearanceMode)throw new Error("--offline-appearance wymaga --appearance-tools.");
   if (offlinePlanning && !planningLayersMode) throw new Error("--offline-planning wymaga --planning-layers.");
   if (offlineThematic && !thematicLayersMode) throw new Error("--offline-thematic wymaga --thematic-layers.");
   const egibRequestLimitProvided = argv.some((value) => value === "--max-egib-backend-requests"
@@ -1371,6 +1375,7 @@ async function runBrowserSmoke() {
     throw new Error("Nieprawidłowa wartość --before-ref.");
   }
   const compareBefore = Boolean(beforeRef);
+  if(appearanceMode&&(thematicLayersMode||planningLayersMode||egibLayersMode||kiegReliabilityMode||kiegExperimentMode||tileExperimentArgs||searchArgs||compareBefore))throw new Error("--appearance-tools działa jako osobny scenariusz.");
   if (thematicLayersMode && (planningLayersMode || egibLayersMode || kiegReliabilityMode || kiegExperimentMode || tileExperimentArgs || searchArgs || compareBefore)) {
     throw new Error("--thematic-layers działa jako osobny scenariusz.");
   }
@@ -1750,7 +1755,7 @@ async function runBrowserSmoke() {
             }
             orthophotoRequestCount += 1;
           }
-          if ((offlinePlanning || offlineThematic) && parsedRequestUrl && !appOrigins.includes(parsedRequestUrl.origin)) {
+          if ((offlinePlanning || offlineThematic || offlineAppearance) && parsedRequestUrl && !appOrigins.includes(parsedRequestUrl.origin)) {
             if (networkRecord) networkRecord.mocked = true;
             await pageCdp.command("Fetch.fulfillRequest", { requestId: params.requestId, ...planningSmokeFixture(requestUrl) });
             return;
@@ -2661,6 +2666,17 @@ async function runBrowserSmoke() {
       return { scenarios, retryScenario, statePreserved };
     }
 
+    if(appearanceMode){
+      currentScenario="m4e1-appearance";
+      const capture=async(filename)=>{const shot=await pageCdp.command("Page.captureScreenshot",{format:"png",captureBeyondViewport:true});await writeFile(join(resultDir,filename),Buffer.from(shot.data,"base64"));};
+      const result=await runAppearanceSmoke({evaluate,command:(method,params)=>pageCdp.command(method,params),sleep,origin:appOrigin,context:contextEncoded,waitForMap,setZoom:setZoomForTest,offline:offlineAppearance,capture});
+      result.assertions.push({name:"Brak wyjątków JavaScript",pass:pageExceptions.length===0});await Promise.all([...pendingFetchHandlers]);if(runError)throw runError;
+      const passed=result.assertions.every(assertion=>assertion.pass)&&blockedRequests.length===0;
+      runReport={scenario:currentScenario,browserMode:headed?"headed":"headless",offline:offlineAppearance,passed,...result,externalRequests,blockedRequests,consoleErrors,pageExceptions,budget:taskBudget.snapshot()};
+      await writeFile(join(resultDir,"report.json"),JSON.stringify(runReport,null,2),"utf8");
+      const summary=result.assertions.map(assertion=>(assertion.pass?"PASS":"FAIL")+" | "+assertion.name).join("\n")+"\nŻądania zablokowane: "+blockedRequests.length+"\nWyniki: "+resultDir+"\n";
+      await writeFile(join(resultDir,"summary.txt"),summary,"utf8");process.stdout.write(summary);if(!passed)process.exitCode=1;return;
+    }
     if (thematicLayersMode) {
       currentScenario = "m4d3-thematic";
       const capture = async (filename) => {

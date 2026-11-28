@@ -8,6 +8,7 @@ import { mountParcelSearch } from "./search-ui.js";
 import { mountEgibLayers } from "./egib-layers.js";
 import { mountPlanningLayers } from "./planning-layers.js";
 import { mountThematicLayers } from "./thematic-layers.js";
+import { mountParcelAppearance } from "./appearance-tools.js";
 
 const STATUS_LABELS = Object.freeze({
   idle: "Nie sprawdzono",
@@ -242,15 +243,12 @@ export function mountDzialki(container, ctx = {}) {
     subscribeBackendStatus:ctx.subscribeBackendStatus,
   });
 
-  const upcomingGroups = [
-    ["tools", "Wygląd i narzędzia działek", "tools"],
-  ];
-  for (const [id, label, iconName] of upcomingGroups) {
-    const upcoming = createGroup(id, label, iconName, groups[id]);
-    const note = element("p", "w kolejnych etapach", "dzialki-upcoming-note");
-    upcoming.body.append(note);
-    mapLayersPanel.append(upcoming.details);
-  }
+  const toolsGroup=createGroup("tools","Wygląd i narzędzia działek","tools",groups.tools);
+  mapLayersPanel.append(toolsGroup.details);
+  mountParcelAppearance(toolsGroup.body,{
+    onAppearance:()=>egibLayerController.refreshAppearance(),
+    onClear:()=>egibLayerController.clearSelections(),
+  });
 
   const zoomGroup = element("section", undefined, "dzialki-zoom-controls");
   zoomGroup.setAttribute("aria-label", "Przybliżenie mapy");

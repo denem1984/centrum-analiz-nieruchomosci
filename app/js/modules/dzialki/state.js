@@ -1,3 +1,7 @@
+export const SELECTION_COLORS = Object.freeze([
+  ["#dc2626","Czerwony"],["#f97316","Pomarańczowy"],["#eab308","Żółty"],["#16a34a","Zielony"],
+  ["#2563eb","Niebieski"],["#7c3aed","Fioletowy"],["#db2777","Różowy"],["#475569","Grafitowy"],
+]);
 const initialState = Object.freeze({
   baseLayer: "osm",
   year: 2025,
@@ -16,6 +20,7 @@ const initialState = Object.freeze({
   selectedParcel: null,
   selectedMapParcels: Object.freeze([]),
   mapSelectionInitialized: false,
+  appearance: Object.freeze({outlineColor:"#2563eb",selectionColor:"#dc2626"}),
   egibLayers: Object.freeze({ numbers: true, parcels: true, buildings: false }),
   planningLayers: Object.freeze({ mpzp: false, buildingLines: false, pogAdopted: false, pogDraftRu: false, pogDraftGugik: false }),
   thematicLayers: Object.freeze({ rwdz: false, flood: false, kiut: false, ownership: false }),
@@ -42,6 +47,7 @@ export function getDzialkiState() {
     egibLayers: copyPlain(current.egibLayers),
     planningLayers: copyPlain(current.planningLayers),
     thematicLayers: copyPlain(current.thematicLayers),
+    appearance: copyPlain(current.appearance),
     layerGroups: copyPlain(current.layerGroups),
   };
 }
@@ -72,6 +78,12 @@ export function updateDzialkiState(patch) {
   }
   if (typeof patch.mapSelectionInitialized === "boolean") {
     current.mapSelectionInitialized = patch.mapSelectionInitialized;
+  }
+  if (patch.appearance) {
+    const next={...current.appearance};
+    if (/^#[0-9a-f]{6}$/i.test(patch.appearance.outlineColor ?? "")) next.outlineColor=patch.appearance.outlineColor.toLowerCase();
+    if (SELECTION_COLORS.some(([color])=>color===patch.appearance.selectionColor)) next.selectionColor=patch.appearance.selectionColor;
+    current.appearance=next;
   }
   if (patch.egibLayers && typeof patch.egibLayers === "object" && !Array.isArray(patch.egibLayers)) {
     current.egibLayers = { ...current.egibLayers, ...copyPlain(patch.egibLayers) };

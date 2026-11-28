@@ -531,7 +531,7 @@ export function mountEgibLayers(container, options = {}) {
     outlineLayer = leaflet.geoJSON(collection, {
       pane: "dzialki-selection-pane",
       style: () => ({
-        color: "#2563eb",
+        color: getDzialkiState().appearance.outlineColor,
         weight: 2,
         fill: false,
         dashArray: "5,4",
@@ -622,7 +622,7 @@ export function mountEgibLayers(container, options = {}) {
     const layer = leaflet.geoJSON(selection.geometry, {
       pane: "dzialki-selection-pane",
       style: () => ({
-        color: "#dc2626", weight: 5, fillColor: "#dc2626", fillOpacity: 0.42,
+        color: getDzialkiState().appearance.selectionColor, weight: 5, fillColor: getDzialkiState().appearance.selectionColor, fillOpacity: 0.42,
         className: "dzialki-selected-parcel", bubblingMouseEvents: true,
       }),
     });
@@ -669,6 +669,19 @@ export function mountEgibLayers(container, options = {}) {
       const layer = addSelected(selection);
       if (layer) updateBoundPopup(selected.get(String(selection?.parcel?.id ?? "")));
     }
+  }
+
+  function refreshAppearance() {
+    const {outlineColor,selectionColor}=getDzialkiState().appearance;
+    outlineLayer?.setStyle({color:outlineColor});
+    for (const {layer} of selected.values()) layer.setStyle({color:selectionColor,fillColor:selectionColor});
+  }
+  function clearSelections() {
+    clickController?.abort();
+    for (const {layer} of selected.values()) if (map?.hasLayer(layer)) map.removeLayer(layer);
+    selected.clear();persistSelections();
+    map?.closePopup?.();
+    setStatus("Zaznaczenie wyczyszczone.","ready");
   }
 
   async function handleMapClick(event) {
@@ -842,6 +855,8 @@ export function mountEgibLayers(container, options = {}) {
     addSearchSelection,
     updateSearchSelection,
     restoreSelections,
+    refreshAppearance,
+    clearSelections,
     refresh: () => scheduleRefresh(true),
     retryFailedTiles() {
       const parcels = parcelTileRetry?.retryVisible() ?? false;

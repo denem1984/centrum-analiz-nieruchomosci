@@ -5,7 +5,7 @@ import { createFakeLeaflet } from "./helpers/fake-leaflet.mjs";
 import { resetHealthCache } from "../app/js/health.js";
 import { contextStore } from "../app/js/context.js";
 import { encodeContext } from "../app/js/context.js";
-import { resetDzialkiState } from "../app/js/modules/dzialki/state.js";
+import { resetDzialkiState,getDzialkiState } from "../app/js/modules/dzialki/state.js";
 
 test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza atrapą", async (t) => {
   resetHealthCache();
@@ -79,7 +79,16 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
   assert.match(view.textContent, /Dostępne lata: 1995–2025\. W danym miejscu może brakować zdjęcia z wybranego roku\./);
   assert.match(view.textContent, /Niezaładowane kafelki: 0/);
   assert.match(view.textContent, /Stan usługi Działki: Dostępna/);
-  assert.match(view.textContent, /w kolejnych etapach/);
+  assert.match(view.textContent, /Wyczyść zaznaczenie/);
+  assert.equal(fake.document.querySelectorAll("[data-selection-color]").length,8);
+  assert.equal(fake.document.getElementById("dzialki-family-toggle"),null);
+  const palette=fake.document.querySelectorAll("[data-selection-color]");
+  palette[5].click();
+  assert.equal(palette[5].getAttribute("aria-pressed"),"true");
+  assert.equal(palette[0].getAttribute("aria-pressed"),"false");
+  const outlineColor=fake.document.getElementById("dzialki-outline-color");
+  outlineColor.value="#010203";outlineColor.dispatch("input");
+  assert.deepEqual(getDzialkiState().appearance,{outlineColor:"#010203",selectionColor:"#7c3aed"});
   const planningInputs = fake.document.querySelectorAll("[data-planning-layer]");
   assert.equal(planningInputs.length, 5);
   assert.ok(planningInputs.every((input) => input.checked === false), "planowanie jest domyślnie wyłączone");
@@ -174,6 +183,8 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
   assert.equal(baseLayer(secondMap).options.time, "2023-12-01");
   assert.deepEqual(secondMap.getCenter(), { lat: 52.07, lng: 19.48 });
   assert.equal(secondMap.getZoom(), 8.4);
+  assert.equal(fake.document.getElementById("dzialki-outline-color").value,"#010203");
+  assert.equal(fake.document.querySelectorAll("[data-selection-color]")[5].getAttribute("aria-pressed"),"true");
 
   const pointContext = {
     version: "1",
