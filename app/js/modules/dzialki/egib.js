@@ -181,6 +181,13 @@ export function parseKiegFeatureInfo(xml, expectedParcelId, geometry) {
   };
 }
 
+export function readKiegParcelId(xml) {
+  if (typeof xml !== "string" || /ServiceException|ExceptionReport/i.test(xml)) {
+    throw new Error("Nieprawidłowa odpowiedź EGiB/KIEG.");
+  }
+  return xmlField(xml, "Identyfikator działki");
+}
+
 export function parseEgibGeometryText(value, parseWktGeometry) {
   if (typeof value !== "string" || typeof parseWktGeometry !== "function") {
     throw new Error("Nieprawidłowa odpowiedź geometrii EGiB.");

@@ -46,8 +46,8 @@ Status „zrobione” oznacza implementację lokalnej funkcji i testy bez sieci;
 | Własność, KIUT, ryzyko powodziowe i pozwolenia budowlane | [FAKT z kodu: `index.html:187,211,412–449,767–815,838–858`] | zaimplementowane: cztery opcje off, legendy 9/16, dialog ISOK, wspólny popup RWDZ, uzupełnianie grup 60/4 i cache; headed live PASS w jednym widoku | M4d.3 | Dokładne parametry i instrukcja w `docs/dzialki-thematic.md`; własność 83 obiekty / 0 nieustalonych grup. Baseline D6 i pełne pokrycie kraju niepotwierdzone. |
 | Menu mapy, pomiar odległości i powierzchni | [FAKT z kodu: `index.html:197–209,1122–1285`] | zrobione; test startowy i headed offline/mobile PASS | M4e.2 | Pole i pełny obwód, Esc/PPM/dwuklik, wynik między zakładkami; dodawanie do raportu nadal M4f; baseline ręczny pozostaje. |
 | Street View z punktu mapy | [FAKT z kodu: `index.html:1270–1275`] | zrobione; dokładny test URL, bez nawigacji do Google w smoke | M4e.2 | Link nowej karty; tabela i test właściciela w `docs/dzialki-map-tools.md`; dostępność zdjęć zależy od Google. |
-| Lista elementów raportu: dodawanie, usuwanie i czyszczenie | [FAKT z kodu: `index.html:189–194,862–965`] | brak | M4f | Stan listy ma pozostawać w pamięci aplikacji zgodnie z decyzją D15. |
-| Eksport raportu PDF z działką i widokiem warstw | [FAKT z kodu: `index.html:993–1110`] | brak | M4f | Wróci w baseline D7; wymaga porównania właściciela. |
+| Lista elementów raportu: dodawanie, usuwanie i czyszczenie | [FAKT z kodu: `index.html:189–194,862–965`] | zrobione | M4f | Lista zachowana między zakładkami i czyszczona po odświeżeniu (D15). |
+| Eksport raportu PDF z działką i widokiem warstw | [FAKT z kodu: `index.html:993–1110`] | zrobione, pobranie w Edge i oględziny PDF | M4f | Lokalne biblioteka i font, mapy i legendy oraz jawne braki. [Dowody i ograniczenia](../reports/m4f-report-pdf.md). |
 
 W `index.html` rewizji `a1aa39d` wywołania wyszukiwania i przypisania pól raportu znajdują się na jednej długiej fizycznej linii `560`. Wiersze macierzy rozróżniają te wywołania po ich celu; nie podaję nieistniejących osobnych numerów linii.
 

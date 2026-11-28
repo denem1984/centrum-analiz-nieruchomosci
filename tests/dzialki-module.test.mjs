@@ -84,6 +84,9 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
   assert.equal(firstMap.controls[0].type, "scale");
 
   const view = fake.document.getElementById("module-view");
+  assert.equal(fake.document.getElementById("dzialki-pdf-save").disabled, true);
+  assert.equal(fake.document.getElementById("dzialki-pdf-add-map").disabled, false);
+  assert.equal(fake.document.getElementById("dzialki-menu-add-parcel").textContent, "Dodaj działkę do raportu");
   assert.equal(view.querySelector('aside').getAttribute("tabindex"), "0", "panel można przewijać także z klawiatury");
   assert.match(view.textContent, /Działki/);
   assert.match(view.textContent, /OpenStreetMap/);

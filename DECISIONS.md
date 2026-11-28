@@ -230,6 +230,17 @@
 - `wektor-lzb` KIMPZP zostaje: rzeczywisty test w publicznym przykładzie GUGiK pokazał linie z pełnymi i pustymi trójkątami oraz zgodną legendę. Dodano opis wymaganego zbliżenia i danych wektorowych gminy. Nie dodano nowej usługi ani parametrów i nie potwierdzono pokrycia każdej gminy. Dowody: `docs/map-panel-scroll.md`, `reports/map-panel-scroll.md`.
 - Poprawka nie rozpoczyna M4f. Po dostawie nadal akceptacja kontynuacji; postęp pozostaje około 31% / 69%.
 
+## D35 — Własne wyszukiwanie lokalizacji w każdym module (2026-11-28)
+
+- Właściciel polecił kontynuować PDF i zapisać, że wyszukiwanie lokalizacji będzie osobno dla każdego modułu. To ustalenie zastępuje D28 i rozbudowę Start o centralny formularz lokalizacji.
+- Moduły dobierają pola, filtry i sposób wyszukiwania do własnych danych. Mogą korzystać z tych samych słowników oraz pomocniczego kodu. Wybór w Start nie stanowi warunku użycia modułu.
+- Zachowanie istniejących linków DenemContext v1 nie wymaga wdrożenia centralnego formularza. Dalsza realizacja po M4f obejmuje weryfikację słowników i formularze poszczególnych modułów.
+
+## D36 — Raport PDF w przeglądarce (2026-11-28)
+
+- Lista działek i zapisanych widoków pozostaje w pamięci zgodnie z D15. Działkę można dodać z wyniku wyszukania lub menu mapy. Widok utrwala geometrię, etykiety i dostępne rastry. PDF wymienia ograniczenia widoku, a dane działki obejmują wynik sprawdzenia MPZP.
+- Do pobierania PDF użyto lokalnych jsPDF i Noto Sans z weryfikacją integralności. PDF zachowuje polskie znaki, a aktualną mapę zapisuje do obrazu PNG w chwili dodawania widoku. Kafelki z ograniczeniami CORS mogą zostać pominięte z informacją w raporcie.
+
 ## Zasady repozytorium
 
 [FAKT: decyzja właściciela z 2026-10-26] Repozytorium jest publiczne. Nie zapisujemy w nim wartości sekretów, konfiguracji, tokenów, kluczy, danych osobowych ani identyfikatorów kont lub usług. Wyjątkiem jest niesekretna wartość trybu źródło danych RCN. Pięć repozytoriów źródłowych jest tylko do odczytu.

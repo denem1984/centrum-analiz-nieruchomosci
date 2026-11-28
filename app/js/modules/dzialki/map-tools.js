@@ -84,6 +84,15 @@ export function mountMapTools(container, options = {}) {
   street.textContent = "Otwórz Street View"; street.target = "_blank"; street.rel = "noopener noreferrer";
   street.addEventListener("click", () => closeMenu(true)); menu.append(street);
   const menuItems = [menuDistance, menuArea, street];
+  if (options.onAddParcel) menuItems.push(button(menu, "dzialki-menu-add-parcel", "Dodaj działkę do raportu", () => {
+    const point = menuPoint;
+    closeMenu(true);
+    options.onAddParcel(point);
+  }));
+  if (options.onAddSnapshot) menuItems.push(button(menu, "dzialki-menu-add-map", "Dodaj widok mapy do raportu", () => {
+    closeMenu(true);
+    options.onAddSnapshot();
+  }));
   for (const item of menuItems) item.setAttribute("role", "menuitem");
   (options.menuContainer ?? container).append(menu);
 
@@ -178,7 +187,9 @@ export function mountMapTools(container, options = {}) {
       if (event.key === "Tab") { closeMenu(); return; }
       event.preventDefault();
       const current = menuItems.indexOf(document.activeElement);
-      const next = event.key === "Home" ? 0 : event.key === "End" ? 2 : (current + (event.key === "ArrowUp" ? 2 : 1)) % 3;
+      const count = menuItems.length;
+      const next = event.key === "Home" ? 0 : event.key === "End" ? count - 1
+        : (current + (event.key === "ArrowUp" ? count - 1 : 1)) % count;
       menuItems[next].focus();
     }
   };

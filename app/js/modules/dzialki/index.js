@@ -6,10 +6,11 @@ import { loadLeaflet } from "./leaflet-loader.js";
 import { getDzialkiState, updateDzialkiState } from "./state.js";
 import { mountParcelSearch } from "./search-ui.js";
 import { mountEgibLayers } from "./egib-layers.js";
-import { mountPlanningLayers } from "./planning-layers.js";
+import { mountPlanningLayers, MPZP_SYMBOLS_HELP } from "./planning-layers.js";
 import { mountThematicLayers } from "./thematic-layers.js";
 import { mountParcelAppearance } from "./appearance-tools.js";
 import { mountMapTools } from "./map-tools.js";
+import { mountParcelPdf } from "./report-ui.js";
 
 const STATUS_LABELS = Object.freeze({
   idle: "Nie sprawdzono",
@@ -56,6 +57,7 @@ export function mountDzialki(container, ctx = {}) {
   let planningLayerController = null;
   let thematicLayerController = null;
   let mapTools = null;
+  let parcelPdf = null;
   let mapResizeObserver = null;
   let pendingSearchSelection = null;
   let retryController = null;
@@ -112,8 +114,8 @@ export function mountDzialki(container, ctx = {}) {
 
   unmountSearch = mountParcelSearch(searchArea, {
     setContext: ctx.setContext,
-    onSelect: showSelectedParcel,
-    onEgib: (selection) => egibLayerController?.updateSearchSelection(selection),
+    onSelect: (selection) => { showSelectedParcel(selection); parcelPdf?.refresh(); },
+    onEgib: (selection) => { egibLayerController?.updateSearchSelection(selection); parcelPdf?.refresh(); },
   });
 
   const mapLayersPanel = element("section", undefined, "dzialki-map-layers");
@@ -305,10 +307,30 @@ export function mountDzialki(container, ctx = {}) {
   mapStatus.setAttribute("role", "status");
   mapStatus.setAttribute("aria-live", "polite");
   mapFrame.append(mapStatus);
+  parcelPdf = mountParcelPdf(controls, {
+    getMapNode: () => map && mapStatus.hidden ? mapContainer : null,
+    planningHelp: MPZP_SYMBOLS_HELP,
+    getLayerNotices() {
+      const notices = [];
+      if (baseFailedTileCount || kiegFailedTileCount) notices.push("Nie wszystkie kafelki podkładu lub EGiB były wczytane.");
+      if (mapContainer.querySelectorAll(".leaflet-tile-pane .leaflet-tile:not(.leaflet-tile-loaded)").length) {
+        notices.push("Część podkładu jeszcze się wczytuje lub jest niedostępna.");
+      }
+      for (const status of mapLayersPanel.querySelectorAll("[data-planning-status], [data-thematic-status]")) {
+        if (["incomplete", "loading", "error"].includes(status.dataset.state)) {
+          notices.push("Część włączonych warstw jest w trakcie wczytywania lub ma braki.");
+          break;
+        }
+      }
+      return notices;
+    },
+  });
   mapTools = mountMapTools(toolsGroup.body, {
     menuContainer: mapFrame,
     resultContainer: mapFrame,
     onChange: (measurement) => updateDzialkiState({ measurement }),
+    onAddParcel: (point) => parcelPdf.addParcel({ point }),
+    onAddSnapshot: () => parcelPdf.addSnapshot(),
     onStart: () => {
       egibLayerController.cancelMapInteraction();
       planningLayerController.cancelMapInteraction();
@@ -457,6 +479,7 @@ export function mountDzialki(container, ctx = {}) {
       });
       mapStatus.textContent = "";
       mapStatus.hidden = true;
+      parcelPdf.refresh();
       syncZoom();
       const savedState = getDzialkiState();
       if (savedState.mapSelectionInitialized) {
@@ -478,6 +501,7 @@ export function mountDzialki(container, ctx = {}) {
     unmountSearch();
     detachRetry();
     mapTools?.cleanup();
+    parcelPdf?.cleanup();
     mapResizeObserver?.disconnect();
     egibLayerController?.cleanup();
     planningLayerController?.cleanup();

@@ -12,6 +12,7 @@ const HELP = {
   buildingLines: "Linie zabudowy, w tym nieprzekraczalne, z planów publikowanych wektorowo przez gminy. Rodzaje oznaczeń pokazuje legenda poniżej. Wymagają dużego zbliżenia (skala 1:5 000 lub bliższa); brak linii na mapie nie oznacza braku ograniczeń w planie. Plany dostępne wyłącznie jako raster nie mają osobnej geometrii linii. Źródło: Geoportal / KIMPZP.",
   pogDraftGugik: "Legenda stref planistycznych – GUGiK. Kliknij mapę w obrębie strefy, aby zobaczyć jej oznaczenie i dane.",
 };
+export const MPZP_SYMBOLS_HELP = HELP.mpzp;
 export const PLANNING_LEGEND_URLS = Object.freeze({
   buildingLines: "https://opendata.geoportal.gov.pl/Geoportal/ikony/mpzp/mpzp-lzb.png",
   pogDraftGugik: POG_GUGIK_WMS + "?version=1.3.0&service=WMS&request=GetLegendGraphic&sld_version=1.1.0&layer=strefaPlanistyczna&format=image/png&STYLE=default",

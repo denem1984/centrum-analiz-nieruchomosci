@@ -1,6 +1,6 @@
 # IMPLEMENTATION_PLAN.md — plan M0–M10
 
-**Status na 2026-11-28:** M0–M3a i M4a–M4e.1 w main, kolejka #13–#24 scalona. M4e.2 ukończone w bieżącym PR: pomiary, menu i Street View; 155 testów i headed offline/mobile 9/9 PASS. Następne M4f po akceptacji. D33 pozwala samodzielnie scalać sprawdzone PR-y, bez wdrażania. Aktualne dowody: [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md). Ograniczenia KIEG i odbiór baseline pozostają; D5 bez logowania, źródła tylko do odczytu.
+**Stan na 2026-11-28.** Działki mają pomiary, niezależny panel i raport PDF M4f. D35 ustala osobne wyszukiwanie lokalizacji w każdym module. [Stan projektu i testy](docs/PROJECT_STATE.md). Następny większy etap po akceptacji właściciela.
 
 ## Kolejność dalszej realizacji
 
@@ -8,11 +8,11 @@
 
 Plan M4b.4 i przegląd oficjalnych źródeł: [docs/imagery-freshness-plan.md](docs/imagery-freshness-plan.md). Kandydat: aktualna ortofotomapa GUGiK z metadanymi; rekomendacja domyślnego źródła dopiero po porównaniu dat i szczegółu. To zaplanowane rozszerzenie, nie wykonana zamiana podkładu.
 
-M4d.2 → M4d.3 → M4e (w tym pomiary i Street View z istniejącego parytetu) → M4f → M3b → M3c (jedna lokalizacja w Start, D28) → M5 → M6 → M7 → M8 → decyzja D10 → M9 → M10 wykonywane przez właściciela. Każdy podetap jest osobnym PR; zależne PR-y mogą być oparte na niescalonych gałęziach. Przed M3b agent próbuje uzyskać oficjalne dane GUS sam; słowniki obejmują też weryfikację źródła ulic ULIC. Przed M8 próbuje odtworzyć plik wskaźników z publicznego BDL, bez odczytów Supabase. D5 rozstrzygnięte: aplikacja w ogóle nie będzie miała logowania. Nie usuwa się wymagania pełnego parytetu.
+M4d.2 → M4d.3 → M4e → M4f → M3b (słowniki) → M5–M8 (własne formularze modułów, D35) → decyzja D10 → M9 → M10. Osobne PR-y dla podetapów. Przed M3b sprawdzić oficjalne źródła GUS, w tym ULIC stosownie do potrzeb wyszukiwań. Przed M8 spróbować odtworzyć plik wskaźników z publicznego BDL. D5 ustala aplikację bez logowania.
 
-M3c: [plan wspólnej lokalizacji](docs/shared-location-start.md). Wersjonowany kontrakt z samodzielnym obrębem i ulicą, migracja v1, jeden formularz w Start, przeniesienie list administracyjnych z Działek oraz adaptery modułów. Przypadki akceptacji obejmują czyszczenie zależnych pól, stare URL-e i oznaczanie wyników nieaktualnych po zmianie lokalizacji.
+M3c w wariancie centralnego formularza Start został zastąpiony przez D35. Każdy moduł zachowuje własny wybór lokalizacji. Współdzielone słowniki lub pomocniczy kod pozostają możliwe, a istniejące linki v1 zachowują zgodność.
 
-Aktualizacja właściciela: D30 wymaga zatrzymania po większych etapach, lokalnego podglądu, estymacji % i akceptacji przed kontynuacją. M3c obejmuje mapę wyniku w Start i trzy proponowane tryby Obszar/Adres/Działka. D31 usuwa „rodzinę działek” opartą na numerach. D32 ogranicza M5 do adaptacji istniejącego kodu i poprawy prezentacji RCN z obecnymi danymi R2; bez zmiany danych i backendu. Raporty AI (D29) mają czytać mapę oraz internet i redagować tekst bez źródeł, bez bazy DENEM i generowania obrazów; [analiza możliwości](docs/ai-reports-feasibility.md), aktywacja dopiero po decyzjach o usłudze i kosztach.
+D30 wymaga podsumowania, lokalnego podglądu, estymacji i akceptacji po większych etapach. D31 pomija rodzinę działek opartą na wspólnym numerze. D32 ustala wykorzystanie obecnego kodu i danych RCN z R2, z poprawkami prezentacji. Raporty AI (D29) mają czytać mapę i internet oraz redagować tekst bez sekcji źródeł. [Analiza możliwości](docs/ai-reports-feasibility.md).
 
 ## Etapy i zależności
 

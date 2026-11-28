@@ -15,6 +15,7 @@ const MIME_TYPES = Object.freeze({
   ".png": "image/png",
   ".svg": "image/svg+xml",
   ".txt": "text/plain; charset=utf-8",
+  ".ttf": "font/ttf",
 });
 
 function isWithin(root, candidate) {

@@ -14,7 +14,7 @@ Połączyć pięć istniejących modułów analiz nieruchomości w jednej aplika
 - Zakładki wywołują istniejące backendy bezpośrednio przez API. Nie dodajemy pośredniej bramy API i nie przepisujemy backendów.
 - Nie zakładamy osadzania modułów w iframe.
 - Aplikacja w ogóle nie będzie miała logowania (ostateczna decyzja D5 właściciela, 2026-11-27). Nie przenosimy bramek starych aplikacji.
-- Wspólne wyszukiwanie jest w Start (D28, 2026-11-27). Wszystkie moduły korzystają z potrzebnych pól jednej lokalizacji. DenemContext v1 jest aktualną implementacją; M3c przygotuje v2 z ulicą i samodzielnym obrębem oraz migrację v1. [Plan](docs/shared-location-start.md).
+- Każdy moduł ma własne wyszukiwanie lokalizacji (D35, 2026-11-28). Dobiera pola do swoich danych. DenemContext v1 może nadal obsługiwać istniejące odnośniki i przekazanie wyniku, bez wymogu wcześniejszego wyboru w Start.
 
 [FAKT z audytu kodu AUDIT.md; do potwierdzenia pomiarem w M1] Cztery backendy — RCN, Oferty, Działki i Podobne — deklarują CORS *. M1 sprawdzi wywołanie z obcego origin, w tym preflight OPTIONS z nagłówkiem Authorization. To ustalenie nie zastępuje pomiaru rzeczywistych odpowiedzi.
 
@@ -36,7 +36,7 @@ Adresy API, rzeczywiste zachowanie CORS i czasy odpowiedzi zostaną zapisane w C
 
 ## 5. DenemContext v1
 
-Aktualny kontrakt v1 opisuje `docs/denem-context-v1.md`; poniższy historyczny szkic nie jest kształtem implementacji. D28 rozszerza docelowy kontrakt w M3c, z zachowaniem odczytu linków v1. Kontekst w URL jest kodowany w hash, aby nie trafiał do logów serwera; dużych geometrii nie przekazuje się wprost, tylko przez identyfikator.
+Aktualny kontrakt v1 opisuje `docs/denem-context-v1.md`. Poniższy schemat jest historyczny. D35 ustala osobne wyszukiwania, a zmiany kontraktu będą wynikały z konkretnych potrzeb integracji. Kontekst w URL jest kodowany w hash, aby nie trafiał do logów serwera. Duże geometrie przekazuje się przez identyfikator.
 
     {
       "v": 1,

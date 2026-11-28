@@ -16,6 +16,7 @@ import { runThematicSmoke } from "./thematic-smoke.mjs";
 import { runAppearanceSmoke } from "./appearance-smoke.mjs";
 import { runMapToolsSmoke } from "./map-tools-smoke.mjs";
 import { runMapLayoutSmoke } from "./map-layout-smoke.mjs";
+import { runReportPdfSmoke } from "./report-pdf-smoke.mjs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, "..");
@@ -1357,10 +1358,11 @@ async function runBrowserSmoke() {
   const thematicLayersMode = argv.includes("--thematic-layers");
   const appearanceMode = argv.includes("--appearance-tools");
   const mapLayoutMode = argv.includes("--map-layout");
+  const reportPdfMode = argv.includes("--report-pdf");
   const verifyLines = argv.includes("--verify-building-lines");
   if(verifyLines&&!mapLayoutMode)throw new Error("--verify-building-lines wymaga --map-layout.");
-  const mapToolsMode = argv.includes("--map-tools") || mapLayoutMode;
-  const offlineMapTools = argv.includes("--offline-map-tools") || mapLayoutMode;
+  const mapToolsMode = argv.includes("--map-tools") || mapLayoutMode || reportPdfMode;
+  const offlineMapTools = argv.includes("--offline-map-tools") || mapLayoutMode || reportPdfMode;
   if (offlineMapTools && !mapToolsMode) throw new Error("--offline-map-tools wymaga --map-tools.");
   const offlinePlanning = argv.includes("--offline-planning");
   const offlineThematic = argv.includes("--offline-thematic");
@@ -1691,8 +1693,8 @@ async function runBrowserSmoke() {
             : isAllowedBrowserRequest(requestUrl, request.method, {
               appOrigins,
               healthRoutes,
-              planningLayers: planningLayersMode || (mapLayoutMode && verifyLines),
-              thematicLayers: thematicLayersMode,
+              planningLayers: planningLayersMode || (mapLayoutMode && verifyLines) || reportPdfMode,
+              thematicLayers: thematicLayersMode || reportPdfMode,
               allowRedirectKiutHosts: isRedirectDestination,
               allowDirectKiegHosts: kiegExperimentArgs?.id === "V3",
               allowRedirectKiegHosts: isRedirectDestination,
@@ -2693,10 +2695,11 @@ async function runBrowserSmoke() {
     }
 
     if(appearanceMode || mapToolsMode){
-      currentScenario = mapLayoutMode ? "map-panel-scroll" : mapToolsMode ? "m4e2-map-tools" : "m4e1-appearance";
+      currentScenario = reportPdfMode ? "m4f-report-pdf" : mapLayoutMode ? "map-panel-scroll" : mapToolsMode ? "m4e2-map-tools" : "m4e1-appearance";
       const offline = mapToolsMode ? offlineMapTools : offlineAppearance;
       const capture=async(filename)=>{const shot=await pageCdp.command("Page.captureScreenshot",{format:"png",captureBeyondViewport:true});await writeFile(join(resultDir,filename),Buffer.from(shot.data,"base64"));};
-      const result=await (mapLayoutMode ? runMapLayoutSmoke : mapToolsMode ? runMapToolsSmoke : runAppearanceSmoke)({evaluate,command:(method,params)=>pageCdp.command(method,params),sleep,origin:appOrigin,context:contextEncoded,waitForMap,setZoom:setZoomForTest,offline,capture,verifyLines});
+      const runner = reportPdfMode ? runReportPdfSmoke : mapLayoutMode ? runMapLayoutSmoke : mapToolsMode ? runMapToolsSmoke : runAppearanceSmoke;
+      const result=await runner({evaluate,command:(method,params)=>pageCdp.command(method,params),sleep,origin:appOrigin,context:contextEncoded,waitForMap,setZoom:setZoomForTest,offline,capture,verifyLines,resultDir});
       result.assertions.push({name:"Brak wyjątków JavaScript",pass:pageExceptions.length===0});await Promise.all([...pendingFetchHandlers]);if(runError)throw runError;
       const passed=result.assertions.every(assertion=>assertion.pass)&&blockedRequests.length===0;
       runReport={scenario:currentScenario,browserMode:headed?"headed":"headless",offline:verifyLines?"fixtures-except-building-lines":offline,passed,...result,externalRequests,blockedRequests,consoleErrors,pageExceptions,budget:taskBudget.snapshot()};
