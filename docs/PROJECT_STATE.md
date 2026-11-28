@@ -1,8 +1,10 @@
 # Stan projektu — Centrum Analiz Nieruchomości
 
-Aktualizacja: 2026-11-27. Bieżące źródło stanu i kolejki akceptacji; starsze raporty są dowodami historycznymi, nie bieżącą listą wykonanych funkcji.
+Aktualizacja: 2026-11-28. Bieżące źródło stanu i kolejki akceptacji; starsze raporty są dowodami historycznymi, nie bieżącą listą wykonanych funkcji.
 
-## Obecnie: oczekiwanie na odbiór właściciela
+## Obecnie: wznowiony etap M4e.1
+
+Właściciel polecił „Kontynuuj” 2026-11-28. Wznowiono kolory i czyszczenie zaznaczeń; po zakończeniu M4e.1 ponownie obowiązuje zatrzymanie i podgląd do akceptacji. Poniższy odbiór starszych warstw pozostaje dostępny; nie oznaczono wszystkich przypadków baseline jako potwierdzonych.
 
 Zgodnie z D30 praca nad następnym większym etapem jest zatrzymana do wyraźnego zatwierdzenia. Ukończone do odbioru: M4d.2/M4d.3 (planowanie oraz RWDZ/ISOK/KIUT/własność). Lokalny podgląd M4d.3: **http://localhost:8080/#/dzialki**, kod `9c07bb4` w ignorowanym `.local/preview-m4d3`. Serwer działa oddzielnie od roboczego katalogu; sprawdzono HTTP 200 strony i nowego modułu. Nie jest to wdrożenie produkcyjne.
 
@@ -66,7 +68,7 @@ Agent wykonuje plan, implementację, testy, dokumentację i PR-y. Właściciel p
 | 7 | `fix/windows-budget-replace` | Krótkie blokady atomowego zapisu licznika na Windows | [PR #19](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/19); baza #18 |
 | 8 | `feat/m4d3-risks-infrastructure` | RWDZ, ISOK, KIUT, własność i wspólne popupy | [PR #20](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/20); baza #19; 149 testów PASS |
 | 9 | `docs/shared-location-start` | D28: wspólne wyszukiwanie Start i plan M3c | [PR #21](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/21); baza #20 |
-| 10 | `docs/location-map-ai-reports` | Start z mapą, analiza AI, przegląd RCN, D30/D31 i estymacja | PR w przygotowaniu; baza #21 |
+| 10 | `docs/location-map-ai-reports` | Start z mapą, analiza AI, przegląd RCN, D30/D31 i estymacja | [PR #22](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/22); baza #21 |
 
 Scalaj od góry. PR-y zależne porównują zmianę z gałęzią poprzednika; po scaleniu poprzednika ich bazą powinno zostać `main`. Agent nie scala i nie uruchamia wdrożeń.
 
