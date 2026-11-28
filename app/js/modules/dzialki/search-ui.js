@@ -1,4 +1,5 @@
 import { contextStore } from "../../context.js";
+import { locationNotice, parcelParts } from "../../location/shared.js";
 import { getDzialkiState, updateDzialkiState } from "./state.js";
 import {
   createSearchApi,
@@ -169,6 +170,21 @@ export function mountParcelSearch(container, options = {}) {
   retryButton.type = "button";
   retryButton.hidden = true;
   root.append(countyLabel, communeLabel, precinctLabel, numberLabel, searchButton, status, retryButton);
+  const shared = options.sharedSearch;
+  const location = options.location;
+  const parts = location?.parcel ? parcelParts(location.parcel.id) : null;
+  if (shared) {
+    root.append(locationNotice(document, options, location?.district
+      ? "Obręb ze Startu: " + location.district.name + " · " + location.district.id + "."
+      : "Wybierz działkę lub obręb w Start. Działkę możesz też wskazać na mapie."));
+    for (const label of [countyLabel, communeLabel, precinctLabel]) label.hidden = true;
+    numberLabel.hidden = searchButton.hidden = !location?.district;
+    const previous = getDzialkiState().selectedParcel;
+    if (previous && previous.parcel.id !== location?.parcel?.id
+        && (!location?.district || previous.region?.code !== location.district.id || previous.fromSharedParcel)) {
+      updateDzialkiState({ selectedParcel: null });
+    }
+  }
   container.append(root);
 
   const report = createParcelReport(document);
@@ -185,12 +201,18 @@ export function mountParcelSearch(container, options = {}) {
   let communeItems = Array.isArray(searchState.gminy) ? searchState.gminy : [];
   let precinctItems = Array.isArray(searchState.obreby) ? searchState.obreby : [];
   const controllers = new Set();
+  if (shared) {
+    countyItems = location ? [location.powiat] : [];
+    communeItems = location ? [{ code: location.gmina.terc7, name: location.gmina.name }] : [];
+    precinctItems = location?.district ? [{ code: location.district.id, name: location.district.name }] : [];
+    number.value = parts?.number ?? (savedState.selectedParcel?.region?.code === location?.district?.id ? searchState.parcelNumber : "");
+  }
 
   const countyLabelFor = (item) => item.name + " (" + (VOIVODESHIP_NAMES[item.code.slice(0, 2)] ?? "województwo nieznane") + ")";
   const precinctLabelFor = (item) => item.name + " (" + item.code.split(".").at(-1) + ")";
-  setOptions(county, countyItems, "Wybierz powiat", searchState.powiatCode, countyLabelFor);
-  setOptions(commune, communeItems, "Najpierw wybierz powiat", searchState.gminaCode);
-  setOptions(precinct, precinctItems, "Najpierw wybierz gminę", searchState.obrebCode);
+  setOptions(county, countyItems, "Wybierz powiat", shared ? countyItems[0]?.code : searchState.powiatCode, countyLabelFor);
+  setOptions(commune, communeItems, "Najpierw wybierz powiat", shared ? communeItems[0]?.code : searchState.gminaCode);
+  setOptions(precinct, precinctItems, "Najpierw wybierz gminę", shared ? precinctItems[0]?.code : searchState.obrebCode);
 
   function setStatus(message) {
     if (!disposed) status.textContent = message;
@@ -318,10 +340,10 @@ export function mountParcelSearch(container, options = {}) {
     }
     persistSearch({ parcelNumber });
     const result = await runOperation("Wyszukiwanie działki", ({ onWait, signal }) =>
-      api.parcel(selectedPrecinct.code, parcelNumber, { onWait, signal }), () => performSearch());
+      api.parcel(selectedPrecinct.code, parcelNumber, { onWait, signal, requireExactId: shared }), () => performSearch());
     if (disposed || busy) return;
     if (result === undefined) return;
-    if (!result?.geometry) {
+    if (!result?.geometry || (shared && result.id !== selectedPrecinct.code + "." + parcelNumber)) {
       setStatus("Nie znaleziono działki o podanym numerze.");
       return;
     }
@@ -343,10 +365,11 @@ export function mountParcelSearch(container, options = {}) {
       extent: result.extent,
       egib: null,
       egibState: "loading",
+      ...(parts && { fromSharedParcel: result.id === location.parcel.id }),
     };
     storeSelection(selection);
     options.onSelect?.(selection);
-    const context = createSearchContext(selection);
+    const context = shared ? null : createSearchContext(selection);
     if (context) {
       const applied = typeof options.setContext === "function"
         ? options.setContext(context)
@@ -410,7 +433,14 @@ export function mountParcelSearch(container, options = {}) {
     if (retry) void retry();
   });
 
-  if (countyItems.length === 0) void loadCounties();
+  if (shared) {
+    setBusy(false);
+    if (!location?.district) setStatus("Brak obrębu we wspólnej lokalizacji.");
+    else if (!parts) setStatus("Wpisz numer działki w wybranym obrębie.");
+    else if (savedState.selectedParcel?.parcel.id === location.parcel.id && savedState.selectedParcel.egibState !== "loading") {
+      setStatus("Wczytano działkę wybraną w Start.");
+    } else void performSearch();
+  } else if (countyItems.length === 0) void loadCounties();
   else {
     county.disabled = false;
     if (searchState.obrebCode) {
@@ -426,7 +456,7 @@ export function mountParcelSearch(container, options = {}) {
     disposed = true;
     for (const controller of controllers) controller.abort();
     controllers.clear();
-    persistSearch();
+    if (!shared) persistSearch();
     report.section.remove?.();
     root.replaceChildren();
   };

@@ -2,9 +2,15 @@
 
 Aktualizacja: 2026-11-28. Bieżące źródło stanu i kolejki akceptacji; starsze raporty są dowodami historycznymi, nie bieżącą listą wykonanych funkcji.
 
-## Obecnie: M8 — Gminy do odbioru lokalnego
+## Obecnie: M3c — wspólna lokalizacja w Start do odbioru lokalnego
 
-Gminy mają trzy profile, ranking top 20, porównanie siedmiu wskaźników i PDF. Lokalny plik GUS BDL zawiera po siedem wartości za 2025 r. dla wszystkich 2479 gmin. [Tryb GUS BDL](http://localhost:8086/#/gminy) · [Podgląd przykładowy](http://localhost:8086/?gminy=demo#/gminy) · [Raport i próba ręczna](../reports/m8-gminy.md) · [Porównanie frontów](parity-gminy.md) · [Otwarty PR #34](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/34)
+Start obsługuje obszar, adres i działkę. Wybór przechodzi do pięciu zakładek przez DenemContext v2 w URL. [Podgląd lokalny](http://localhost:8087/?start=demo#/start) · [Tryb danych rzeczywistych](http://localhost:8087/#/start) · [Raport i scenariusz](../reports/m3c-start.md).
+
+Właściciel zatwierdził Gminy. [PR #34](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/34) scalono jako `a476277`. Lokalny plik GUS BDL zawiera siedem wartości za 2025 r. dla wszystkich 2479 gmin. [Raport Gmin](../reports/m8-gminy.md) · [Porównanie frontów](parity-gminy.md).
+
+| Gałąź | Zakres oczekujący na akceptację | Baza |
+|---|---|---|
+| `feat/m3c-shared-location` | Wspólny formularz, mapa, słowniki i adaptery pięciu modułów | `main` po PR #34 |
 
 Właściciel zatwierdził Podobne. [PR #33](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/33) scalono jako `ee1c113`. Moduł lokalizuje nieruchomości po adresie lub działce i pokazuje odległości w linii prostej. [Raport Podobnych](../reports/m7-podobne.md)
 
@@ -30,9 +36,9 @@ D30 wymaga wyraźnej akceptacji po każdym większym etapie. Scalenie potwierdza
 
 Jeśli serwer po zamknięciu komputera przestanie działać: w terminalu katalogu projektu uruchomić `node .local/preview-m4d3/scripts/serve.mjs --port 8080`, a następnie otworzyć powyższy adres. Przy zajętym porcie nie uruchamiać drugiej kopii — najpierw sprawdzić działający podgląd.
 
-**Aktualny podgląd M4f działa pod http://localhost:8082/#/dzialki.** Wznowienie z katalogu projektu poleceniem `node .local/preview-m4e2/scripts/serve.mjs --port 8082`. Start korzysta obecnie z jawnych fikstur. Docelowe wspólne wyszukiwanie według D39 wraca do planu M3c.
+Podgląd M3c można wznowić z katalogu projektu poleceniem `node scripts/serve.mjs --port 8087`.
 
-**Szacunkowo około 70% projektu wykonane, około 30% pozostało.** Gminy dodają 10 punktów za kompletny plik danych, ranking, PDF i testy.
+**Szacunkowo około 73% projektu wykonane, około 27% pozostało.** Trzy punkty za wspólne wyszukiwanie i podłączenie pięciu zakładek uwzględniają odbiór lokalny jako otwarty.
 
 | Obszar | Waga w szacunku | Zrealizowana część w punktach całości |
 |---|---:|---:|
@@ -45,10 +51,10 @@ Jeśli serwer po zamknięciu komputera przestanie działać: w terminalu katalog
 | Gminy i dane wskaźników | 10 | 10 |
 | Raporty AI: odczyt mapy, internet, tekst i eksport | 9 | 0 |
 | Raport zbiorczy, pełna regresja i odbiór wdrożenia | 4 | 0 |
-| Wspólne wyszukiwanie Start i podłączenie modułów | 3 | 0 |
+| Wspólne wyszukiwanie Start i podłączenie modułów | 3 | 3 |
 | Dołączenie analizy Ofert do raportu RCN | 2 | 0 |
 
-Suma robocza 71/102, czyli około 70%. Przed M8 było 61/102.
+Suma robocza 74/102, czyli około 73%. Po M8 było 71/102.
 
 Test właściciela: podgląd 8082 → Działki → wyszukać działkę lub wskazać ją przez PPM → dodać do raportu → zapisać widok mapy → zmienić zakładkę i wrócić → pobrać PDF. [Scenariusz](../reports/m4f-report-pdf.md).
 
@@ -63,8 +69,8 @@ Agent wykonuje plan, implementację, testy, dokumentację i PR-y oraz sam scala 
 - Statyczne `app/`, HTML/CSS/moduły ES; bez npm i budowania. Lokalne, przypięte biblioteki z licencjami; obecnie Leaflet 1.9.4 i testy jego SHA-256. [FAKT: `app/vendor/dzialki/README.md`, `tests/vendor-integrity.test.mjs`]
 - Historyczny dostarczony HEAD nie miał `.gitattributes`; M4d.2 dodało ochronę końców linii vendor. Proj4 ma SRI; Leaflet nadal korzysta z testu integralności blobu bez SRI loadera. [FAKT: `.gitattributes`, loader Leaflet i projekcji, testy vendor]
 - Router hashowy, sześć natywnych zakładek, rejestr mount/unmount i cztery równoległe sondy GET zdrowia. `DenemContext v1` zawiera osobne tekstowe kody TERC/SIMC/BDL i limit 2048 B; aktualny kształt jest w `docs/denem-context-v1.md`. Przykład w starszym MEGA_PROJECT.md nie jest kontraktem implementacji.
-- Kontekst ustawia wyszukiwanie; kliknięcie działki na mapie go nie zmienia. Bez trwałego zapisu analiz; pamięć modułów znika po odświeżeniu.
-- D39 (2026-11-28) przywraca wspólne wyszukiwanie ze Startu. Każdy moduł użyje odpowiedniej części wybranej lokalizacji i swoich filtrów. Rozbudowa kontekstu zachowa działanie odnośników v1. Formularze działające obecnie służą odbiorowi modułów przed integracją.
+- Wspólną lokalizację ustawia Start. Zaznaczenie działki na mapie służy lokalnej analizie. Analizy pozostają w pamięci, a wybór Startu można ponownie otworzyć z URL.
+- D39 (2026-11-28) przywraca wspólne wyszukiwanie. Stare odnośniki v1 zachowują dotychczasową obsługę. [Kontrakt i zakres M3c](shared-location-start.md).
 - Backendów nie zmieniamy. Produkcyjny tryb RCN potwierdzony przez właściciela w CONFIG.md. Historyczne pomiary pierwszej odpowiedzi: 22–52 s; hipoteza zimnego startu, nie bieżący pomiar. UI ma obsługiwać do 120 s i licznik oczekiwania.
 - Gminy używają pliku danych BDL z D41. D5 zamknięte: **aplikacja w ogóle nie będzie miała logowania** (właściciel, 2026-11-27). D8 nie dotyczy.
 - Lista PDF: pamięć aplikacji między zakładkami, czyszczona przy odświeżeniu (D15). TERC7→TERYT6 jest czystą funkcją; R=4/5→3 nadal [HIP] do walidacji na pełnym TERC.
@@ -115,9 +121,9 @@ Sprawdzenie właściciela (opcjonalne dla tej poprawki): w PowerShell w folderze
 
 ## Następna praca
 
-1. Odbiór Gmin w lokalnym podglądzie. Po zatwierdzeniu rozpocząć wspólne wyszukiwanie Start (M3c).
-2. Zrealizować plan nowszego podkładu po uzgodnieniu kolejności z właścicielem.
-3. Po M3c zrealizować opcję dołączenia Ofert do raportu RCN w M9.
+1. Odbiór M3c w lokalnym podglądzie.
+2. Po zatwierdzeniu M3c przygotować w M9 opcję dołączenia Ofert do raportu RCN.
+3. Nowszy podkład, raporty Gemini z danymi z internetu i mapy, regresja projektu oraz odbiór pozostają w planie.
 
 Przegląd oficjalnych źródeł wskazuje aktualną ortofotomapę GUGiK jako głównego kandydata [HIP do porównania dat w danym miejscu]. [Plan M4b.4, źródła i kryteria](imagery-freshness-plan.md) rozróżnia datę zdjęcia, publikację serwisu i rozdzielczość. Nie zmieniono jeszcze podkładu i nie wykonano dodatkowego ruchu mapowego.
 

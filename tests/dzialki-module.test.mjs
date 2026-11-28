@@ -191,10 +191,10 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
   zoomInput.dispatch("input");
   assert.equal(firstMap.getZoom(), 8.4);
 
-  assert.equal(requests.length, 5, "mapa wykonuje wyłącznie cztery health-checki i listę powiatów");
+  assert.equal(requests.length, 4, "Działki bez lokalizacji wykonują tylko kontrole dostępności");
   assert.ok(requests.every((request) => request.method === "GET"));
   assert.ok(requests.every((request) => !/api\/(admin|debug|live|search|data_source_refresh)/i.test(request.url)));
-  assert.ok(requests.some((request) => request.url.includes("/FeatureServer/1/query")));
+  assert.ok(requests.every((request) => !request.url.includes("/FeatureServer/1/query")));
 
   fake.window.location.hash = "#/start";
   fake.window.dispatch("hashchange");
@@ -229,7 +229,9 @@ test("powłoka uruchamia mapę Działki, kontrolki i cykl życia bez ruchu poza 
   assert.deepEqual(pointMap.getCenter(), { lat: 52.4, lng: 21 });
   assert.ok(pointMap.getZoom() >= 16);
   assert.deepEqual(contextStore.get().point, pointContext.point, "mapa nie modyfikuje wspólnego kontekstu");
-  assert.equal(requests.length, 5);
+  assert.equal(requests.filter(({ url }) => url.endsWith("/data/location/units.json")).length, 1);
+  assert.equal(requests.filter(({ url }) => url.includes("/FeatureServer/1/query")).length, 1,
+    "stary link v1 zachowuje samodzielny formularz Działek");
 
   fake.window.location.hash = "#/gminy";
   fake.window.dispatch("hashchange");

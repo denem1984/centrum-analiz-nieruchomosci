@@ -161,7 +161,7 @@ export function createSimilarMap(L, element, { demo, onPick, onTileStatus }) {
     },
     fit() {
       const points = lastProperties.map(({ location }) => location?.point).filter(Boolean);
-      if (points.length === 1) map.setView(points[0], 15);
+      if (points.length === 1) map.setView(points[0], 15, { animate: false });
       if (points.length > 1) map.fitBounds(L.latLngBounds(points), { padding: [50, 55], maxZoom: 15, animate: false });
     },
     destroy() {

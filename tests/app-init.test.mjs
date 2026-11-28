@@ -16,6 +16,19 @@ test("aplikacja startuje, renderuje zakładki i obsługuje kontekst bez sieci", 
   globalThis.document = fake.document;
   globalThis.window = fake.window;
   globalThis.fetch = async (url, options = {}) => {
+    if (String(url).endsWith("/data/location/units.json")) {
+      return { ok: true, json: async () => [
+        ["28", "WARMIŃSKO-MAZURSKIE", "województwo", null, null],
+        ["2862", "Olsztyn", "miasto na prawach powiatu", null, null],
+        ["2862011", "Olsztyn", "gmina miejska", "032862011011", "2862011"],
+      ] };
+    }
+    if (String(url).includes("FeatureServer/0/query")) {
+      return { ok: true, json: async () => ({
+        spatialReference: { wkid: 4326 },
+        features: [{ attributes: { teryt: "2862011" }, geometry: { rings: [[[20, 53], [21, 53], [21, 54], [20, 53]]] } }],
+      }) };
+    }
     requests.push({ url: String(url), method: options.method });
     return { ok: true, status: 200 };
   };
@@ -36,7 +49,7 @@ test("aplikacja startuje, renderuje zakładki i obsługuje kontekst bez sieci", 
   const links = fake.document.getElementById("module-nav")
     .children.filter((element) => element.tagName === "a");
   assert.equal(links.length, 6);
-  assert.equal(appVersion.textContent, "Centrum Analiz Nieruchomości · wersja M8");
+  assert.equal(appVersion.textContent, "Centrum Analiz Nieruchomości · wersja M3c");
   assert.equal(fake.document.getElementById("location-summary").textContent, "Nie wybrano lokalizacji");
   assert.equal(fake.document.getElementById("clear-location").listeners.get("click")?.length, 1);
 
@@ -48,15 +61,17 @@ test("aplikacja startuje, renderuje zakładki i obsługuje kontekst bez sieci", 
     .sort((a, b) => a.url.localeCompare(b.url));
   assert.deepEqual(actualRequests, expectedRequests);
 
-  const locationSearch = fake.document.getElementById("location-query");
-  locationSearch.value = "Testowo";
-  locationSearch.dispatch("input");
-  await new Promise((resolve) => setTimeout(resolve, 275));
-  const option = fake.document.getElementById("location-results").querySelector('[role="option"]');
-  assert.ok(option, "wyszukiwanie fikstury powinno narysować wynik");
-  option.click();
+  for (const [id, code] of [["voiv", "28"], ["county", "2862"], ["commune", "2862011"]]) {
+    const select = fake.document.getElementById("start-" + id);
+    select.value = code;
+    select.dispatch("change");
+  }
+  fake.document.getElementById("start-form").dispatch("submit");
+  await new Promise((resolve) => setImmediate(resolve));
 
-  assert.match(fake.document.getElementById("location-summary").textContent, /Wybrana lokalizacja: Testowo/);
+  assert.match(fake.document.getElementById("location-summary").textContent, /Wybrana lokalizacja: Olsztyn/,
+    fake.document.getElementById("start-status").textContent);
+  assert.match(fake.document.getElementById("start-map-caption").textContent, /Granica gminy/);
   assert.match(fake.window.location.hash, /\?ctx=/);
 
   fake.document.getElementById("clear-location").click();

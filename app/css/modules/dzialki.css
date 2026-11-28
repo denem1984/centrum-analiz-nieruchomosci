@@ -223,6 +223,10 @@
   font-weight: 650;
 }
 
+[data-module="dzialki"] .dzialki-search-panel [hidden] {
+  display: none;
+}
+
 [data-module="dzialki"] .dzialki-search-panel select,
 [data-module="dzialki"] .dzialki-search-panel input,
 [data-module="dzialki"] .dzialki-search-panel button {

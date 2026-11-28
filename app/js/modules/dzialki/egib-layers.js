@@ -413,6 +413,7 @@ export function mountEgibLayers(container, options = {}) {
   }
 
   function applyVisibility() {
+    if (options.demo) return;
     if (!map || !leaflet || disposed) return;
     const layers = readLayerOptions();
     if (layers.parcels && parcelWms && !map.hasLayer(parcelWms)) map.addLayer(parcelWms);
@@ -652,7 +653,7 @@ export function mountEgibLayers(container, options = {}) {
     const layer = addSelected(selection);
     updateBoundPopup(selected.get(String(selection?.parcel?.id ?? "")));
     if (layer && map && typeof layer.getBounds === "function") {
-      map.fitBounds(layer.getBounds(), { padding: [28, 28], maxZoom: 20 });
+      map.fitBounds(layer.getBounds(), { padding: [28, 28], maxZoom: 20, animate: false });
     }
     return layer;
   }
@@ -719,6 +720,7 @@ export function mountEgibLayers(container, options = {}) {
   }
 
   async function runParcelAction(point, action, event) {
+    if (options.demo) return null;
     clickController?.abort();
     const controller = new AbortController();
     clickController = controller;
@@ -786,6 +788,7 @@ export function mountEgibLayers(container, options = {}) {
     if (disposed || map) return;
     map = nextMap;
     leaflet = nextLeaflet;
+    if (options.demo) return;
     parcelWms = leaflet.tileLayer.wms(KIEG_ENDPOINT, {
       pane: "dzialki-parcels-pane",
       layers: "dzialki",

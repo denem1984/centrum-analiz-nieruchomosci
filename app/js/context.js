@@ -2,6 +2,9 @@ const MAX_CONTEXT_BYTES = 2048;
 const MAX_ENCODED_CHARS = Math.ceil(MAX_CONTEXT_BYTES * 4 / 3);
 const SOURCE_IDS = new Set(["start", "dzialki", "rcn", "oferty", "podobne", "gminy"]);
 const LOCATION_KINDS = new Set(["gmina", "miejscowosc", "dzialka", "punkt", "nieokreslona"]);
+const SHARED_KINDS = new Set(["gmina", "miejscowosc", "adres", "obreb", "dzialka"]);
+export const DISTRICT_ID = /^\d{6}_[1-589]\.[0-9]{4}$/;
+export const PARCEL_ID = /^(\d{6}_[1-589]\.[0-9]{4})\.((?:AR_\d+\.)?\d+(?:[/.\-][0-9A-Za-z]+)*)$/;
 const MATCH_VALUES = new Set(["exact", "ambiguous", "unknown"]);
 
 function invalid(reason) {
@@ -119,11 +122,12 @@ export function emptyContext() {
 export function validateContext(input) {
   if (!isPlainObject(input)) return invalid("Kontekst musi być obiektem.");
 
-  if (input.version !== "1") return invalid("version: wymagana wartość tekstowa 1.");
+  const shared = input.version === "2";
+  if (!shared && input.version !== "1") return invalid("version: wymagana wersja 1 lub 2.");
   if (typeof input.source !== "string" || !SOURCE_IDS.has(input.source)) {
     return invalid("source: nieznany identyfikator modułu.");
   }
-  if (typeof input.kind !== "string" || !LOCATION_KINDS.has(input.kind)) {
+  if (!(shared ? SHARED_KINDS : LOCATION_KINDS).has(input.kind)) {
     return invalid("kind: nieznany rodzaj lokalizacji.");
   }
   if (typeof input.match !== "string" || !MATCH_VALUES.has(input.match)) {
@@ -131,7 +135,7 @@ export function validateContext(input) {
   }
 
   const context = {
-    version: "1",
+    version: input.version,
     source: input.source,
     kind: input.kind,
     match: input.match,
@@ -193,6 +197,11 @@ export function validateContext(input) {
     }
   }
 
+  if (shared) {
+    const problem = copySharedFields(input, context);
+    if (problem) return invalid(problem);
+  }
+
   try {
     const byteLength = new TextEncoder().encode(JSON.stringify(context)).length;
     if (byteLength > MAX_CONTEXT_BYTES) {
@@ -203,6 +212,60 @@ export function validateContext(input) {
   }
 
   return { context, reason: null };
+}
+
+function copySharedFields(input, context) {
+  if (context.source !== "start" || context.match !== "exact"
+      || !context.voivodeship || !context.powiat || !context.gmina) {
+    return "Wspólna lokalizacja wymaga potwierdzonej gminy, powiatu i województwa ze Startu.";
+  }
+  if (Object.hasOwn(input, "canonicalGmina")) {
+    const canonical = copyAdministrativeUnit(input, "canonicalGmina", "terc7", 7);
+    const terc = context.gmina.terc7;
+    const parent = canonical.value?.terc7;
+    if (!parent || (["4", "5"].includes(terc.at(-1)) ? parent !== terc.slice(0, 6) + "3"
+      : ["8", "9"].includes(terc.at(-1)) ? !parent.startsWith(terc.slice(0, 4)) || parent.at(-1) !== "1"
+        : parent !== terc)) return "Niespójny kod gminy nadrzędnej.";
+    context.canonicalGmina = canonical.value;
+  }
+  if (context.place && Object.hasOwn(input.place, "terc7")) {
+    const value = readDigits(input.place, "terc7", "place.terc7", 7);
+    if (value.error || !value.value.startsWith(context.powiat.code)) return "Niespójny kod TERC miejscowości.";
+    context.place.terc7 = value.value;
+  }
+  if (Object.hasOwn(input, "district")) {
+    const { district } = input;
+    const name = isPlainObject(district) && readText(district, "name", "district.name", { required: true });
+    if (!name?.value || typeof district.id !== "string" || !DISTRICT_ID.test(district.id)
+        || district.id.slice(0, 6) + district.id[7] !== context.gmina.terc7) {
+      return "Obręb nie należy do wybranej jednostki ewidencyjnej.";
+    }
+    context.district = { id: district.id, name: name.value };
+  }
+  if (Object.hasOwn(input, "street")) {
+    const street = copyAdministrativeUnit(input, "street", "ulic5", 5);
+    if (street.error || !context.place || input.street.simc7 !== context.place.simc7) {
+      return "Ulica wymaga zgodnego kodu miejscowości SIMC.";
+    }
+    context.street = { ...street.value, simc7: context.place.simc7 };
+    const number = readText(input.street, "number", "street.number", { maxLength: 24 });
+    if (number.error) return number.error;
+    if (number.value) context.street.number = number.value;
+  }
+  if (context.kind === "adres" && !context.street) return "Wybierz ulicę i miejscowość.";
+  if (context.kind === "obreb" && !context.district) return "Wybierz obręb.";
+  if (context.parcel && (!context.district || PARCEL_ID.exec(context.parcel.id)?.[1] !== context.district.id)) {
+    return "Identyfikator działki nie odpowiada obrębowi.";
+  }
+  if (context.point) {
+    const role = input.point.role;
+    if ((role === "place" && !context.place) || (role === "street" && !context.street)
+        || (role === "address" && !context.street?.number) || (role === "parcel" && !context.parcel)
+        || !["area", "place", "street", "address", "parcel"].includes(role)) {
+      return "Nieprawidłowa dokładność położenia.";
+    }
+    context.point.role = role;
+  }
 }
 
 function toBase64Url(bytes) {

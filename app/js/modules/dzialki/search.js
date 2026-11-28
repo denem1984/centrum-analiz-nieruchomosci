@@ -38,7 +38,7 @@ export function resolveParcelAdministrativeNames(parcel, selected = {}, voivodes
     regionName: textName(selected.region?.name) || textName(parcel?.region),
   };
 }
-const PARCEL_NUMBER_PATTERN = /^[0-9]+(?:[/.\-][0-9A-Za-z]+)*$/;
+const PARCEL_NUMBER_PATTERN = /^(?:AR_\d+\.)?[0-9]+(?:[/.-][0-9A-Za-z]+)*$/;
 
 function withParams(url, entries) {
   for (const [key, value] of entries) url.searchParams.set(key, value);
@@ -295,7 +295,7 @@ export function geometryExtent(geometry) {
   return { west, south, east, north, center };
 }
 
-export function parseParcelText(value, requestedId) {
+export function parseParcelText(value, requestedId, { requireExactId = false } = {}) {
   if (typeof value !== "string") throw new Error("Nieprawidłowa odpowiedź wyszukiwania działki.");
   const lines = value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   const status = lines.shift();
@@ -305,6 +305,7 @@ export function parseParcelText(value, requestedId) {
   const line = lines.find((candidate) => /(?:MULTI)?POLYGON\s*\(/i.test(candidate));
   if (!line) return null;
   const fields = line.split("|").map((field) => field.trim());
+  if (requireExactId && fields[0] !== requestedId) return null;
   const wkt = fields.find((field) => /^(?:SRID=\d+;)?(?:MULTI)?POLYGON\s*\(/i.test(field));
   const geometry = parseWktGeometry(wkt);
   const extent = geometry && geometryExtent(geometry);
@@ -411,7 +412,7 @@ export function createSearchApi(options = {}) {
     async parcel(regionId, parcelNumber, options) {
       const id = buildParcelId(regionId, parcelNumber);
       const response = await request(buildParcelUrl(regionId, parcelNumber), "text", options);
-      return parseParcelText(response, id);
+      return parseParcelText(response, id, options);
     },
     async egib(parcelId, options) {
       const startedAt = now();
