@@ -4,7 +4,7 @@ Aktualizacja: 2026-11-28. Bieżące źródło stanu i kolejki akceptacji; starsz
 
 ## Obecnie: M4f — raport PDF w Działkach
 
-Właściciel zatwierdził M4f i samodzielne scalenie po testach. Lista działek i widoków mapy, edycja listy i PDF są gotowe do testu w podglądzie 8082. [Raport M4f](../reports/m4f-report-pdf.md). Aktualizacja zakresu D35 przywraca własne wyszukiwanie lokalizacji w każdym module. Kolejny etap M3b czeka na akceptację.
+Właściciel zatwierdził M4f i samodzielne scalenie po testach. Lista działek i widoków mapy, edycja listy i PDF są gotowe do testu w podglądzie 8082, przypiętym do `f3a8cd3`. [PR #27](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/27), [raport M4f](../reports/m4f-report-pdf.md). Aktualizacja zakresu D35 przywraca własne wyszukiwanie lokalizacji w każdym module. Kolejny etap M3b czeka na akceptację.
 
 ### Historia M4e i poprawki przewijania
 

@@ -39,4 +39,7 @@ Lokalna biblioteka i font są przypięte i mają dołączone licencje. [Pochodze
 
 ## Metadane dostawy
 
-Do uzupełnienia po zapisaniu implementacji i aktualizacji podglądu.
+- Baza `a53934111185a2c3a7f4eb654860242e675d2fdd` → implementacja `f3a8cd348f7e298ff930c439df01d4966d88ae28`. Implementacja i decyzja o wyszukiwaniu obejmują 32 pliki (+1237/-33, dodatkowo binarna czcionka 825 628 B). Końcowy diff i SHA merge są dostępne w [PR #27](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/27).
+- `git diff --cached --check` i skan 134 plików PASS. Skan historii PASS po commicie implementacji (95 commitów).
+- `git -C .local/preview-m4e2 switch --detach f3a8cd348f7e298ff930c439df01d4966d88ae28` uaktualnił przypięty podgląd. Strona, cztery moduły raportu, biblioteka, font i konfiguracja odpowiedziały lokalnie HTTP 200. Konfiguracja podglądu ma wersję M4f. [Podgląd](http://localhost:8082/#/dzialki).
+- `git push -u origin feat/dzialki-pdf` opublikował gałąź. Scalenie po zielonej kontroli kodu PR zgodnie z poleceniem właściciela. Końcowy stan CI i merge są widoczne w PR oraz w komunikacie dostawy.
