@@ -10,9 +10,9 @@
 
 ## D2 — Wspólny słownik lokalizacji (2026-10-27)
 
-- **Status:** otwarte; do ponownego podjęcia w M3b z plikami TERC/SIMC z GUS od właściciela.
+- **Status:** katalogi zweryfikowane w M3b na pełnym archiwum GUS z 2026-07-17. Podłączenie dostawców należy do etapów poszczególnych modułów (D35).
 - **Decyzja:** [FAKT z kodu] RCN ładuje SIMC z cache, a przy jego braku pobiera SIMC i TERC, z małym `teryt_places.csv` jako fallback. Kod zwraca TERYT gminy i SIMC miejscowości; szczegóły i ograniczenia próbek zapisano w reports/m1c-d2-simc.md.
-- **Wpływ architektury:** TERYT/SIMC pozostaje kandydatem wspólnego klucza. Właściciel dostarczy pliki TERC/SIMC z GUS do M3b; pełna lista i zachowanie przy nazwach powtarzalnych wymagają potwierdzenia.
+- **Wpływ architektury:** TERC identyfikuje jednostkę administracyjną, SIMC miejscowość, a para SIMC i ULIC ulicę w danej miejscowości. Kody zachowujemy jako tekst. Wyniki o tej samej nazwie rozróżniamy kodem, rodzajem i położeniem administracyjnym. Obręby ewidencyjne pozostają danymi PRG/ULDK. [Wyniki M3b](reports/m3b-location-dictionaries.md).
 
 ## D3 — Miejsce aplikacji (2026-10-26)
 
@@ -56,10 +56,10 @@
 
 ## D9 — Mapowanie BDL ↔ TERYT (2026-10-27)
 
-- **Status:** otwarte; wraca w M3b/M8 po otrzymaniu przez właściciela pełnego eksportu gmin i plików TERC/SIMC.
+- **Status:** zweryfikowane w M3b dla publicznego katalogu BDL i pełnego TERC z 2026 r. Każda z 2479 gmin ma jedno dopasowanie. Plik wskaźników modułu Gminy wymaga kontroli przy imporcie w M8.
 - **Decyzja:** [FAKT: odczyt właściciela z panelu 2026-10-27] `gus_bdl_commune_wide` nie ma kolumny TERYT. [FAKT z danych] Dołączony CSV zawiera 100 jednostek i tylko jeden kod województwa; wyprowadzona reguła daje 100 unikalnych kandydatów TERC7, ale tylko jeden kandydat można porównać z lokalnym 22-wierszowym fallbackiem RCN. Szczegóły są w reports/m1c-d9-mapping.md.
-- **Rekomendacja [HIP]:** dla M3b rozważyć wyliczanie TERC7 z `unit_id` po walidacji całego zbioru 2479 jednostek z autorytatywnym TERC. Nie zamykać D9 na podstawie próbki.
-- **Wpływ architektury:** właściciel dostarczy pełny eksport gmin do M8 oraz pliki TERC/SIMC z GUS; zależność mapowania pozostaje otwarta do walidacji. Wspólne wyszukiwanie M3 nadal używa TERYT/SIMC.
+- **Reguła dla zweryfikowanego zbioru:** z publicznego BDL wybieramy poziom 6 i rodzaje 1–3, wyprowadzamy kandydata TERC7 i potwierdzamy go w TERC z właściwego okresu. Dopasowanie wymaga relacji 1:1. Walidacja odrzuciła 226 rekordów spoza tego wykazu. [Wyniki M3b](reports/m3b-location-dictionaries.md).
+- **Wpływ architektury:** dla Gminy w M8 użyć jawnej, wersjonowanej mapy wygenerowanej z rejestrów i sprawdzić pokrycie dla faktycznego pliku wskaźników oraz lat analizy.
 
 ## D10 — Zakres raportu zbiorczego (2026-10-26)
 

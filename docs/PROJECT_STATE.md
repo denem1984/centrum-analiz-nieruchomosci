@@ -2,11 +2,13 @@
 
 Aktualizacja: 2026-11-28. Bieżące źródło stanu i kolejki akceptacji; starsze raporty są dowodami historycznymi, nie bieżącą listą wykonanych funkcji.
 
-## Obecnie: M4f — raport PDF w Działkach
+## Obecnie: M3b — weryfikacja słowników lokalizacji
 
-D37 obejmuje poprawki po uwagach właściciela: lewy klik otwiera informacje, zaznaczenie jest w menu PPM, kolory własności odpowiadają legendzie, długi popup ma przewijanie, a PDF odróżnia MPZP od POG. Podgląd na porcie 8082 korzysta z `e031f16`. [PR #28 do decyzji właściciela](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/28), [raport poprawek](../reports/dzialki-planning-presentation.md). Szacunek 35% / 65%. M3b pozostaje następnym etapem po odbiorze.
+D37 zatwierdzono i scalono w [PR #28](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/28) jako `5ea366c`. [Raport poprawek Działek](../reports/dzialki-planning-presentation.md).
 
-Właściciel zatwierdził M4f i samodzielne scalenie po testach dla [PR #27](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/27). Lista działek i widoków mapy, edycja listy i PDF są gotowe do testu w podglądzie 8082. [Raport M4f](../reports/m4f-report-pdf.md). Aktualizacja zakresu D35 przywraca własne wyszukiwanie lokalizacji w każdym module. Kolejny etap M3b czeka na akceptację.
+M3b potwierdza relacje pełnych katalogów TERC, SIMC, ULIC i pokrycie 2479 gmin w publicznym BDL. [Podgląd słowników](http://localhost:8082/.local/m3b/index.html) korzysta z lokalnej kopii archiwum GUS z 2026-07-17. [Raport M3b i test ręczny](../reports/m3b-location-dictionaries.md). Kolejka akceptacji obejmuje [PR #29](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/29) i odbiór lokalny. M5 zaczyna się po zatwierdzeniu właściciela.
+
+Właściciel zatwierdził M4f i samodzielne scalenie po testach dla [PR #27](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/27). Lista działek i widoków mapy, edycja listy i PDF są dostępne w podglądzie 8082. [Raport M4f](../reports/m4f-report-pdf.md). D35 przywraca własne wyszukiwanie lokalizacji w każdym module.
 
 ### Historia M4e i poprawki przewijania
 
@@ -22,12 +24,12 @@ Jeśli serwer po zamknięciu komputera przestanie działać: w terminalu katalog
 
 **Aktualny podgląd M4f działa pod http://localhost:8082/#/dzialki.** Wznowienie z katalogu projektu poleceniem `node .local/preview-m4e2/scripts/serve.mjs --port 8082`. Start korzysta z jawnych fikstur. Następne moduły otrzymają osobne formularze lokalizacji zgodnie z D35.
 
-**Szacunkowo około 35% projektu wykonane, około 65% pozostało.** Wagi opisują orientacyjny nakład realizacji. Eksport PDF dodaje trzy punkty wykonania. Wycofanie centralnego wyszukiwania usuwa około trzech punktów zakresu, ponieważ formularze modułów i słowniki nadal są potrzebne.
+**Szacunkowo około 37% projektu wykonane, około 63% pozostało.** Weryfikacja M3b dodaje dwa punkty wykonania. Wyszukiwania w modułach wymagają jeszcze osobnych integracji.
 
 | Obszar | Waga w szacunku | Zrealizowana część w punktach całości |
 |---|---:|---:|
 | Powłoka, kontekst v1, zdrowie usług, narzędzia i porządek projektu | 10 | 9 |
-| Słowniki i wspólne elementy potrzebne wyszukiwaniom modułów | 12 | 3 |
+| Słowniki i wspólne elementy potrzebne wyszukiwaniom modułów | 12 | 5 |
 | Działki: mapa, wyszukiwanie, warstwy, narzędzia i PDF | 22 | 21 |
 | RCN: adaptacja istniejącego kodu i prezentacja z obecnym R2 | 12 | 1 |
 | Oferty | 9 | 0 |
@@ -36,7 +38,7 @@ Jeśli serwer po zamknięciu komputera przestanie działać: w terminalu katalog
 | Raporty AI: odczyt mapy, internet, tekst i eksport | 9 | 0 |
 | Raport zbiorczy, pełna regresja i odbiór wdrożenia | 4 | 0 |
 
-Suma robocza 34/97, czyli około 35%. Przed M4f i D35 było 31/100.
+Suma robocza 36/97, czyli około 37%. Przed M3b było 34/97.
 
 Test właściciela: podgląd 8082 → Działki → wyszukać działkę lub wskazać ją przez PPM → dodać do raportu → zapisać widok mapy → zmienić zakładkę i wrócić → pobrać PDF. [Scenariusz](../reports/m4f-report-pdf.md).
 
