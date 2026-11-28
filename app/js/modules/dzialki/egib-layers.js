@@ -529,7 +529,7 @@ export function mountEgibLayers(container, options = {}) {
     if (!features.length || !map || !leaflet) return;
     const collection = { type: "FeatureCollection", features };
     outlineLayer = leaflet.geoJSON(collection, {
-      pane: "overlayPane",
+      pane: "dzialki-selection-pane",
       style: () => ({
         color: "#2563eb",
         weight: 2,
@@ -548,7 +548,7 @@ export function mountEgibLayers(container, options = {}) {
       const labelNode = element(document, "span", labelText(id), "dzialki-egib-label");
       labelNode.dataset.egibLabel = "";
       const icon = leaflet.divIcon({ className: "dzialki-egib-label-icon", html: labelNode, iconSize: [1, 1], iconAnchor: [0, 0] });
-      const marker = leaflet.marker([point[1], point[0]], { icon, pane: "markerPane", interactive: false, keyboard: false });
+      const marker = leaflet.marker([point[1], point[0]], { icon, pane: "dzialki-labels-pane", interactive: false, keyboard: false });
       labelLayers.push(marker);
       map.addLayer(marker);
     }
@@ -620,7 +620,7 @@ export function mountEgibLayers(container, options = {}) {
       return previous.layer;
     }
     const layer = leaflet.geoJSON(selection.geometry, {
-      pane: "overlayPane",
+      pane: "dzialki-selection-pane",
       style: () => ({
         color: "#dc2626", weight: 5, fillColor: "#dc2626", fillOpacity: 0.42,
         className: "dzialki-selected-parcel", bubblingMouseEvents: true,
@@ -740,7 +740,7 @@ export function mountEgibLayers(container, options = {}) {
     map = nextMap;
     leaflet = nextLeaflet;
     parcelWms = leaflet.tileLayer.wms(KIEG_ENDPOINT, {
-      pane: "overlayPane",
+      pane: "dzialki-parcels-pane",
       layers: "dzialki",
       styles: "",
       version: "1.1.1",
@@ -755,7 +755,7 @@ export function mountEgibLayers(container, options = {}) {
       className: "dzialki-egib-parcels-tile",
     });
     buildingWms = leaflet.tileLayer.wms(KIEG_ENDPOINT, {
-      pane: "overlayPane",
+      pane: "dzialki-buildings-pane",
       layers: "budynki",
       styles: "",
       version: "1.1.1",

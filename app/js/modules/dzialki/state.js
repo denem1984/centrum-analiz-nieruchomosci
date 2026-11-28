@@ -18,6 +18,7 @@ const initialState = Object.freeze({
   mapSelectionInitialized: false,
   egibLayers: Object.freeze({ numbers: true, parcels: true, buildings: false }),
   planningLayers: Object.freeze({ mpzp: false, buildingLines: false, pogAdopted: false, pogDraftRu: false, pogDraftGugik: false }),
+  thematicLayers: Object.freeze({ rwdz: false, flood: false, kiut: false, ownership: false }),
   layerGroups: Object.freeze({ base: true, egib: true, planning: false, investments: false, infrastructure: false, tools: false }),
 });
 
@@ -40,6 +41,7 @@ export function getDzialkiState() {
     selectedMapParcels: copyPlain(current.selectedMapParcels),
     egibLayers: copyPlain(current.egibLayers),
     planningLayers: copyPlain(current.planningLayers),
+    thematicLayers: copyPlain(current.thematicLayers),
     layerGroups: copyPlain(current.layerGroups),
   };
 }
@@ -79,6 +81,9 @@ export function updateDzialkiState(patch) {
   }
   if (patch.planningLayers && typeof patch.planningLayers === "object" && !Array.isArray(patch.planningLayers)) {
     current.planningLayers = { ...current.planningLayers, ...copyPlain(patch.planningLayers) };
+  }
+  if (patch.thematicLayers && typeof patch.thematicLayers === "object" && !Array.isArray(patch.thematicLayers)) {
+    current.thematicLayers = { ...current.thematicLayers, ...copyPlain(patch.thematicLayers) };
   }
   return getDzialkiState();
 }

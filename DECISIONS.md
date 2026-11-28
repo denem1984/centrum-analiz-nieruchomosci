@@ -183,6 +183,13 @@
 - **Kompletność:** otrzymanie wszystkich widocznych obrazów WMS nie dowodzi pełnej publikacji danych przez gminę. Etykiety to „Kafelki wczytane” z informacją o tym ograniczeniu. Canvas nie ukrywa błędów jako poprawnego pustego kafelka.
 - **Testy przeglądarki:** najpierw prawdziwy Leaflet z odpowiedziami CDP bez wysyłania żądań, potem jeden pomiar usług w Edge z oknem; ostatni przebieg offline obejmuje 390 px. Cztery starty zużywają limit zadania m4d2; licznik nie został wyzerowany. Szczegóły i ograniczenia: docs/dzialki-planning.md.
 
+## D27 — Warstwy tematyczne i uzupełnienie własności (2026-11-27)
+
+- M4d.3 zachowuje RWDZ, ISOK, KIUT i własność z parametrami starego frontu; wszystkie domyślnie wyłączone. Przywrócono źródłową kolejność pane, aby kontury i zaznaczenia pozostały nad rastrami. RWDZ współdzieli popup z EGiB i planowaniem.
+- Własność nie kończy się na kolorowaniu braków: do 60 brakujących grup na partię, cztery GET-y równolegle, punkt wewnątrz geometrii oraz kontrola identyfikatora odpowiedzi. Cache w pamięci i ręczne ponowienie pozwalają kontynuować dalsze partie. Alternatywę „zawsze szare braki” odrzucono jako utratę funkcji. Pozostałe braki są jawnie niepełnym wynikiem.
+- Headed smoke zapisuje statusy, nie treść wpisów RWDZ; szczegóły mogą zawierać nazwiska i są pomijane w screenshot live. Atrapy używają wyłącznie fikcyjnych pól. Nie wykonuje się zmian backendu ani odczytów konfiguracji.
+- Trzeci start zadania m4d3 uzyskał live PASS po naprawieniu atomowego zapisu licznika w osobnym PR #19. Drugi start przerwano przy EPERM, bez zerowania stanu. Pojedynczy widok nie zastępuje odbioru baseline D6.
+
 ## Zasady repozytorium
 
 [FAKT: decyzja właściciela z 2026-10-26] Repozytorium jest publiczne. Nie zapisujemy w nim wartości sekretów, konfiguracji, tokenów, kluczy, danych osobowych ani identyfikatorów kont lub usług. Wyjątkiem jest niesekretna wartość trybu źródło danych RCN. Pięć repozytoriów źródłowych jest tylko do odczytu.

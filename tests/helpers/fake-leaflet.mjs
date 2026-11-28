@@ -95,7 +95,7 @@ export class FakeGeoJsonLayer extends FakeEventTarget {
   }
   getPopup() { return this.popupLayer; }
   bindTooltip(content, options) { this.tooltip = content; this.tooltipOptions = options; return this; }
-  setStyle(style) { this.options.style = { ...this.options.style, ...style }; return this; }
+  setStyle(style) { this.options.style = typeof style === "function" ? style : { ...this.options.style, ...style }; return this; }
 }
 
 export class FakeMap extends FakeEventTarget {
@@ -108,6 +108,7 @@ export class FakeMap extends FakeEventTarget {
     this.removed = false;
     this.center = { lat: 52.07, lng: 19.48 };
     this.zoom = 6;
+    this.panes = new Map();
   }
 
   setView(center, zoom) {
@@ -122,6 +123,10 @@ export class FakeMap extends FakeEventTarget {
 
   getCenter() { return { ...this.center }; }
   getZoom() { return this.zoom; }
+  getSize() { return { x: 1000, y: 800 }; }
+  latLngToContainerPoint() { return { x: 500, y: 400 }; }
+  createPane(name) { const pane = { style: {} }; this.panes.set(name,pane); return pane; }
+  getPane(name) { return this.panes.get(name); }
   getBounds() {
     const span = this.zoom >= 13 ? 0.02 : 1;
     return {
@@ -182,6 +187,8 @@ class FakePopup {
   constructor(options = {}) { this.options = options; }
   setLatLng(latlng) { this.latlng = latlng; return this; }
   setContent(content) { this.content = content; return this; }
+  getContent() { return this.content; }
+  update() { this.updateCount = (this.updateCount ?? 0) + 1; return this; }
   openOn(map) { map.openPopup(this); return this; }
 }
 

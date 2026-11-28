@@ -44,7 +44,7 @@ export function planningSmokeFixture(raw) {
     const height = Number(params.get("height") ?? params.get("HEIGHT")) || 256;
     return result("image/png", png(Math.min(1200, width), Math.min(1200, height)));
   }
-  if (url.pathname === "/api/wfs") return json({ type: "FeatureCollection", features: [{ type: "Feature", properties: { id_dzialki: id }, geometry: {
+  if (url.pathname === "/api/wfs" || url.pathname === "/api/ownership-national") return json({ type: "FeatureCollection", features: [{ type: "Feature", properties: { id_dzialki: id, GRUPA_REJESTROWA:"7" }, geometry: {
     type: "Polygon", coordinates: [[[16.7375,53.1498],[16.7395,53.1498],[16.7395,53.1518],[16.7375,53.1518],[16.7375,53.1498]]],
   } }] });
   if (url.pathname.includes("FeatureServer")) return json({ features: [{ attributes: { teryt: "9988", nazwa: "Fikcyjny powiat" } }] });
@@ -52,6 +52,7 @@ export function planningSmokeFixture(raw) {
   if (url.pathname === "/api/mpzp-gmina-info") return json({ plans: [{ tytul: "Fikcyjny plan testowy", status: "Test", links: [{ label: "Fikcyjna uchwała", href: "https://example.org/plan" }] }] });
   if (url.pathname === "/api/mpzp-info") return json({ found: false, plany: [] });
   if (url.pathname === "/api/dzinfo") return json({ mpzp: { nazwaAktu: "Plan testowy", strefy: [{ etykieta: "MN", opis: "Dane fikcyjne" }] } });
+  if (url.pathname === "/api/rwdz-feature-info") return result("text/xml",'<FeatureInfoResponse><Feature><Attribute Name="nazwa_zamierzenia">Fikcyjna inwestycja testowa</Attribute><Attribute Name="stan_sprawy">Test</Attribute></Feature></FeatureInfoResponse>');
   if (request === "getcapabilities") return result("text/xml", '<WMS_Capabilities version="1.3.0"><Capability/></WMS_Capabilities>');
   if (url.hostname === "wms.e-mapa.net") return result("text/xml", '<FeatureInfoResponse><Layer name="app.StrefaPlanistyczna"><Feature><Attribute name="oznaczenie" value="SJ"/><Attribute name="nazwa" value="Strefa testowa"/><Attribute name="maksWysokoscZabudowy" value="12"/></Feature></Layer></FeatureInfoResponse>');
   if (url.pathname.endsWith("ProjektowanePlanyOgolneGmin")) return result("text/html", '<div class="accordion-content"><ul><li><span class="list-item-value">Oznaczenie</span>SJ</li><li><span class="list-item-value">Nazwa</span>Strefa fikcyjna</li></ul></div>');

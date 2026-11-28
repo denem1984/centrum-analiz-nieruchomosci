@@ -69,6 +69,14 @@ export function createMap(L, container, view) {
     maxZoom: 22,
   });
   map.setView(view.center, view.zoom, { animate: false });
+  for (const [name,zIndex] of [["dzialki-kiut-pane",410],["dzialki-rwdz-pane",420],["dzialki-parcels-pane",430],
+    ["dzialki-buildings-pane",435],["dzialki-selection-pane",440],["dzialki-labels-pane",450]]) {
+    if (map.createPane) {
+      const pane = map.getPane?.(name) ?? map.createPane(name);
+      pane.style.zIndex = String(zIndex);
+      if (name === "dzialki-labels-pane") pane.style.pointerEvents = "none";
+    }
+  }
   if (L.control?.scale) {
     L.control.scale({ imperial: false, metric: true }).addTo(map);
   }
