@@ -10,7 +10,7 @@ Zgodnie z D30 praca nad następnym większym etapem jest zatrzymana do wyraźneg
 
 Jeśli serwer po zamknięciu komputera przestanie działać: w terminalu katalogu projektu uruchomić `node .local/preview-m4d3/scripts/serve.mjs --port 8080`, a następnie otworzyć powyższy adres. Przy zajętym porcie nie uruchamiać drugiej kopii — najpierw sprawdzić działający podgląd.
 
-Podgląd M4e.1 będzie wskazany w raporcie `reports/m4e1-appearance.md` po zapisaniu rewizji. Heurystykę rodziny działek usunięto na polecenie właściciela D31; [ocena](parcel-history-assessment.md). Start z mapą i raporty AI są zaplanowane, nie wdrożone. RCN i pozostałe nieprzeniesione moduły pokazują stan przygotowania; Start nadal używa jawnych fikstur.
+**Aktualny podgląd M4e.1: http://localhost:8081/#/dzialki**, zapisany kod `01675a2` w `.local/preview-m4e1`; strona i moduł HTTP 200, napis wersji M4e1 potwierdzony. Wznowienie serwera: `node .local/preview-m4e1/scripts/serve.mjs --port 8081`. Heurystykę rodziny działek usunięto na polecenie właściciela D31; [ocena](parcel-history-assessment.md). Start z mapą i raporty AI są zaplanowane, nie wdrożone. RCN i pozostałe nieprzeniesione moduły pokazują stan przygotowania; Start nadal używa jawnych fikstur.
 
 **Szacunkowo około 30% projektu wykonane, około 70% pozostało.** To zgrubny szacunek nakładu całego aktualnego zakresu, zaokrąglony do dziesiątek procent, a nie odsetek testów ani potwierdzenie gotowości produkcyjnej. Obejmuje nowy Start z mapą, wizualne AI z internetem, brak logowania i ponowne wykorzystanie RCN/R2. Aktualizować po każdym nowym poleceniu zmieniającym zakres oraz po odbiorze etapu.
 
@@ -69,7 +69,7 @@ Agent wykonuje plan, implementację, testy, dokumentację i PR-y. Właściciel p
 | 8 | `feat/m4d3-risks-infrastructure` | RWDZ, ISOK, KIUT, własność i wspólne popupy | [PR #20](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/20); baza #19; 149 testów PASS |
 | 9 | `docs/shared-location-start` | D28: wspólne wyszukiwanie Start i plan M3c | [PR #21](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/21); baza #20 |
 | 10 | `docs/location-map-ai-reports` | Start z mapą, analiza AI, przegląd RCN, D30/D31 i estymacja | [PR #22](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/22); baza #21 |
-| 11 | `feat/m4e1-parcel-appearance` | Kolory i czyszczenie zaznaczeń, bez rodziny numerów | PR w przygotowaniu; baza #22 |
+| 11 | `feat/m4e1-parcel-appearance` | Kolory i czyszczenie zaznaczeń, bez rodziny numerów | [PR #23](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/23); baza #22; 149 testów i headed offline 8/8 PASS |
 
 Scalaj od góry. PR-y zależne porównują zmianę z gałęzią poprzednika; po scaleniu poprzednika ich bazą powinno zostać `main`. Agent nie scala i nie uruchamia wdrożeń.
 
