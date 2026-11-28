@@ -18,17 +18,22 @@ function recordsForPlace(place, layer, built) {
   const land = layer === "dzialki";
   return Array.from({ length: 12 }, (_, index) => {
     const area = land ? 700 + index * 67 : 38 + index * 4;
-    const price = land ? (built ? 590_000 : 128_000) + index * 21_000 : 280_000 + index * 29_000;
+    const ambiguous = land && !built && index === 10;
+    const price = ambiguous ? 900_000 : land
+      ? (built ? 590_000 : 128_000) + index * 21_000 : 280_000 + index * 29_000;
     const street = index % 2 ? "ul. Przykładowa" : "ul. Testowa";
     const priceM2 = Math.round(price / area);
     return {
-      transaction_id: "DEMO-" + place.teryt + "-" + (built ? "z" : layer) + "-" + (index + 1),
+      transaction_id: "DEMO-" + place.teryt + "-" + (built ? "z" : layer) + "-" + (ambiguous ? index : index + 1),
       date: dateMonthsAgo(index + 1), city: place.city, street, address: place.city + ", " + street,
       lat: index === 11 ? null : place.lat + Math.sin(index * 1.8) * 0.004,
       lon: index === 11 ? null : place.lon + Math.cos(index * 1.8) * 0.006,
       layer, area, price, price_m2: built ? null : priceM2,
-      price_m2_quality: land && !built ? "policzona" : null,
-      price_source: "dane przykładowe", market: index % 3 ? "wtorny" : "pierwotny",
+      price_m2_quality: land && !built ? "policzona w źródle" : null,
+      price_source: built || ambiguous ? "tran_cena_brutto" : land ? "dzi_cena_brutto" : "lok_cena_brutto",
+      area_unit: land ? "geometria_m2" : undefined,
+      analysis_included: true,
+      market: index % 3 ? "wtorny" : "pierwotny",
       right: "wlasnosc", function: land ? "" : "mieszkalna",
       land_use: land ? (index % 3 ? "gruntyZabudowaneIZurbanizowane" : "gruntyRolne") : "",
       tran_cena_brutto: price, nier_cena_brutto: price, lok_cena_brutto: land ? null : price,
