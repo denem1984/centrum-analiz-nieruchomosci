@@ -4,7 +4,7 @@ Aktualizacja: 2026-11-28. Bieżące źródło stanu i kolejki akceptacji; starsz
 
 ## Obecnie: M8 — Gminy do odbioru lokalnego
 
-Gminy mają trzy profile, ranking top 20, porównanie siedmiu wskaźników i PDF. Lokalny plik GUS BDL zawiera po siedem wartości za 2025 r. dla wszystkich 2479 gmin. [Tryb GUS BDL](http://localhost:8086/#/gminy) · [Podgląd przykładowy](http://localhost:8086/?gminy=demo#/gminy) · [Raport i próba ręczna](../reports/m8-gminy.md) · [Porównanie frontów](parity-gminy.md)
+Gminy mają trzy profile, ranking top 20, porównanie siedmiu wskaźników i PDF. Lokalny plik GUS BDL zawiera po siedem wartości za 2025 r. dla wszystkich 2479 gmin. [Tryb GUS BDL](http://localhost:8086/#/gminy) · [Podgląd przykładowy](http://localhost:8086/?gminy=demo#/gminy) · [Raport i próba ręczna](../reports/m8-gminy.md) · [Porównanie frontów](parity-gminy.md) · [Otwarty PR #34](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/34)
 
 Właściciel zatwierdził Podobne. [PR #33](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/33) scalono jako `ee1c113`. Moduł lokalizuje nieruchomości po adresie lub działce i pokazuje odległości w linii prostej. [Raport Podobnych](../reports/m7-podobne.md)
 

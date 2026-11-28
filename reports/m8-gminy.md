@@ -6,12 +6,12 @@ WYKONANE. Siedem wskaźników za 2025 r. dla wszystkich 2479 gmin, lokalny ranki
 
 ## 2. Repozytorium, gałąź, SHA i PR
 
-- `denem1984/centrum-analiz-nieruchomosci`, `feat/m8-gminy`, baza `ee1c113164c64ca4bb81aaf4830eeb92f5dfa340`.
+- `denem1984/centrum-analiz-nieruchomosci`, `feat/m8-gminy`. Baza `ee1c113164c64ca4bb81aaf4830eeb92f5dfa340` → implementacja `c75d4356d9bd89547de8acd84225f95e30b1cece`. Końcowa rewizja dokumentacji w [otwartym PR #34](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/34).
 - [PR #33](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/33) scalono po zatwierdzeniu Podobnych i sprawdzeniu zielonych kontroli dla `ffe115e`.
 
 ## 3. Zmienione pliki
 
-Dodano moduł Gmin, style, plik danych, skrypt pobierania wskaźników BDL, testy algorytmu, startu i scenariusz Edge. Powłoka rejestruje moduł i podgląd. Eksport Gmin używa istniejącej lokalnej biblioteki PDF oraz czcionki.
+Dodano moduł Gmin, style, plik danych, skrypt pobierania wskaźników BDL, testy algorytmu, startu i scenariusz Edge. Powłoka rejestruje moduł i podgląd. Eksport używa istniejącej lokalnej biblioteki PDF oraz czcionki. Implementacja i dane obejmują 23 pliki, 3844 dodane i 42 usunięte linie. [Statystyki per plik](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/34/files)
 
 ## 4. Kryteria akceptacji
 
@@ -31,6 +31,7 @@ Dodano moduł Gmin, style, plik danych, skrypt pobierania wskaźników BDL, test
 - `node scripts/gminy-browser-smoke.mjs --headed --browser "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --bdl`. PASS na danych przykładowych i rzeczywistych. Sprawdzono mobilny układ, zaznaczanie, filtry, dokładną ścieżkę lokalnego pliku i pobranie PDF.
 - `pdfinfo`, `pdftoppm`, `pypdf`. Obejrzano jedną stronę rzeczywistego raportu Olsztyna i dwie strony przykładowego raportu. Sprawdzono odczyt tekstu, polskie znaki, numery stron i odnośnik atrybucji GUS. Zrzuty w `.local-results/gminy-browser-smoke/run-JL45QV/`.
 - `Invoke-WebRequest` do portu 8086 dał HTTP 200 dla strony, trybu przykładowego, pliku wskaźników, modułu i stylów.
+- `git diff --cached --check`, `node scripts/check-no-secrets.mjs` i `node scripts/check-no-secrets.mjs --history` zaliczone przed publikacją.
 
 ## 6. Odstępstwa i założenia
 
