@@ -19,13 +19,23 @@ Możesz podać port jako argument, na przykład `node scripts/serve.mjs --port 8
 
 Serwer udostępnia tylko pliki z katalogu `app/`; nie ma kroku build ani zależności npm.
 
-## Diagnostyka mapy w przeglądarce headless
+## Sprawdzenie Edge i diagnostyka mapy
+
+Najpierw można sprawdzić samo uruchomienie przeglądarki, bez kontaktu z usługami mapowymi:
+
+1. Otwórz PowerShell w folderze projektu (w Eksploratorze kliknij pasek adresu, wpisz `powershell`, naciśnij Enter).
+2. Wpisz `node scripts/browser-smoke.mjs --headed --check-browser` i naciśnij Enter.
+3. Otworzy się osobne okno Edge z tekstem PASS, po czym zamknie się automatycznie. Zwykłe okna Edge mogą pozostać otwarte.
+4. Terminal powinien wypisać PASS i ścieżkę wyników. W tym folderze otwórz `browser-check.png`; powinien przedstawiać komunikat o działającym CDP. Wynik dotyczy uruchomienia Edge, nie dostępności map.
+5. Jeśli przeglądarka nie została znaleziona, dopisz `--browser` i pełną ścieżkę do `msedge.exe` w cudzysłowie. Jeżeli pojawi się błąd CDP, zachowaj lokalny `report.json` i przekaż sam opis błędu, bez profilu przeglądarki.
+
+Każdy start używa nowego profilu tymczasowego i portu wybranego przez Edge, odczytanego z pliku `DevToolsActivePort`. Narzędzie nie odczytuje ustawień przeglądarki ze zmiennych środowiskowych. Tryb z oknem wybiera `--headed`; bez niego skrypt działa headless. Dla map preferuj `--headed` — starsze pomiary headless nie rozstrzygają zachowania usług w zwykłym oknie.
 
 Skrypt `scripts/browser-smoke.mjs` uruchamia lokalny serwer, Edge w trybie headless i zapisuje zrzuty ekranu oraz raport. Wymaga Node.js 22 lub nowszego (globalny `WebSocket`) i zainstalowanego Microsoft Edge. Chrome może być użyty jako wariant awaryjny.
 
 1. Otwórz terminal w katalogu głównym repozytorium.
 2. Jeśli Edge jest w typowej lokalizacji Windows, uruchom `node scripts/browser-smoke.mjs`. Skrypt sam wybiera Edge, a potem Chrome.
-3. Jeśli przeglądarka jest zainstalowana w innym miejscu, podaj pełną ścieżkę: `node scripts/browser-smoke.mjs --browser "C:\Program Files\Microsoft\Edge\Application\msedge.exe"`. Możesz też ustawić `EDGE_PATH` przed uruchomieniem. Argument `--browser` ma pierwszeństwo.
+3. Jeśli przeglądarka jest zainstalowana w innym miejscu, podaj pełną ścieżkę: `node scripts/browser-smoke.mjs --headed --browser "C:\Program Files\Microsoft\Edge\Application\msedge.exe"`.
 4. Opcjonalnie wybierz port lokalnego serwera, np. `node scripts/browser-smoke.mjs --port 8090`.
 5. Po zakończeniu odczytaj tabelę w terminalu. Szczegółowy `report.json`, `summary.txt` oraz zrzuty PNG znajdziesz w najnowszym katalogu `.local-results/browser-smoke-<czas>/`. Katalog jest ignorowany przez Git.
 

@@ -5,7 +5,7 @@ import { createServer } from "node:http";
 import { existsSync, readFileSync } from "node:fs";
 import { cp, mkdtemp, mkdir, open, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createStaticServer } from "./serve.mjs";
 
@@ -1148,22 +1148,58 @@ class CdpConnection {
   }
 }
 
-async function waitForDebugger(port, child) {
-  const address = "http://127.0.0.1:" + port + "/json/version";
-  const deadline = Date.now() + 15000;
-  while (Date.now() < deadline) {
-    if (child.exitCode !== null) {
-      throw new Error("Przeglądarka zakończyła pracę przed uruchomieniem CDP (kod="
-        + String(child.exitCode) + ", sygnał=" + String(child.signalCode) + ").");
-    }
+export function parseDevToolsActivePort(source) {
+  const [portText, socketPath] = String(source).trim().split(/\r?\n/);
+  const port = Number(portText);
+  if (!/^\d+$/.test(portText) || !Number.isInteger(port) || port < 1 || port > 65535
+      || !/^\/devtools\/browser\/[a-zA-Z0-9-]+$/.test(socketPath ?? "")) return null;
+  return { port, webSocketDebuggerUrl: "ws://127.0.0.1:" + port + socketPath };
+}
+
+export function buildBrowserLaunchArgs({ headed = false, profile, compact = false }) {
+  return [
+    ...(headed ? [] : ["--headless=new", "--disable-gpu"]),
+    "--disable-background-networking", "--disable-sync", "--disable-extensions",
+    "--disable-component-update", "--disable-default-apps", "--disable-crash-reporter",
+    "--disable-breakpad", "--no-first-run", "--no-default-browser-check",
+    "--disable-notifications", "--disable-features=msEdgeStartupBoost",
+    "--remote-debugging-address=127.0.0.1", "--remote-debugging-port=0",
+    "--remote-allow-origins=*", "--user-data-dir=" + profile,
+    compact ? "--window-size=833,620" : "--window-size=1600,1050", "about:blank",
+  ];
+}
+
+export async function waitForDebugger(profile, child, options = {}) {
+  const read = options.readFileImpl ?? readFile;
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch;
+  const pause = options.sleepImpl ?? sleep;
+  const now = options.nowFn ?? Date.now;
+  const deadline = now() + (options.timeoutMs ?? 15000);
+  // A Windows launcher may exit before its browser process writes this file.
+  // The fresh, isolated profile identifies the correct instance in either case.
+  while (now() < deadline) {
     try {
-      const response = await fetch(address, { signal: AbortSignal.timeout(1000) });
-      if (response.ok) return await response.json();
-    } catch {
-      await sleep(150);
-    }
+      const active = parseDevToolsActivePort(await read(join(profile, "DevToolsActivePort"), "utf8"));
+      if (active) {
+        const response = await fetchImpl("http://127.0.0.1:" + active.port + "/json/version", {
+          signal: AbortSignal.timeout(1000), redirect: "error",
+        });
+        if (response.ok) {
+          const version = await response.json();
+          const socket = new URL(version.webSocketDebuggerUrl);
+          if (socket.protocol === "ws:" && ["127.0.0.1", "localhost"].includes(socket.hostname)
+              && Number(socket.port) === active.port
+              && socket.pathname === new URL(active.webSocketDebuggerUrl).pathname
+              && !socket.username && !socket.password && !socket.search && !socket.hash) {
+            return { port: active.port, version };
+          }
+        }
+      }
+    } catch {}
+    await pause(150);
   }
-  throw new Error("Przeglądarka nie uruchomiła zdalnego debugowania na 127.0.0.1.");
+  throw new Error("Przeglądarka nie uruchomiła CDP w osobnym profilu (kod="
+    + String(child.exitCode) + ", sygnał=" + String(child.signalCode) + ").");
 }
 
 async function createPageTarget(port) {
@@ -1296,6 +1332,7 @@ async function runBrowserSmoke() {
   }
 
   const argv = process.argv.slice(2);
+  const checkBrowserOnly = argv.includes("--check-browser");
   const requestedPort = getArg(argv, "--port");
   const egibLayersMode = argv.includes("--egib-layers");
   const egibRequestLimitProvided = argv.some((value) => value === "--max-egib-backend-requests"
@@ -1355,18 +1392,16 @@ async function runBrowserSmoke() {
   const explicitBrowser = getArg(argv, "--browser");
   const selectedBrowser = chooseBrowserPath({
     explicitPath: explicitBrowser,
-    envPath: process.env.EDGE_PATH,
     candidates: browserCandidates(),
   });
   if (!selectedBrowser) {
-    throw new Error(explicitBrowser || process.env.EDGE_PATH
-      ? "Nie znaleziono wskazanej przeglądarki. Sprawdź ścieżkę --browser lub EDGE_PATH."
-      : "Nie znaleziono Edge ani Chrome w typowych lokalizacjach. Podaj --browser <ścieżka> lub EDGE_PATH.");
+    throw new Error(explicitBrowser
+      ? "Nie znaleziono wskazanej przeglądarki. Sprawdź ścieżkę --browser."
+      : "Nie znaleziono Edge ani Chrome w typowych lokalizacjach. Podaj --browser <ścieżka>.");
   }
 
   const configPath = join(REPO_ROOT, "app", "js", "config.js");
   const healthRoutes = extractHealthRoutes(configPath);
-  const debugPort = await getFreePort();
   const profile = await mkdtemp(join(tmpdir(), "m4b-browser-profile-"));
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const resultDir = join(REPO_ROOT, ".local-results", "browser-smoke-" + timestamp);
@@ -1423,26 +1458,10 @@ async function runBrowserSmoke() {
     server = await startServer(staticPort, join(REPO_ROOT, "app"));
     appOrigin = "http://127.0.0.1:" + server.address().port;
     const appOrigins = [appOrigin, ...(baselineOrigin ? [baselineOrigin] : [])];
-    const browserArgs = [
-      ...(headed ? [] : ["--headless=new", "--disable-gpu"]),
-      "--disable-background-networking",
-      "--disable-sync",
-      "--disable-extensions",
-      "--disable-component-update",
-      "--disable-default-apps",
-      "--disable-crash-reporter",
-      "--disable-breakpad",
-      "--no-first-run",
-      "--no-default-browser-check",
-      "--disable-notifications",
-      "--remote-debugging-address=127.0.0.1",
-      "--remote-debugging-port=" + debugPort,
-      "--remote-allow-origins=*",
-      "--user-data-dir=" + profile,
-      tileExperimentArgs || kiegReliabilityMode || kiegExperimentMode ? "--window-size=833,620" : "--window-size=1600,1050",
-      "about:blank",
-    ];
-    kiegBudgetState = await reserveM4d1cBrowserLaunch(kiegBudgetStatePath);
+    const browserArgs = buildBrowserLaunchArgs({
+      headed, profile, compact: Boolean(tileExperimentArgs || kiegReliabilityMode || kiegExperimentMode),
+    });
+    if (!checkBrowserOnly) kiegBudgetState = await reserveM4d1cBrowserLaunch(kiegBudgetStatePath);
     browser = spawn(selectedBrowser, browserArgs, { stdio: ["ignore", "ignore", "pipe"], windowsHide: !headed });
     browser.stderr?.on("data", (chunk) => {
       browserStderr = (browserStderr + chunk.toString("utf8")).slice(-3000);
@@ -1451,13 +1470,30 @@ async function runBrowserSmoke() {
       blockedRequests.push({ kind: "browser-launch-error", message: cdpSummaryText(error.message) });
     });
 
-    const version = await waitForDebugger(debugPort, browser);
+    const { port: debugPort, version } = await waitForDebugger(profile, browser);
     browserCdp = new CdpConnection(version.webSocketDebuggerUrl);
     await browserCdp.connect();
     const browserIdentity = await browserCdp.command("Browser.getVersion");
     const targetSocketUrl = await createPageTarget(debugPort);
     pageCdp = new CdpConnection(targetSocketUrl);
     await pageCdp.connect();
+
+    if (checkBrowserOnly) {
+      await pageCdp.command("Runtime.evaluate", { expression: `
+        document.title = 'Sprawdzenie Edge / CDP';
+        document.body.textContent = 'PASS — połączenie CDP działa. Brak żądań do usług mapowych.';
+        document.body.style.cssText = 'font:24px system-ui;padding:48px;color:#123d35;background:#eff8f4';
+      ` });
+      const screenshot = await pageCdp.command("Page.captureScreenshot", { format: "png" });
+      await writeFile(join(resultDir, "browser-check.png"), Buffer.from(screenshot.data, "base64"));
+      await writeFile(join(resultDir, "report.json"), JSON.stringify({
+        scenario: "check-browser", pass: true, browserMode: headed ? "headed" : "headless",
+        product: browserIdentity.product, externalRequests: 0,
+      }, null, 2));
+      process.stdout.write("PASS: Edge/CDP, tryb " + (headed ? "z oknem" : "headless")
+        + ", bez usług mapowych. Wyniki: " + resultDir + "\n");
+      return;
+    }
 
     const evaluate = async (expression, timeoutMs = 10000) => {
       const response = await pageCdp.command("Runtime.evaluate", {
@@ -2886,6 +2922,9 @@ async function runBrowserSmoke() {
     if (server) await new Promise((resolvePromise) => server.close(() => resolvePromise()));
     if (baselineServer) await new Promise((resolvePromise) => baselineServer.close(() => resolvePromise()));
     try {
+      if (dirname(resolve(profile)) !== resolve(tmpdir()) || !basename(profile).startsWith("m4b-browser-profile-")) {
+        throw new Error("Profil nie znajduje się w oczekiwanym katalogu tymczasowym.");
+      }
       await rm(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
     } catch (error) {
       process.stderr.write("browser-smoke: nie udało się usunąć profilu tymczasowego: "

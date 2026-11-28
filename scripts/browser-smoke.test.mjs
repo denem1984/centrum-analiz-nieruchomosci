@@ -16,6 +16,9 @@ import {
   buildTileExperimentStateExpression,
   buildStateExpression,
   chooseBrowserPath,
+  buildBrowserLaunchArgs,
+  parseDevToolsActivePort,
+  waitForDebugger,
   compareProblemCoordinateSets,
   DEFAULT_TILE_EXPERIMENT_SETTLE_MS,
   KIEG_EXPERIMENT_VARIANTS,
@@ -59,6 +62,73 @@ import {
   M4D1C_MAX_BROWSER_LAUNCHES,
   M4D1C_MAX_KIEG_REQUESTS,
 } from "./browser-smoke.mjs";
+
+test("osobny profil i port CDP wybierany przez Edge działają w obu trybach bez zmiany nagłówków", () => {
+  for (const headed of [true, false]) {
+    const args = buildBrowserLaunchArgs({ headed, profile: "C:\\test profile" });
+    assert.ok(args.includes("--user-data-dir=C:\\test profile"));
+    assert.ok(args.includes("--remote-debugging-port=0"));
+    assert.ok(args.includes("--no-first-run"));
+    assert.ok(args.includes("--disable-features=msEdgeStartupBoost"));
+    assert.equal(args.includes("--headless=new"), !headed);
+    assert.equal(args.some((arg) => /user-agent|origin=|referer/i.test(arg)), false);
+  }
+  assert.ok(buildBrowserLaunchArgs({ profile: "test", compact: true }).includes("--window-size=833,620"));
+});
+
+test("plik DevToolsActivePort musi zawierać lokalny port i ścieżkę przeglądarki", () => {
+  assert.deepEqual(parseDevToolsActivePort("51234\r\n/devtools/browser/abc-123\r\n"), {
+    port: 51234, webSocketDebuggerUrl: "ws://127.0.0.1:51234/devtools/browser/abc-123",
+  });
+  for (const source of ["", "51234", "0\n/devtools/browser/id", "65536\n/devtools/browser/id",
+    "123\nhttps://example.org", "123\n/devtools/page/id", "abc\n/devtools/browser/id"]) {
+    assert.equal(parseDevToolsActivePort(source), null);
+  }
+});
+
+test("CDP czeka na pełny plik profilu i odpowiadającą instancję nawet po wyjściu launchera", async () => {
+  let now = 0;
+  let reads = 0;
+  const calls = [];
+  const version = { webSocketDebuggerUrl: "ws://127.0.0.1:51234/devtools/browser/test-id" };
+  const result = await waitForDebugger("profile", { exitCode: 0, signalCode: null }, {
+    nowFn: () => now,
+    sleepImpl: async (ms) => { now += ms; },
+    readFileImpl: async (path) => {
+      assert.match(path, /profile[\\/]DevToolsActivePort$/);
+      reads += 1;
+      if (reads === 1) throw new Error("ENOENT");
+      return reads === 2 ? "51234\n" : "51234\n/devtools/browser/test-id";
+    },
+    fetchImpl: async (url, options) => {
+      calls.push(url);
+      assert.equal(options.redirect, "error");
+      return { ok: true, json: async () => version };
+    },
+  });
+  assert.equal(now, 300);
+  assert.deepEqual(calls, ["http://127.0.0.1:51234/json/version"]);
+  assert.deepEqual(result, { port: 51234, version });
+});
+
+test("CDP odrzuca obcy socket, błąd HTTP i kończy czekanie w wyznaczonym czasie", async () => {
+  for (const socket of ["ws://example.org:51234/devtools/browser/test-id",
+    "ws://127.0.0.1:51235/devtools/browser/test-id", "ws://127.0.0.1:51234/devtools/browser/other"]) {
+    let now = 0;
+    await assert.rejects(waitForDebugger("profile", { exitCode: 1, signalCode: null }, {
+      timeoutMs: 300, nowFn: () => now, sleepImpl: async (ms) => { now += ms; },
+      readFileImpl: async () => "51234\n/devtools/browser/test-id",
+      fetchImpl: async () => ({ ok: true, json: async () => ({ webSocketDebuggerUrl: socket }) }),
+    }), /nie uruchomiła CDP/);
+    assert.equal(now, 300);
+  }
+  let now = 0;
+  await assert.rejects(waitForDebugger("profile", { exitCode: null }, {
+    timeoutMs: 300, nowFn: () => now, sleepImpl: async (ms) => { now += ms; },
+    readFileImpl: async () => "51234\n/devtools/browser/test-id",
+    fetchImpl: async () => ({ ok: false }),
+  }), /nie uruchomiła CDP/);
+});
 import {
   buildCommunesUrl,
   buildCountiesUrl,
