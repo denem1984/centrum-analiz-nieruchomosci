@@ -1,6 +1,6 @@
 # IMPLEMENTATION_PLAN.md — plan M0–M10
 
-**Stan na 2026-11-28.** Działki mają pomiary, niezależny panel i raport PDF M4f. M3b zweryfikował słowniki potrzebne do osobnego wyszukiwania w każdym module zgodnie z D35. [Stan projektu i testy](docs/PROJECT_STATE.md). M5 po akceptacji właściciela.
+**Stan na 2026-11-28.** Działki mają pomiary, niezależny panel i raport PDF M4f. Słowniki M3b zatwierdzono, a RCN M5 jest gotowy do lokalnego odbioru. [Stan projektu i testy](docs/PROJECT_STATE.md). M6 po akceptacji właściciela.
 
 ## Kolejność dalszej realizacji
 

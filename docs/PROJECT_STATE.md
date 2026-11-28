@@ -2,11 +2,13 @@
 
 Aktualizacja: 2026-11-28. Bieżące źródło stanu i kolejki akceptacji; starsze raporty są dowodami historycznymi, nie bieżącą listą wykonanych funkcji.
 
-## Obecnie: M3b — weryfikacja słowników lokalizacji
+## Obecnie: M5 — moduł RCN
+
+RCN ma natywną zakładkę z istniejącymi formularzami, obliczeniami i eksportami oraz z dotychczasowym API obsługującym źródło R2. [Podgląd RCN na danych przykładowych](http://localhost:8083/?rcn=demo#/rcn), [tryb danych RCN](http://localhost:8083/#/rcn), [test odbioru](../reports/m5-rcn.md) i [macierz parytetu](parity-rcn.md). Kolejka akceptacji obejmuje PR M5 i odbiór właściciela, w tym odpowiedź API, poligon w przeglądarce oraz zawartość eksportów. M6 czeka na zatwierdzenie.
 
 D37 zatwierdzono i scalono w [PR #28](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/28) jako `5ea366c`. [Raport poprawek Działek](../reports/dzialki-planning-presentation.md).
 
-M3b potwierdza relacje pełnych katalogów TERC, SIMC, ULIC i pokrycie 2479 gmin w publicznym BDL. [Podgląd słowników](http://localhost:8082/.local/m3b/index.html) korzysta z lokalnej kopii archiwum GUS z 2026-07-17. [Raport M3b i test ręczny](../reports/m3b-location-dictionaries.md). Kolejka akceptacji obejmuje [PR #29](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/29) i odbiór lokalny. M5 zaczyna się po zatwierdzeniu właściciela.
+M3b potwierdził relacje pełnych katalogów TERC, SIMC, ULIC i pokrycie 2479 gmin w publicznym BDL. Właściciel zatwierdził [PR #29](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/29), scalony jako `bd5ead3`. [Podgląd słowników](http://localhost:8082/.local/m3b/index.html) i [raport M3b](../reports/m3b-location-dictionaries.md).
 
 Właściciel zatwierdził M4f i samodzielne scalenie po testach dla [PR #27](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/27). Lista działek i widoków mapy, edycja listy i PDF są dostępne w podglądzie 8082. [Raport M4f](../reports/m4f-report-pdf.md). D35 przywraca własne wyszukiwanie lokalizacji w każdym module.
 
@@ -24,21 +26,21 @@ Jeśli serwer po zamknięciu komputera przestanie działać: w terminalu katalog
 
 **Aktualny podgląd M4f działa pod http://localhost:8082/#/dzialki.** Wznowienie z katalogu projektu poleceniem `node .local/preview-m4e2/scripts/serve.mjs --port 8082`. Start korzysta z jawnych fikstur. Następne moduły otrzymają osobne formularze lokalizacji zgodnie z D35.
 
-**Szacunkowo około 37% projektu wykonane, około 63% pozostało.** Weryfikacja M3b dodaje dwa punkty wykonania. Wyszukiwania w modułach wymagają jeszcze osobnych integracji.
+**Szacunkowo około 46% projektu wykonane, około 54% pozostało.** Port RCN dodaje dziewięć punktów. Do odbioru RCN pozostają rzeczywista odpowiedź API oraz pliki eksportów.
 
 | Obszar | Waga w szacunku | Zrealizowana część w punktach całości |
 |---|---:|---:|
 | Powłoka, kontekst v1, zdrowie usług, narzędzia i porządek projektu | 10 | 9 |
 | Słowniki i wspólne elementy potrzebne wyszukiwaniom modułów | 12 | 5 |
 | Działki: mapa, wyszukiwanie, warstwy, narzędzia i PDF | 22 | 21 |
-| RCN: adaptacja istniejącego kodu i prezentacja z obecnym R2 | 12 | 1 |
+| RCN: adaptacja istniejącego kodu i prezentacja z obecnym R2 | 12 | 10 |
 | Oferty | 9 | 0 |
 | Podobne | 9 | 0 |
 | Gminy i dane wskaźników | 10 | 0 |
 | Raporty AI: odczyt mapy, internet, tekst i eksport | 9 | 0 |
 | Raport zbiorczy, pełna regresja i odbiór wdrożenia | 4 | 0 |
 
-Suma robocza 36/97, czyli około 37%. Przed M3b było 34/97.
+Suma robocza 45/97, czyli około 46%. Przed M5 było 36/97.
 
 Test właściciela: podgląd 8082 → Działki → wyszukać działkę lub wskazać ją przez PPM → dodać do raportu → zapisać widok mapy → zmienić zakładkę i wrócić → pobrać PDF. [Scenariusz](../reports/m4f-report-pdf.md).
 
