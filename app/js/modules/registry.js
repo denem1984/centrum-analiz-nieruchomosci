@@ -1,5 +1,6 @@
 import { mountLocationSearch } from "../location/search-ui.js";
 import { dzialkiModule } from "./dzialki/index.js";
+import { rcnModule } from "./rcn/index.js";
 
 function appendText(parent, tagName, text, className) {
   const element = document.createElement(tagName);
@@ -57,7 +58,7 @@ export const MODULES = Object.freeze([
     mount: mountStart,
   }),
   dzialkiModule,
-  moduleDefinition("rcn", "RCN", "W przyszłości moduł pokaże transakcje i analizy rynku RCN.", "RCN"),
+  rcnModule,
   moduleDefinition("oferty", "Oferty", "W przyszłości moduł wyszuka i porówna ceny ofertowe.", "Oferty"),
   moduleDefinition("podobne", "Podobne", "W przyszłości moduł pomoże porównać nieruchomości podobne.", "Podobne"),
   moduleDefinition("gminy", "Gminy", "W przyszłości moduł porówna gminy na podstawie pliku danych.", null),

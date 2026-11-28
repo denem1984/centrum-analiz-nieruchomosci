@@ -1094,7 +1094,7 @@ function cdpError(result, method) {
   throw new Error("CDP " + method + ": " + String(result.error.message ?? "błąd protokołu"));
 }
 
-class CdpConnection {
+export class CdpConnection {
   constructor(url) {
     this.url = url;
     this.socket = null;

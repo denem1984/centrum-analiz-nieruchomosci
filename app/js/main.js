@@ -5,6 +5,12 @@ import { MODULES, MODULE_BY_ID } from "./modules/registry.js";
 
 let activeModuleCleanup = null;
 
+function isRcnDemo() {
+  const { hostname, search } = window.location;
+  return ["localhost", "127.0.0.1", "[::1]"].includes(hostname)
+    && new URLSearchParams(search).get("rcn") === "demo";
+}
+
 export const MODULE_IDS = Object.freeze(MODULES.map((module) => module.id));
 
 export function resolveRoute(hash) {
@@ -235,6 +241,7 @@ function renderCurrentView() {
     subscribeBackendStatus,
     setContext: setAppContext,
     providerConfig: { provider: "fixture" },
+    rcnDemo: isRcnDemo(),
   };
   const cleanup = MODULE_BY_ID[route].mount(view, ctx);
   if (typeof cleanup === "function") activeModuleCleanup = cleanup;
@@ -261,7 +268,7 @@ function init() {
   });
   renderCurrentView();
   window.addEventListener("hashchange", renderCurrentView);
-  startHealthChecks();
+  if (!isRcnDemo()) startHealthChecks();
 }
 
 if (typeof document !== "undefined" && typeof window !== "undefined") {

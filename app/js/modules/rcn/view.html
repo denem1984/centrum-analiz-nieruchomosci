@@ -1,0 +1,281 @@
+  <header class="topbar">
+    <h2>Rejestr Cen Nieruchomości</h2>
+    <div class="top-actions" style="margin-left:auto;"><button id="exportBtn" class="secondary">Eksport XLSX</button><button id="pdfBtn" class="secondary">Raport Word</button></div>
+  </header>
+  <p id="rcn-demo-note" class="demo-note" hidden>Dane przykładowe. Wyniki służą do sprawdzenia interfejsu.</p>
+
+  <nav class="module-tabs" aria-label="Moduły analizy">
+    <button class="module-tab active" data-module="lokale" type="button">Lokale</button>
+    <button class="module-tab" data-module="grunt_niezabudowany" type="button" title="Analiza cen gruntów niezabudowanych">Grunt niezabudowany</button>
+    <button class="module-tab" data-module="grunt_zabudowany" type="button" title="Ceny nieruchomości gruntowych zabudowanych">Grunt zabudowany</button>
+  </nav>
+
+  <div class="layout">
+    <aside class="panel filters">
+      <h2 id="searchTitle">Wyszukiwanie — lokale</h2>
+
+      <input id="layer" type="hidden" value="lokale" />
+      <input id="property_kind" type="hidden" value="nieruchomoscLokalowa" />
+      <input id="land_record_mode" type="hidden" value="unbuilt_land" />
+<label class="city-suggest-wrap hidden" id="cityFieldWrap">Miasto <input id="city" placeholder="wybierz z listy, np. Olsztyn" autocomplete="off" /><input id="teryt" type="hidden" /><div id="city_suggestions" class="suggestions hidden"></div></label>
+      <div id="gminaPickerWrap" class="hidden">
+        <label>Województwo
+          <select id="gmina_voivodeship"><option value="">— wybierz —</option></select>
+        </label>
+        <button type="button" class="light" id="gmina_retry" hidden>Ponów pobieranie województw</button>
+        <label>Powiat
+          <select id="gmina_powiat" disabled><option value="">— najpierw wybierz województwo —</option></select>
+        </label>
+        <label>Gmina
+          <select id="gmina_gmina" disabled><option value="">— najpierw wybierz powiat —</option></select>
+        </label>
+        <label id="miejscowoscFieldWrap">Miejscowość
+          <select id="gmina_miejscowosc" disabled><option value="">— najpierw wybierz gminę —</option></select>
+        </label>
+        <label class="check" id="gminaModeWrap"><input id="gmina_mode" type="checkbox" /> szukaj w całej gminie (zamiast pojedynczej miejscowości)</label>
+      </div>
+      <label id="streetFieldWrap"><span id="streetLabel">Ulica</span> <input id="street" placeholder="np. Kościuszki albo Barcza" /></label>
+
+      <div id="basicRangeFiltersWrap" class="hidden">
+        <div class="two">
+          <label><span id="areaMinLabel">Pow. od</span> <input id="area_min" type="number" step="0.01" /></label>
+          <label><span id="areaMaxLabel">Pow. do</span> <input id="area_max" type="number" step="0.01" /></label>
+        </div>
+        <div class="two">
+          <label>Cena od <input id="price_min" type="number" step="1" /></label>
+          <label>Cena do <input id="price_max" type="number" step="1" /></label>
+        </div>
+      </div>
+
+      <section class="search-module" id="generalSearchModule">
+        <h2 class="search-module-title">Wyszukiwanie ogólne</h2>
+
+        <div class="range-box map-area-box">
+          <div class="range-head"><span>Obszar analizy na mapie</span><strong id="areaModeLabel">bez ograniczenia</strong></div>
+          <label>Tryb obszaru
+            <select id="area_mode">
+              <option selected value="none">bez ograniczenia mapą</option>
+              <option value="radius">promień od punktu</option>
+              <option value="polygon">dowolny obszar</option>
+            </select>
+          </label>
+          <input id="use_radius" class="hidden-control" type="checkbox" />
+          <div id="radiusControls">
+            <div class="range-head"><span>Promień analizy</span><strong id="radiusLabel">800 m</strong></div>
+            <input id="radius_m" class="range" type="range" min="100" max="5000" step="100" value="800" />
+            <p class="mini-hint">Kliknij punkt na mapie. Suwak od razu filtruje pobrane wyniki. Kliknij „Szukaj”, aby pobrać dane dla nowego zasięgu.</p>
+          </div>
+          <div id="polygonControls" class="polygon-controls hidden">
+            <div class="polygon-actions">
+              <button id="undoPolygonPoint" class="light" type="button">Cofnij punkt</button>
+              <button id="clearPolygon" class="light" type="button">Wyczyść obszar</button>
+            </div>
+            <p id="polygonStatus" class="mini-hint">Wybierz tryb dowolnego obszaru i klikaj kolejne punkty na mapie. Obszar zamkniesz, klikając ponownie pierwszy punkt.</p>
+          </div>
+        </div>
+
+        <label class="checkline" id="outliersWrap">
+          <input id="exclude_outliers" type="checkbox" checked />
+          Odrzuć skrajne ceny
+        </label>
+
+        <div class="range-box">
+          <div class="range-head"><span>Zakres czasu</span><strong id="dateRangeLabel">—</strong></div>
+          <div class="dual-range" id="dateRangeControl">
+            <input id="date_start_idx" class="range range-start" type="range" min="0" max="1" value="0" title="Data od" />
+            <input id="date_end_idx" class="range range-end" type="range" min="0" max="1" value="1" title="Data do" />
+          </div>
+          <div class="date-pickers">
+            <label>Data od <input id="date_from" type="date" /></label>
+            <label>Data do <input id="date_to" type="date" /></label>
+          </div>
+          <div class="preset-checks">
+            <label class="check"><input id="last12" type="checkbox" /> ostatnie 12 miesięcy</label>
+            <label class="check"><input id="last24" type="checkbox" /> ostatnie 24 miesiące</label>
+          </div>
+          <p class="mini-hint">Przesuń uchwyty suwaka, aby ustawić dokładny dzień, albo wpisz datę ręcznie w polach poniżej. Zaznaczenie opcji 12/24 miesięcy automatycznie ustawia zakres od dzisiaj wstecz.</p>
+        </div>
+
+        <label>Rynek
+          <select id="market">
+            <option value="">wszystkie</option>
+            <option value="pierwotny">rynek pierwotny</option>
+            <option value="wtorny">rynek wtórny</option>
+          </select>
+        </label>
+        <label id="functionWrap">Funkcja lokalu
+          <select id="function">
+            <option value="">Wszystkie</option>
+            <option selected value="mieszkalna">mieszkalna</option>
+            <option value="handlowoUslugowa">handlowo-usługowa</option>
+            <option value="biurowa">biurowa</option>
+            <option value="produkcyjna">produkcyjna</option>
+            <option value="garaz">garaż</option>
+            <option value="inna">inna</option>
+          </select>
+        </label>
+        <label id="landUseWrap" class="hidden-control">Sposób użytkowania
+          <select id="land_use">
+            <option value="">Wszystkie</option>
+            <option value="gruntyRolne">grunty rolne</option>
+            <option value="gruntyZabudowaneIZurbanizowane">grunty zabudowane i zurbanizowane</option>
+            <option value="gruntyLesne">grunty leśne</option>
+            <option value="terenyKomunikacyjne">tereny komunikacyjne</option>
+            <option value="inne">inne</option>
+          </select>
+        </label>
+        <label id="buildingTypeWrap" class="hidden-control">Rodzaj budynku
+          <select id="building_type">
+            <option value="">Wszystkie</option>
+            <optgroup label="Wyłącznie budynki rodzaju (bez innych w transakcji)">
+              <option value="only:mieszkalny+gospodarczy">mieszkalne z gospodarczymi (bez obiektów komercyjnych)</option>
+              <option value="only:mieszkalny">tylko mieszkalny</option>
+              <option value="only:gospodarczy">tylko gospodarczy</option>
+              <option value="only:pozostaleNiemieszkalne">tylko pozostałe niemieszkalne</option>
+              <option value="only:transportuILacznosci">tylko transportu i łączności</option>
+              <option value="only:handlowoUslugowy">tylko handlowo-usługowy</option>
+              <option value="only:przemyslowy">tylko przemysłowy</option>
+              <option value="only:zbiornikiSilosyMagazyny">tylko zbiorniki, silosy, magazyny</option>
+              <option value="only:biurowy">tylko biurowy</option>
+              <option value="only:oswiatyISportu">tylko oświaty i sportu</option>
+              <option value="only:szpitale">tylko szpitale</option>
+            </optgroup>
+            <optgroup label="Transakcja zawiera budynek rodzaju">
+              <option value="mieszkalny">mieszkalny</option>
+              <option value="gospodarczy">gospodarczy</option>
+              <option value="pozostaleNiemieszkalne">pozostałe niemieszkalne</option>
+              <option value="transportuILacznosci">transportu i łączności</option>
+              <option value="handlowoUslugowy">handlowo-usługowy</option>
+              <option value="przemyslowy">przemysłowy</option>
+              <option value="zbiornikiSilosyMagazyny">zbiorniki, silosy, magazyny</option>
+              <option value="biurowy">biurowy</option>
+              <option value="oswiatyISportu">oświaty i sportu</option>
+              <option value="szpitale">szpitale</option>
+            </optgroup>
+          </select>
+        </label>
+        <label>Rodzaj prawa
+          <select id="right">
+            <option value="">Wszystkie</option>
+            <option value="wlasnoscNieruchomosciGruntowej">własność nieruchomości działkowej</option>
+            <option value="uzytkowanieWieczyste">użytkowanie wieczyste</option>
+            <option value="wlasnoscLokaluWrazZPrawemZwiazanym">własność lokalu z prawem związanym</option>
+            <option value="wlasnoscBudynkuZPrawemZwiazanym">własność budynku z prawem związanym</option>
+          </select>
+        </label>
+
+        <button id="searchBtn">Szukaj</button>
+      </section>
+
+      <section class="search-module" id="similarModule">
+        <h2 class="search-module-title">Analiza nieruchomości podobnej</h2>
+        <p id="similarModuleNote" class="mini-hint"></p>
+        <label><span id="subjectAreaFieldLabel">Powierzchnia analizowana m²</span> <input id="subject_area" type="number" step="0.01" placeholder="np. 48" /></label>
+        <label><span id="subjectValueFieldLabel">Wartość analizowanej nieruchomości</span> <input id="subject_value" type="number" step="1" placeholder="np. 700000" /></label>
+        <div class="two">
+          <label>Cena/m² od <input id="price_m2_min" type="number" step="1" placeholder="np. 5000" /></label>
+          <label>Cena/m² do <input id="price_m2_max" type="number" step="1" placeholder="np. 9000" /></label>
+        </div>
+
+        <label>Sposób filtrowania powierzchni
+          <select id="subject_area_filter_mode">
+            <option selected value="all">wszystkie — bez filtrowania powierzchni</option>
+            <option value="tolerance">tolerancja procentowa</option>
+            <option value="range">powierzchnia minimalna i maksymalna</option>
+          </select>
+        </label>
+        <div id="areaToleranceBox">
+          <label>Tolerancja powierzchni
+            <select id="area_tolerance">
+              <option value="10">±10%</option>
+              <option selected value="20">±20%</option>
+              <option value="30">±30%</option>
+            </select>
+          </label>
+        </div>
+        <div id="subjectAreaRangeBox" class="two hidden">
+          <label>Powierzchnia min. m² <input id="subject_area_min" type="number" step="0.01" placeholder="np. 40" /></label>
+          <label>Powierzchnia max. m² <input id="subject_area_max" type="number" step="0.01" placeholder="np. 60" /></label>
+        </div>
+
+        <details class="weights-box">
+          <summary>Wagi podobieństwa</summary>
+          <div class="two">
+            <label>Powierzchnia <input id="w_area" type="number" min="0" max="100" step="1" value="50" /></label>
+            <label>Ulica/lokalizacja <input id="w_location" type="number" min="0" max="100" step="1" value="35" /></label>
+            <label>Rynek <input id="w_market" type="number" min="0" max="100" step="1" value="15" /></label>
+          </div>
+          <p class="hint">Wagi wpływają na ranking „Najbardziej podobne transakcje” w raporcie.</p>
+        </details>
+
+        <button id="similarBtn" class="secondary" type="button">Znajdź podobne</button>
+      </section>
+
+      <button id="clearBtn" class="light" type="button">Wyczyść</button>
+      <p class="hint">Aplikacja korzysta z danych Rejestru Cen Nieruchomości – geoportal.gov.pl. Dla lokali sposób wyszukiwania pozostaje bez zmian. Moduły gruntów działają prościej: miejscowość + promień.</p>
+    </aside>
+
+    <section class="results">
+      <div id="status" class="status" role="status">Wpisz filtry i kliknij „Szukaj”.</div>
+      <p id="rcn-wait" class="status" role="status" hidden></p>
+      <details class="panel audit-panel" id="auditPanel" style="display:none"><summary><b>Audyt zgodności z Geoportalem</b></summary>
+        <h2>Audyt filtrów</h2>
+        <p class="chart-note">Ten panel pokazuje, na którym etapie odpadają rekordy. Służy do porównania wyników aplikacji z eksportem Geoportalu.</p>
+        <div class="table-wrap small">
+          <table id="auditTable">
+            <thead><tr><th>Etap</th><th>Przed</th><th>Po</th><th>Odrzucono</th><th>Uwagi</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div id="auditSamples" class="audit-samples"></div>
+      </details>
+      <section class="cards" id="stats"></section>
+      <div id="summaryNote" class="summary-note"></div>
+
+      <section class="grid2">
+        <div class="panel">
+          <h2>Mapa</h2>
+          <div class="map-wrap"><div id="map"></div><div id="mapLegend" class="map-legend"></div></div>
+          <p id="rcn-map-count" class="chart-note" aria-live="polite"></p>
+          <p class="chart-note">Ogranicz wyniki promieniem od punktu albo narysuj obszar na mapie. Aby go zamknąć, kliknij pierwszy punkt. Kliknij „Szukaj”, aby pobrać dane dla nowego obszaru.</p>
+        </div>
+        <div class="panel">
+          <h2 id="priceChartTitle">Dynamika cen/m² w czasie</h2>
+          <canvas id="priceChart"></canvas>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2 id="transactionsTitle">Transakcje</h2>
+
+        <p class="hint">Wybierz nagłówek kolumny, aby posortować wyniki. „Pomiń” wyłącza transakcję z obliczeń i eksportu. Transakcja pozostaje w tabeli.</p>
+        <div class="table-wrap">
+          <table id="resultsTable">
+            <thead>
+              <tr>
+                <th>Pomiń</th><th>Data</th><th>Adres</th><th>Pow. m²</th><th>Cena użyta</th><th>Źródło ceny</th><th>Cena/m²</th><th>tran_cena</th><th>nier_cena</th><th>lok_cena</th><th>ID transakcji</th><th>Rynek</th><th>Prawo</th><th>Liczba izb</th><th>Kondygnacja</th><th>Podobieństwo</th><th>Funkcja / rodzaj</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="grid2">
+        <div class="panel" id="streetsPanel">
+          <h2 id="streetsTitle">Średnie wg ulic</h2>
+          <div class="table-wrap small">
+            <table id="streetsTable">
+              <thead><tr><th>Ulica</th><th>Liczba</th><th>Śr. cena/m²</th><th>Mediana</th><th>Min</th><th>Max</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <h2 id="histChartTitle">Histogram ceny/m²</h2>
+          <canvas id="histChart"></canvas>
+          <p id="histChartNote" class="chart-note">Histogram pokazuje, ile transakcji mieści się w kolejnych przedziałach ceny za 1 m². Oś X: przedziały ceny/m². Oś Y: liczba transakcji.</p>
+        </div>
+      </section>
+    </section>
+  </div>

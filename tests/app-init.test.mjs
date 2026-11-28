@@ -36,7 +36,7 @@ test("aplikacja startuje, renderuje zakładki i obsługuje kontekst bez sieci", 
   const links = fake.document.getElementById("module-nav")
     .children.filter((element) => element.tagName === "a");
   assert.equal(links.length, 6);
-  assert.equal(appVersion.textContent, "Centrum Analiz Nieruchomości · wersja M4f");
+  assert.equal(appVersion.textContent, "Centrum Analiz Nieruchomości · wersja M5");
   assert.equal(fake.document.getElementById("location-summary").textContent, "Nie wybrano lokalizacji");
   assert.equal(fake.document.getElementById("clear-location").listeners.get("click")?.length, 1);
 
@@ -63,6 +63,10 @@ test("aplikacja startuje, renderuje zakładki i obsługuje kontekst bez sieci", 
   assert.equal(fake.document.getElementById("location-summary").textContent, "Nie wybrano lokalizacji");
   assert.doesNotMatch(fake.window.location.hash, /\?ctx=/);
 
+  fake.window.location.hash = "#/rcn";
+  fake.window.dispatch("hashchange");
+  assert.ok(fake.document.querySelector("[data-rcn]"));
+  assert.match(fake.document.getElementById("module-view").textContent, /Wczytywanie modułu RCN/);
   fake.window.location.hash = "#/gminy?ctx=%%%";
   fake.window.dispatch("hashchange");
   assert.equal(
