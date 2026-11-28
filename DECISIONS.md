@@ -248,6 +248,12 @@
 - Popup dopasowuje wymiary do mapy. Pusty wynik szczegółów MPZP pozostawia informację o rysunku i odnośnik do sprawdzenia wskazanego miejsca bezpośrednio w KIMPZP. Przejście do usługi jest inicjowane przez użytkownika.
 - Każdy zapisany widok PDF dobiera legendy do własnych warstw. MPZP ma przykładowe kody rysunku, POG ma słownik 13 stref z rozróżnieniem włączonych warstw uchwalonych i projektowanych. Widok z oboma rodzajami dostaje obie legendy.
 
+## D38 — Porównywalność stawek RCN w Centrum (2026-11-28)
+
+- Dla gruntu niezabudowanego do statystyk ceny/m² trafia bezpośrednia cena działki, potwierdzona powierzchnia z konturu i zgodny iloraz. Cena aktu lub nieruchomości o niepotwierdzonym zakresie, udział oraz niepotwierdzona jednostka powierzchni pozostają oznaczone w tabeli.
+- Dla gruntu zabudowanego wskaźnik dotyczy całej transakcji. Wymaga powiązania po ID transakcji, pełnej podstawy powierzchniowej dla budynków, bezpiecznej ceny aktu i zgodnego ilorazu. Stwierdzona niepełna suma działek wyłącza wskaźnik. Osobno oznaczamy podstawę z powierzchni użytkowej i ze szacunku kondygnacji.
+- Zakres wdrożenia obejmuje Centrum. [Weryfikacja kodu, testy i ograniczenia po stronie API](reports/m5-rcn-review.md).
+
 ## Zasady repozytorium
 
 [FAKT: decyzja właściciela z 2026-10-26] Repozytorium jest publiczne. Nie zapisujemy w nim wartości sekretów, konfiguracji, tokenów, kluczy, danych osobowych ani identyfikatorów kont lub usług. Wyjątkiem jest niesekretna wartość trybu źródło danych RCN. Pięć repozytoriów źródłowych jest tylko do odczytu.
@@ -256,5 +262,4 @@
 
 - CORS `*` dla backendów RCN, Oferty, Działek i Podobnych: [FAKT: pomiar właściciela 2026-10-27; wynik w CONFIG.md].
 - Punkt wejścia usługi Ofert `node server.js`: [FAKT z kodu: server.js:1-2,10-17; przegląd checkoutu zgodnego z wdrożonym SHA; reports/m1a-code-review.md C1].
-
 

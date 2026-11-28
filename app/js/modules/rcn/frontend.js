@@ -1,3 +1,5 @@
+import { asFiniteNumber, prepareRcnRecords, recordKey } from "./records.js";
+
 // Frontend port of denem1984/rcn-web-app static/app.js at 85cb2f91348e10fc1fa3491c5e4e0c07b4a952bb.
 export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }) {
   const window = root.ownerDocument.defaultView;
@@ -120,6 +122,8 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
 
     baseRecords = [];
     lastRecords = [];
+    resultQuery = renderedQuery = "";
+    $("rcn-scope-warning").hidden = true;
     excludedTransactionKeys.clear();
     renderRows([]);
     renderMap([]);
@@ -151,6 +155,7 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
       lastFetchDateTo = cached.dateTo;
       lastFetchQuery = cached.key;
       lastDiagnostics = cached.diagnostics;
+      resultQuery = cached.query;
       const minsAgo = Math.round((Date.now() - cached.timestamp) / 60000);
       refreshFromBaseRecords();
       $("status").textContent = `Wybrano moduł: ${moduleLabel}. Przywrócono z pamięci to samo wyszukiwanie (pobrane ${minsAgo < 1 ? "przed chwilą" : minsAgo + " min temu"}, bez nowego zapytania do serwera).`;
@@ -197,28 +202,13 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
     return sanitize(String(detail));
   }
 
-  function recordKey(r) {
-    return String(r?.transaction_id || `${r?.date || ""}|${r?.address || ""}|${r?.area || ""}|${r?.price || ""}`);
-  }
-
-
-  function currentModuleLabel() {
-    return $("layer")?.value === "dzialki" ? landModeLabel() : "lokalu";
-  }
-
   function isBuiltLandModule() {
     return $("layer")?.value === "dzialki" && $("land_record_mode")?.value === "built_land";
   }
 
-  function asFiniteNumber(value) {
-    if (value === null || value === undefined || value === "") return null;
-    const number = Number(value);
-    return Number.isFinite(number) ? number : null;
-  }
-
   function unitPriceValue(record) {
     const built = isBuiltLandModule() || Boolean(record?.is_built_land);
-    return asFiniteNumber(built ? (record?.building_price_m2 ?? record?.price_m2) : record?.price_m2);
+    return built ? record?.building_price_m2 ?? null : record?.price_m2 ?? null;
   }
 
   function unitPriceQuality(record) {
@@ -294,7 +284,8 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
     return null;
   }
 
-  let lastParams = "";
+  let resultQuery = "";
+  let renderedQuery = "";
   let baseRecords = [];
   let similarMode = false;
   let lastRecords = [];
@@ -660,7 +651,7 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
     if (!from && !to) return records;
     return records.filter(r => {
       const d = r?.date || "";
-      if (!d) return true;
+      if (!d) return false;
       if (from && d < from) return false;
       if (to && d > to) return false;
       return true;
@@ -706,6 +697,7 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
       lastFetchDateTo = cached.dateTo;
       lastFetchQuery = cached.key;
       lastDiagnostics = cached.diagnostics;
+      resultQuery = cached.query;
       const minsAgo = Math.round((Date.now() - cached.timestamp) / 60000);
       refreshFromBaseRecords();
       $("status").textContent = `${reason} Przywrócono z pamięci (pobrane ${minsAgo < 1 ? "przed chwilą" : minsAgo + " min temu"}, bez nowego zapytania do serwera).`;
@@ -924,14 +916,6 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
   }
 
 
-  function stdSample(vals) {
-    const clean = vals.filter(v => Number.isFinite(v));
-    if (clean.length < 2) return null;
-    const avg = clean.reduce((a,b)=>a+b,0) / clean.length;
-    const variance = clean.reduce((s,v)=>s + (v - avg) ** 2, 0) / (clean.length - 1);
-    return Math.sqrt(variance);
-  }
-
   function getSubjectValue() {
     const el = $("subject_value");
     const v = el ? Number(el.value || 0) : 0;
@@ -1007,7 +991,7 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
     }
     p.set("similar_mode", similarMode ? "true" : "false");
     p.set("only_with_price", "true");
-    p.set("exclude_outliers", $("exclude_outliers")?.checked ? "true" : "false");
+    p.set("exclude_outliers", $("layer")?.value === "lokale" && $("exclude_outliers")?.checked ? "true" : "false");
     const mode = getAreaMode();
     p.set("area_mode", mode);
     const placeCenter = analysisCenter || selectedPlace;
@@ -1051,7 +1035,9 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
       const q = unitPriceQuality(r) || (value != null ? "policzona" : "brak");
       priceM2QualityCounts[q] = (priceM2QualityCounts[q] || 0) + 1;
     });
-    const prices = records.map(r => asFiniteNumber(r.price)).filter(v => v != null);
+    const builtLand = isBuiltLandModule();
+    const prices = records.filter(r => !builtLand || r.price_source === "tran_cena_brutto")
+      .map(r => asFiniteNumber(r.price)).filter(v => v > 0);
     const med = medianOf(pricesM2);
     const avg = pricesM2.length ? pricesM2.reduce((a,b)=>a+b,0) / pricesM2.length : null;
     const subjectArea = Number($("subject_area").value || 0);
@@ -1072,7 +1058,9 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
       max_price_m2: Math.max(...vals),
     })).sort((a,b) => b.count - a.count).slice(0, 50);
 
-    const dated = records.map(r => ({...r, price_m2: unitPriceValue(r)})).filter(r => r.date && r.price_m2 != null).sort((a,b) => String(a.date).localeCompare(String(b.date)));
+    const dated = records.map(r => ({ ...r, price_m2: unitPriceValue(r) }))
+      .filter(r => typeof r.date === "string" && /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(r.date) && r.price_m2 != null)
+      .sort((a, b) => a.date.localeCompare(b.date));
     let trend = null;
     if (dated.length >= 4) {
       const half = Math.floor(dated.length / 2);
@@ -1106,10 +1094,8 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
       wtorny_pct: marketTotal ? marketCounts.wtorny / marketTotal * 100 : null,
     };
 
-    const stdPriceM2 = stdSample(pricesM2);
     const avgTransactionValue = prices.length ? prices.reduce((a,b)=>a+b,0) / prices.length : null;
-    const isBuiltLandModule = $("layer")?.value === "dzialki" && $("land_record_mode")?.value === "built_land";
-    const estimated = !isBuiltLandModule && subjectArea && avg
+    const estimated = !builtLand && subjectArea > 0 && avg
       ? { method: "avg_price_m2", by_avg: avg * subjectArea, low: avg * 0.8 * subjectArea, high: avg * 1.2 * subjectArea, by_median: med ? med * subjectArea : null }
       : null;
     const subjectValue = getSubjectValue();
@@ -1139,18 +1125,15 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
       count: records.length,
       price_m2_count: pricesM2.length,
       price_m2_quality_counts: priceM2QualityCounts,
-      avg_price: avgTransactionValue,
       median_transaction_value: medianTransactionValue,
       avg_price_m2: avg,
       median_price_m2: med,
-      std_price_m2: stdPriceM2,
       min_price_m2: pricesM2.length ? Math.min(...pricesM2) : null,
       max_price_m2: pricesM2.length ? Math.max(...pricesM2) : null,
       min_area: areas.length ? Math.min(...areas) : null,
       max_area: areas.length ? Math.max(...areas) : null,
       avg_area: areas.length ? areas.reduce((a,b)=>a+b,0) / areas.length : null,
       building_area_count: buildingAreas.length,
-      median_building_area: medianOf(buildingAreas),
       avg_building_area: buildingAreas.length ? buildingAreas.reduce((a,b)=>a+b,0) / buildingAreas.length : null,
       building_footprint_count: buildingFootprints.length,
       avg_building_footprint_area: buildingFootprints.length ? buildingFootprints.reduce((a,b)=>a+b,0) / buildingFootprints.length : null,
@@ -1168,7 +1151,8 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
       trend,
       monthly_series,
       market_distribution,
-    };}
+    };
+  }
 
   function applyRadiusFilter(records) {
     if (getAreaMode() !== "radius" || !$("use_radius").checked) return records;
@@ -1181,18 +1165,6 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
       .filter(r => Number.isFinite(r.distance_m) && r.distance_m <= radius);
   }
 
-  function removeOutliersIQR(records) {
-    const vals = records.map(r => r.price_m2).filter(v => Number.isFinite(v)).sort((a,b) => a-b);
-    if (vals.length < 8) return records;
-    const q1 = vals[Math.floor(vals.length / 4)];
-    const q3 = vals[Math.floor(vals.length * 3 / 4)];
-    const iqr = q3 - q1;
-    const lo = q1 - 1.5 * iqr;
-    const hi = q3 + 1.5 * iqr;
-    return records.filter(r => !Number.isFinite(r.price_m2) || (r.price_m2 >= lo && r.price_m2 <= hi));
-  }
-
-
   function applySubjectAreaFilter(records) {
     const mode = $("subject_area_filter_mode")?.value || "all";
     if (mode === "all") return records;
@@ -1201,8 +1173,8 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
       const amax = Number($("subject_area_max")?.value || NaN);
       if (!Number.isFinite(amin) && !Number.isFinite(amax)) return records;
       return records.filter(r => {
-        const a = Number(r.area);
-        if (!Number.isFinite(a)) return false;
+        const a = asFiniteNumber(r.area);
+        if (!(a > 0)) return false;
         if (Number.isFinite(amin) && a < amin) return false;
         if (Number.isFinite(amax) && a > amax) return false;
         return true;
@@ -1215,14 +1187,18 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
     const amin = subjectArea * (1 - tolerance);
     const amax = subjectArea * (1 + tolerance);
     return records.filter(r => {
-      const a = Number(r.area);
-      return Number.isFinite(a) && a >= amin && a <= amax;
+      const a = asFiniteNumber(r.area);
+      return a > 0 && a >= amin && a <= amax;
     });
   }
 
 
   function refreshSubjectAreaFilter() {
     updateSubjectAreaFilterMode();
+    if (!similarMode) {
+      if (baseRecords.length) refreshFromBaseRecords();
+      return;
+    }
     if (baseRecords.length) {
       refreshFromBaseRecords();
     } else {
@@ -1232,14 +1208,44 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
 
 
   function activeCandidateRecords() {
-    return applySubjectAreaFilter(applyPolygonFilter(applyRadiusFilter(applyDateFilter(baseRecords))));
+    const records = applyPolygonFilter(applyRadiusFilter(applyDateFilter(baseRecords)));
+    if (!similarMode) return records;
+    const matches = applySubjectAreaFilter(records);
+    const min = asFiniteNumber($("price_m2_min")?.value);
+    const max = asFiniteNumber($("price_m2_max")?.value);
+    if (min == null && max == null) return matches;
+    return matches.filter((record) => {
+      const rate = unitPriceValue(record);
+      return rate != null && (min == null || rate >= min) && (max == null || rate <= max);
+    });
+  }
+
+  function parametersForDisplayedResults() {
+    const applied = new URLSearchParams(resultQuery);
+    const current = new URLSearchParams(params());
+    const spatial = ["area_mode", "use_radius", "center_lat", "center_lon", "radius_m", "polygon"];
+    const similar = ["subject_area_filter_mode", "subject_area_min", "subject_area_max", "area_tolerance", "price_m2_min", "price_m2_max"];
+    for (const key of [...spatial, ...(similarMode ? similar : [])]) {
+      if (current.has(key)) applied.set(key, current.get(key));
+      else applied.delete(key);
+    }
+    for (const [key, isNarrower] of [["date_from", (a, b) => a > b], ["date_to", (a, b) => a < b]]) {
+      const value = current.get(key);
+      if (value && (!applied.has(key) || isNarrower(value, applied.get(key)))) applied.set(key, value);
+    }
+    for (const key of ["subject_area", "subject_value", "w_area", "w_location", "w_market"]) {
+      const value = $(key)?.value.trim();
+      if (value) applied.set(key, value);
+      else applied.delete(key);
+    }
+    return applied.toString();
   }
 
 
   function refreshFromBaseRecords() {
     const visibleRecords = activeCandidateRecords();
     lastRecords = visibleRecords.filter(r => !excludedTransactionKeys.has(recordKey(r)));
-    lastParams = params();
+    renderedQuery = parametersForDisplayedResults();
     const stats = calcClientStats(lastRecords);
     renderStats(stats);
     renderRows(visibleRecords);
@@ -1252,8 +1258,14 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
     const loadedCount = d.pobrano_zrodlo ?? d.pobrano_z_wfs;
     const limitNote = d.wynik_ograniczony_limitem ? ` Kandydatów przed limitem: ${d.kandydaci_przed_limitem}. Limit: ${d.limit_lokalnej_bazy}.` : "";
     const freshnessNote = d.plik_pobrany ? ` Plik danych pobrany: ${d.plik_pobrany}.` : "";
-    const diag = loadedCount != null ? `Pobrano z ${sourceLabel}: ${loadedCount}. Po filtrach: ${d.po_filtrach_ogolnych}. Po automatycznym IQR: ${d.po_iqr}.${limitNote}${freshnessNote}` : `Pobrano: ${baseRecords.length}.`;
-    $("status").textContent = `${diag} Widoczne w tabeli: ${visibleRecords.length}. Aktywne w analizie: ${lastRecords.length}. Pominięto ręcznie: ${excludedTransactionKeys.size}.`;
+    const afterFilters = d.po_filtrach_ogolnych != null ? ` Po filtrach API: ${d.po_filtrach_ogolnych}.` : "";
+    const diag = loadedCount != null ? `Pobrano z ${sourceLabel}: ${loadedCount}.${afterFilters}${limitNote}${freshnessNote}` : `Pobrano: ${baseRecords.length}.`;
+    const manualCount = visibleRecords.length - lastRecords.length;
+    const missingRate = lastRecords.length - stats.price_m2_count;
+    $("status").textContent = `${diag} W tabeli: ${visibleRecords.length}. W statystykach ceny/m²: ${stats.price_m2_count}. Bez stawki: ${missingRate}. Pominięto ręcznie: ${manualCount}.`;
+    const warning = $("rcn-scope-warning");
+    warning.hidden = d.used_teryt_gmina_fallback !== true;
+    warning.textContent = warning.hidden ? "" : "API rozszerzyło zakres z miejscowości na całą gminę. Wyniki mogą obejmować inne miejscowości.";
     renderAudit(lastDiagnostics, visibleRecords.length, lastRecords.length);
   }
 
@@ -1333,7 +1345,7 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
       ];
     } else {
       items = [
-        ["Liczba transakcji", s.count],
+        [isDzialki ? "Liczba pozycji (działki)" : "Liczba transakcji", s.count],
         ["Min powierzchnia", fmtArea(s.min_area)],
         ["Max powierzchnia", fmtArea(s.max_area)],
         ["Średnia powierzchnia", fmtArea(s.avg_area)],
@@ -1355,10 +1367,10 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
     if (trend && $("layer")?.value !== "dzialki") details.push(`Dynamika liczona jako porównanie średniej ceny/m²: ${trend.first_from}–${trend.first_to} vs ${trend.second_from}–${trend.second_to}.`);
     if (isDzialki) {
       if (builtLand) {
-        details.push("Każdy wiersz reprezentuje jedną transakcję grunt + budynki; powierzchnia gruntu jest sumą działek z wyniku wyszukiwania. Cena/m² to pomocnicza relacja ceny całej nieruchomości do łącznej powierzchni użytkowej budynków. Nie jest to wycena samego budynku ani gruntu.");
-        details.push(`Wskaźnik liczony jest tylko przy kompletnych powierzchniach wszystkich budynków, bezpiecznej cenie całej nieruchomości i pełnym udziale. Policzone dla ${s.price_m2_count} z ${s.count} transakcji.${qualitySummary ? ` Przyczyny / jakość: ${qualitySummary}.` : ""}`);
+        details.push("Budynki są powiązane po identyfikatorze transakcji. Suma gruntu obejmuje działki zwrócone przez API. Cena/m² jest wskaźnikiem całej transakcji na powierzchnię budynków, z wybraną podstawą w tabeli.");
+        details.push(`Stawka dostępna dla ${s.price_m2_count} z ${s.count} transakcji. Średnia i mediana ceny całej transakcji korzystają z kwot podanych na poziomie transakcji.${qualitySummary ? ` Statusy stawek: ${qualitySummary}.` : ""}`);
       } else {
-        details.push("Do analizy ceny m² przyjmowane są grunty niezabudowane z ceną działki albo ceną nieruchomości. Rekordy z ceną całej transakcji są pomocnicze.");
+        details.push(`Stawka dostępna dla ${s.price_m2_count} z ${s.count} pozycji. Do stawek wchodzą ceny przypisane do działki i sprawdzone z powierzchnią jej konturu. Pozostałe ceny źródłowe są dostępne w tabeli z wyjaśnieniem.`);
       }
     }
     if (s.subject_diff_to_avg_transaction != null && $("layer")?.value !== "dzialki") details.push(`Wartość wpisana dla analizowanej nieruchomości różni się od wartości wg średniej ceny m² o ${fmtMoney(s.subject_diff_to_avg_transaction)} (${fmtPct(s.subject_diff_to_avg_transaction_pct)}).`);
@@ -1388,10 +1400,10 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
   const dzialkiTableColumns = [
     { key: "_exclude", type: "none", label: "Pomiń" },
     { key: "date", type: "text", label: "Data" },
-    { key: "price", type: "number", label: "Cena nieruchomości (PLN)" },
+    { key: "price", type: "number", label: "Cena z RCN (PLN)" },
     { key: "area", type: "number", label: "Pow. gruntu m²" },
     { key: "price_m2", type: "number", label: "Cena/m² gruntu" },
-    { key: "analysis_included", type: "text", label: "W analizie" },
+    { key: "analysis_included", type: "text", label: "W statystykach ceny/m²" },
     { key: "analysis_note", type: "text", label: "Powód / opis" },
     { key: "price_m2_quality", type: "text", label: "Uwagi do ceny/m²" },
     { key: "address", type: "text", label: "Adres / ID działki" },
@@ -1412,7 +1424,7 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
   const dzialkiBuiltTableColumns = [
     { key: "_exclude", type: "none", label: "Pomiń" },
     { key: "date", type: "text", label: "Data" },
-    { key: "price", type: "number", label: "Cena łączna (grunt + budynki, PLN)" },
+    { key: "price", type: "number", label: "Cena z RCN (PLN)" },
     { key: "area", type: "number", label: "Pow. gruntu (suma działek) m²" },
     { key: "parcel_count", type: "number", label: "Liczba działek" },
     { key: "building_count", type: "number", label: "Liczba budynków" },
@@ -1454,7 +1466,9 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
     if (key === "area") {
       const title = r.is_built_land && r.parcel_area_complete === false
         ? ` title="Niepełna suma powierzchni działek: ${fmtNum(r.parcel_area_partial_sum)} m²"`
-        : (r.area_raw != null ? ` title="Powierzchnia źródłowa: ${fmtNum(r.area_raw, 4)} (${r.area_unit === "ha_przeliczone_na_m2" ? "ha" : "m²"})"` : "");
+        : r.layer === "dzialki" && r.area == null && r.area_raw != null
+          ? ` title="Wartość pola RCN: ${fmtNum(r.area_raw, 4)}. Jednostka wymaga potwierdzenia."`
+          : "";
       return `<span${title}>${fmtNum(r.area)}</span>`;
     }
     if (key === "analysis_included") return r.analysis_included ? "TAK" : "NIE";
@@ -1584,7 +1598,8 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
   }
 
   function priceColor(value, min, max) {
-    if (!Number.isFinite(value) || min == null || max == null || max === min) return "#7c3aed";
+    if (!Number.isFinite(value)) return "#677681";
+    if (min == null || max == null || max === min) return "#2563eb";
     const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
     // gradient blue -> cyan -> yellow -> red
     const stops = [
@@ -1602,21 +1617,19 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
     return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
   }
 
-  function renderLegend(min, max) {
+  function renderLegend(min, max, hasUnpriced) {
     const el = $("mapLegend");
-    if (min == null || max == null || !Number.isFinite(min) || !Number.isFinite(max)) {
-      el.innerHTML = "";
-      return;
-    }
-    const buckets = 5;
+    const buckets = min == null || max == null ? 0 : (max === min ? 1 : 5);
     const legendTitle = isBuiltLandModule() ? "Pomocnicza cena/m² (z gruntem)" : currentUnitPriceLabel().replace(/^Średnia /, "");
-    let html = `<div class="legend-title">${legendTitle}</div>`;
+    let html = buckets ? `<div class="legend-title">${legendTitle}</div>` : "";
     for (let i = 0; i < buckets; i++) {
       const lo = min + (max - min) * i / buckets;
       const hi = min + (max - min) * (i + 1) / buckets;
       const color = priceColor((lo + hi) / 2, min, max);
-      html += `<div class="legend-row"><span class="legend-swatch" style="background:${color}"></span><span>${fmtNum(lo, 0)}–${fmtNum(hi, 0)} zł</span></div>`;
+      const label = lo === hi ? fmtMoney(lo) : `${fmtNum(lo, 0)}–${fmtNum(hi, 0)} zł`;
+      html += `<div class="legend-row"><span class="legend-swatch" style="background:${color}"></span><span>${label}</span></div>`;
     }
+    if (hasUnpriced) html += '<div class="legend-row"><span class="legend-swatch" style="background:#677681"></span>Brak stawki</div>';
     el.innerHTML = html;
   }
 
@@ -1743,7 +1756,7 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
     $("rcn-map-count").textContent = records.length
       ? `W analizie ${records.length} · z lokalizacją ${pts.length} · na mapie ${visible.length}${pts.length > visible.length ? " (limit 1500)" : ""}`
       : "";
-    renderLegend(min, max);
+    renderLegend(min, max, visible.length !== prices.length);
 
     // Własny tooltip przy kursorze — nie używa Leaflet popup, więc nie jest obcinany przez mapę
     let tooltip = root.getElementById("rcn-map-tooltip");
@@ -1844,27 +1857,21 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
     scheduleVisualRefresh();
   }
 
-  function buildMonthlySeriesFromRecords(records) {
-    const groups = {};
-    records.forEach(r => {
-      const price = unitPriceValue(r);
-      if (!r.date || !Number.isFinite(price)) return;
-      const m = String(r.date).slice(0, 7);
-      if (!groups[m]) groups[m] = [];
-      groups[m].push(price);
-    });
-    return Object.keys(groups).sort().map(month => {
-      const vals = groups[month].sort((a,b)=>a-b);
-      const avg = vals.reduce((a,b)=>a+b,0) / vals.length;
-      const mid = Math.floor(vals.length / 2);
-      const med = vals.length % 2 ? vals[mid] : (vals[mid-1] + vals[mid]) / 2;
-      return { month, avg_price_m2: avg, median_price_m2: med };
+  function fillMissingMonths(series) {
+    if (!series.length) return series;
+    const monthIndex = (date) => Number(date.slice(0, 4)) * 12 + Number(date.slice(5)) - 1;
+    const known = new Map(series.map((period) => [monthIndex(period.month), period]));
+    const first = monthIndex(series[0].month);
+    const last = monthIndex(series.at(-1).month);
+    return Array.from({ length: last - first + 1 }, (_, index) => {
+      const month = first + index;
+      const label = Math.floor(month / 12) + "-" + String((month % 12) + 1).padStart(2, "0");
+      return known.get(month) ?? { month: label, count: 0, avg_price_m2: null, median_price_m2: null };
     });
   }
 
   function renderCharts(records, stats) {
-    let monthly = (stats.monthly_series || []).filter(r => Number.isFinite(Number(r.avg_price_m2)) || Number.isFinite(Number(r.median_price_m2)));
-    if (!monthly.length && records.length) monthly = buildMonthlySeriesFromRecords(records);
+    const monthly = fillMissingMonths(stats.monthly_series ?? []);
     const labels = monthly.map(r => r.month);
     const avgValues = monthly.map(r => asFiniteNumber(r.avg_price_m2));
     const medValues = monthly.map(r => asFiniteNumber(r.median_price_m2));
@@ -1885,7 +1892,10 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${fmtMoney(ctx.raw)}` } },
+          tooltip: { callbacks: {
+            label: (ctx) => `${ctx.dataset.label}: ${fmtMoney(ctx.raw)}`,
+            footer: (items) => "Liczba pozycji w miesiącu: " + (monthly[items[0]?.dataIndex]?.count ?? 0),
+          } },
           title: { display: emptyTrend, text: "Brak danych do wykresu dynamiki" }
         },
         scales: {
@@ -2152,18 +2162,6 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
   }
 
 
-  function normalizeRecord(r) {
-    const numericFields = ["price_m2", "land_price_m2_aux", "price", "area", "lat", "lon", "distance_m", "similarity_score", "tran_cena_brutto", "nier_cena_brutto", "lok_cena_brutto"];
-    const out = { ...r };
-    numericFields.forEach(k => {
-      if (out[k] !== undefined && out[k] !== null && out[k] !== "") {
-        const n = Number(out[k]);
-        if (Number.isFinite(n)) out[k] = n;
-      }
-    });
-    return out;
-  }
-
   let currentSearch = null;
   let waitTimer = null;
 
@@ -2215,20 +2213,22 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
       // Przy nowym wyszukiwaniu czyścimy stare wyniki, aby eksport nie pokazał poprzedniej miejscowości.
       baseRecords = [];
       lastRecords = [];
+      resultQuery = renderedQuery = "";
+      $("rcn-scope-warning").hidden = true;
       excludedTransactionKeys.clear();
       renderRows([]);
       renderMap([]);
       renderStats({ count: 0, price_m2_count: 0, price_m2_quality_counts: {}, market_distribution: {} });
       renderAudit(null);
       $("summaryNote").textContent = "";
-      lastParams = params();
+      const requestedParams = params();
       const activeCity = $("city").value.trim();
       const activeStreet = $("street").value.trim();
       const activeModule = $("layer").value === "dzialki" ? landModeLabel() : "lokale";
       const activeTeryt = $("teryt")?.value || "";
       $("status").textContent = `Odświeżam dane RCN — moduł: ${activeModule}${activeCity ? ", miasto: " + activeCity : ""}${activeStreet ? ", ulica/obręb: " + activeStreet : ""}${activeTeryt ? ", TERYT: " + activeTeryt : ""}...`;
       const requestedQuery = queryExcludingDate();
-      const res = await fetch(`/api/search?${lastParams}`, { signal: request.signal });
+      const res = await fetch(`/api/search?${requestedParams}`, { signal: request.signal });
       const text = await res.text();
       let data;
       try { data = JSON.parse(text); }
@@ -2240,11 +2240,12 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
         $("status").textContent = "Filtry zmieniły się podczas pobierania. Kliknij „Szukaj”, aby pobrać właściwe dane.";
         return;
       }
-      baseRecords = data.records.map(normalizeRecord);
+      baseRecords = prepareRcnRecords(data.records, activeModuleFromInputs());
+      resultQuery = requestedParams;
       excludedTransactionKeys.clear();
       lastDiagnostics = data.diagnostics || null;
       {
-        const fetchedParams = new URLSearchParams(lastParams);
+        const fetchedParams = new URLSearchParams(requestedParams);
         lastFetchDateFrom = fetchedParams.get("date_from") || "";
         lastFetchDateTo = fetchedParams.get("date_to") || "";
         lastFetchQuery = requestedQuery;
@@ -2255,6 +2256,7 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
           dateFrom: lastFetchDateFrom,
           dateTo: lastFetchDateTo,
           records: baseRecords,
+          query: requestedParams,
           diagnostics: lastDiagnostics,
           timestamp: Date.now(),
         });
@@ -2278,6 +2280,8 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
 
   function clearFilters() {
     stopSearch();
+    resultQuery = renderedQuery = "";
+    $("rcn-scope-warning").hidden = true;
     const currentLayer = $("layer").value || "lokale";
     selectedPlace = null;
     analysisCenter = null;
@@ -2528,7 +2532,7 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
   $("clearBtn").addEventListener("click", clearFilters);
   $("exportBtn").addEventListener("click", async () => {
     try {
-      const records = lastRecords.filter(r => !excludedTransactionKeys.has(recordKey(r)));
+      const records = lastRecords;
       if (!records.length) {
         $("status").textContent = "Brak rekordów do eksportu XLSX.";
         return;
@@ -2559,22 +2563,13 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
   });
   $("pdfBtn").addEventListener("click", async () => {
     try {
-      const records = lastRecords.filter(r => !excludedTransactionKeys.has(recordKey(r)));
+      const records = lastRecords;
       if (!records.length) {
         $("status").textContent = "Brak rekordów do raportu Word.";
         return;
       }
       $("status").textContent = "Przygotowuję raport Word...";
-      const reportParams = Object.fromEntries(new URLSearchParams(params()).entries());
-      reportParams.subject_area = $("subject_area")?.value || "";
-      reportParams.subject_value = $("subject_value")?.value || "";
-      reportParams.subject_area_filter_mode = $("subject_area_filter_mode")?.value || "all";
-      reportParams.subject_area_min = $("subject_area_min")?.value || "";
-      reportParams.subject_area_max = $("subject_area_max")?.value || "";
-      reportParams.price_m2_min = $("price_m2_min")?.value || "";
-      reportParams.price_m2_max = $("price_m2_max")?.value || "";
-      reportParams.city = $("city")?.value || reportParams.city || "";
-      reportParams.street = $("street")?.value || reportParams.street || "";
+      const reportParams = Object.fromEntries(new URLSearchParams(renderedQuery).entries());
       const res = await fetch("/api/export_current.docx", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2623,7 +2618,7 @@ export function mountRcnFrontend(root, { L, Chart, fetch, signal, demo = false }
     el.addEventListener("input", markChanged);
   });
 
-  ["subject_area", "subject_area_filter_mode", "subject_area_min", "subject_area_max", "area_tolerance"].forEach(id => {
+  ["subject_area", "subject_area_filter_mode", "subject_area_min", "subject_area_max", "area_tolerance", "price_m2_min", "price_m2_max"].forEach(id => {
     const el = $(id);
     if (!el) return;
     el.addEventListener("change", refreshSubjectAreaFilter);

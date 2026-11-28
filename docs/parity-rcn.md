@@ -33,3 +33,5 @@ Port korzysta z frontu `denem1984/rcn-web-app` w rewizji `85cb2f91348e10fc1fa349
 | `static/app.js:704–711` | GET `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png` i `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}`. Raster w EPSG:3857. |
 
 Pełne URL-e do list, geokodowania, sugestii, przykładowego wyszukiwania, eksportów i reverse są testowane w `tests/rcn.test.mjs`. `scripts/rcn-browser-smoke.mjs` porównuje przechwycone dokładne adresy list i geokodowania oraz sprawdza parametry wyszukiwania i treść POST. CORS dla JSON i eksportów jest jawnie dopuszczony w kodzie `main.py:85–88` oraz w historycznym pomiarze właściciela. [CONFIG.md](../CONFIG.md).
+
+Przegląd D38 dodał kwalifikację porównywalnych stawek przed prezentacją i eksportem. Przechowywana cena z RCN pozostaje widoczna. W trybach gruntów `exclude_outliers=false` odpowiada zachowaniu backendu Parquet. Wyszukiwanie i eksport korzystają z powyższych adresów. [Ustalenia i testy](../reports/m5-rcn-review.md).

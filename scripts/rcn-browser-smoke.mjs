@@ -12,14 +12,16 @@ import { openSmokeBudget } from "./smoke-budget.mjs";
 
 const args = process.argv.slice(2);
 if (args[0] !== "--headed" || args[1] !== "--browser" || !args[2]) {
-  throw new Error('Użycie: node scripts/rcn-browser-smoke.mjs --headed --browser "ścieżka do Edge"');
+  throw new Error('Użycie: node scripts/rcn-browser-smoke.mjs --headed --browser "ścieżka do Edge" [--task nazwa]');
 }
+if (args.length > 3 && (args.length !== 5 || args[3] !== "--task")) throw new Error("Nieprawidłowy parametr --task");
+const task = args[4] ?? "rcn-port";
 const browserPath = chooseBrowserPath({ explicitPath: args[2] });
 assert.ok(browserPath, "Brak wskazanego pliku przeglądarki");
 const artifacts = resolve(".local-results", "rcn-browser-smoke");
 await mkdir(artifacts, { recursive: true });
 const runDir = await mkdtemp(join(artifacts, "run-"));
-const budget = await openSmokeBudget(resolve(".local-results", "budgets", "rcn-port.json"), "rcn-port");
+const budget = await openSmokeBudget(resolve(".local-results", "budgets", task + ".json"), task);
 try {
   assert.ok(await budget.reserveLaunch(), "Wyczerpano budżet tego scenariusza");
 } finally {
@@ -62,7 +64,7 @@ async function check(expression) {
     await delay(75);
   }
   throw new Error("Brak oczekiwanego stanu: " + expression + " · " + JSON.stringify(await evaluate(
-    "({ page: document.querySelector('#module-view')?.textContent, status: el('status')?.textContent })"
+    "({ page: document.querySelector('#module-view')?.textContent, status: el('status')?.textContent, polygon: el('polygonStatus')?.textContent })"
   )));
 }
 
@@ -87,6 +89,11 @@ async function respond({ requestId, request }) {
       response = new Response("fixture-" + url.pathname.split(".").at(-1));
     } else {
       response = await mock(url.pathname + url.search);
+      if (url.pathname === "/api/search" && url.searchParams.get("street") === "Testowa") {
+        const data = await response.json();
+        data.diagnostics.used_teryt_gmina_fallback = true;
+        response = Response.json(data);
+      }
     }
   } else {
     unexpected.push(url.origin + url.pathname);
@@ -173,9 +180,12 @@ try {
   await evaluate("el('searchBtn').click()");
   await check("el('resultsTable').tBodies[0].rows.length === 6");
   assert.ok(requests.some(({ path }) => path.includes("street=Testowa")));
+  await check("!el('rcn-scope-warning').hidden && el('rcn-scope-warning').textContent.includes('całą gminę')");
   await evaluate("el('street').value = ''");
+  await evaluate("select('subject_area_filter_mode', 'range'), el('subject_area_min').value = '10000'");
   await evaluate("el('searchBtn').click()");
   await check("el('resultsTable').tBodies[0].rows.length === 12");
+  await check("el('rcn-scope-warning').hidden");
   assert.ok(await evaluate("el('rcn-map-count').textContent.includes('z lokalizacją 11')"));
   await evaluate("el('resultsTable').querySelector('input.exclude-row').click()");
   await check("el('rcn-map-count').textContent.includes('W analizie 11')");
@@ -183,6 +193,7 @@ try {
   assert.ok(await evaluate("el('resultsTable').querySelector('[aria-sort=ascending]') && el('resultsTable').querySelector('.result-row.excluded')"));
   await evaluate("el('exportBtn').click()");
   await check("el('status').textContent.includes('Wyeksportowano XLSX: 11')");
+  await evaluate("el('street').value = 'Zmiana po wyszukaniu'");
   await evaluate("el('pdfBtn').click()");
   await check("el('status').textContent.includes('Wygenerowano raport Word')");
   for (const [name, type] of [["rcn_wyniki.xlsx", "xlsx"], ["raport_rcn.docx", "docx"]]) {
@@ -193,6 +204,8 @@ try {
     ["/api/export_current.xlsx", 11], ["/api/export_current.docx", 11],
   ]);
   assert.equal(JSON.parse(posts[1].body).params.city, "Olsztyn");
+  assert.equal(JSON.parse(posts[1].body).params.street, undefined);
+  await evaluate("el('street').value = '', el('subject_area_min').value = '', select('subject_area_filter_mode', 'all')");
   await evaluate("el('similarBtn').click()");
   await check("el('resultsTable').tBodies[0].rows.length === 12");
   assert.ok(requests.some(({ path }) => path.includes("similar_mode=true")));
@@ -200,6 +213,28 @@ try {
   await evaluate("el('searchBtn').click()");
   await check("el('stats').textContent.includes('Mediana cena/m² gruntu')");
   assert.ok(requests.some(({ path }) => path.includes("land_record_mode=unbuilt_land")));
+  await check("el('summaryNote').textContent.includes('Stawka dostępna dla 10 z 11')");
+  await check("el('resultsTable').textContent.includes('Brak potwierdzenia, że obejmuje wyłącznie powierzchnię tej działki')");
+  await evaluate("el('exportBtn').click()");
+  await check("el('status').textContent.includes('Wyeksportowano XLSX: 11')");
+  const landExport = requests.filter(({ path, method }) => path === "/api/export_current.xlsx" && method === "POST").at(-1);
+  const landRows = JSON.parse(landExport.body).records;
+  assert.equal(landRows.find((row) => row.price === 900000).price_m2, null);
+  assert.equal(landRows.filter((row) => row.price_m2 != null).length, 10);
+  await evaluate(`[...el('resultsTable').querySelectorAll('.result-row')]
+    .find((row) => row.textContent.includes('Brak potwierdzenia, że obejmuje wyłącznie powierzchnię tej działki'))
+    ?.scrollIntoView({ block: 'center' })`);
+  await capture("rcn-grunt-weryfikacja.png");
+  await evaluate(`[...el('resultsTable').querySelectorAll('.result-row')]
+    .find((row) => row.textContent.includes('Brak potwierdzenia, że obejmuje wyłącznie powierzchnię tej działki'))
+    ?.querySelector('input.exclude-row').click()`);
+  await check("el('resultsTable').querySelectorAll('.result-row.excluded').length === 1");
+  await check("el('summaryNote').textContent.includes('Stawka dostępna dla 10 z 10')");
+  await evaluate("el('price_m2_max').value = '200'");
+  await evaluate("el('similarBtn').click()");
+  await check("el('resultsTable').tBodies[0].rows.length === 2");
+  assert.ok(requests.some(({ path }) => path.includes("similar_mode=true") && path.includes("price_m2_max=200")));
+  await evaluate("el('price_m2_max').value = ''");
   await evaluate("root.querySelector('[data-module=grunt_zabudowany]').click()");
   await evaluate("el('searchBtn').click()");
   await check("el('stats').textContent.includes('Wskaźnik na pow. użytkowej RCN')");
@@ -217,7 +252,7 @@ try {
     await page.command("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 });
     await page.command("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 });
   }
-  for (const [xRatio, yRatio] of [[.25, .25], [.70, .24], [.54, .72]]) {
+  for (const [xRatio, yRatio] of [[.18, .23], [.47, .25], [.23, .68]]) {
     await mapClick(bounds.left + bounds.width * xRatio, bounds.top + bounds.height * yRatio);
   }
   await check("el('polygonStatus').textContent.includes('Dodano 3 pkt')");
