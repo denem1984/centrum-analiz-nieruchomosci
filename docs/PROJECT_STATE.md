@@ -2,9 +2,11 @@
 
 Aktualizacja: 2026-11-28. Bieżące źródło stanu i kolejki akceptacji; starsze raporty są dowodami historycznymi, nie bieżącą listą wykonanych funkcji.
 
-## Obecnie: M5 — moduł RCN
+## Obecnie: M6 — Oferty do odbioru lokalnego
 
-RCN ma natywną zakładkę z istniejącymi formularzami, obliczeniami i eksportami oraz z dotychczasowym API obsługującym źródło R2. Przegląd D38 potwierdził ryzyko użycia ceny aktu do stawki pojedynczej działki oraz sposób łączenia gruntów i budynków po ID aktu. Centrum kwalifikuje stawkę do statystyk i pokazuje powód pominięcia. [Podgląd przykładowy](http://localhost:8083/?rcn=demo#/rcn), [tryb danych RCN](http://localhost:8083/#/rcn), [raport przeglądu](../reports/m5-rcn-review.md) i [macierz parytetu](parity-rcn.md). Kolejka akceptacji obejmuje [PR #30](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/30), następnie zależny [PR #31](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/31) oraz ręczną próbę z rzeczywistym API i eksportami. M6 czeka na zatwierdzenie.
+Oferty mają własną zakładkę z czterema typami nieruchomości, filtrem powierzchni, promieniem, podsumowaniem portali, wyborem ofert, kalkulatorem i eksportem XLSX. [Dane przykładowe](http://localhost:8084/?oferty=demo#/oferty), [tryb istniejącego API](http://localhost:8084/#/oferty), [raport i próba ręczna](../reports/m6-oferty.md), [porównanie frontów](parity-oferty.md). Potwierdzenie bieżących odpowiedzi API i porównanie ze starym frontem pozostają do odbioru właściciela.
+
+Właściciel zatwierdził RCN. Scalono kolejno [PR #30](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/30) jako `1347ebc` i [PR #31](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/31) jako `b7c2210`. RCN wykorzystuje dotychczasowe API obsługujące źródło R2. Centrum kwalifikuje stawkę do statystyk i pokazuje powód pominięcia zgodnie z D38. [Raport przeglądu](../reports/m5-rcn-review.md), [macierz parytetu](parity-rcn.md).
 
 D37 zatwierdzono i scalono w [PR #28](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/28) jako `5ea366c`. [Raport poprawek Działek](../reports/dzialki-planning-presentation.md).
 
@@ -26,7 +28,7 @@ Jeśli serwer po zamknięciu komputera przestanie działać: w terminalu katalog
 
 **Aktualny podgląd M4f działa pod http://localhost:8082/#/dzialki.** Wznowienie z katalogu projektu poleceniem `node .local/preview-m4e2/scripts/serve.mjs --port 8082`. Start korzysta z jawnych fikstur. Następne moduły otrzymają osobne formularze lokalizacji zgodnie z D35.
 
-**Szacunkowo około 46% projektu wykonane, około 54% pozostało.** Port RCN dodaje dziewięć punktów. Do odbioru RCN pozostają rzeczywista odpowiedź API oraz pliki eksportów.
+**Szacunkowo około 55% projektu wykonane, około 45% pozostało.** Oferty dodają osiem punktów za przeniesienie funkcji i weryfikację na danych przykładowych. Ostatni punkt Ofert obejmuje próbę istniejącego API.
 
 | Obszar | Waga w szacunku | Zrealizowana część w punktach całości |
 |---|---:|---:|
@@ -34,13 +36,13 @@ Jeśli serwer po zamknięciu komputera przestanie działać: w terminalu katalog
 | Słowniki i wspólne elementy potrzebne wyszukiwaniom modułów | 12 | 5 |
 | Działki: mapa, wyszukiwanie, warstwy, narzędzia i PDF | 22 | 21 |
 | RCN: adaptacja istniejącego kodu i prezentacja z obecnym R2 | 12 | 10 |
-| Oferty | 9 | 0 |
+| Oferty | 9 | 8 |
 | Podobne | 9 | 0 |
 | Gminy i dane wskaźników | 10 | 0 |
 | Raporty AI: odczyt mapy, internet, tekst i eksport | 9 | 0 |
 | Raport zbiorczy, pełna regresja i odbiór wdrożenia | 4 | 0 |
 
-Suma robocza 45/97, czyli około 46%. Przed M5 było 36/97.
+Suma robocza 53/97, czyli około 55%. Przed M6 było 45/97.
 
 Test właściciela: podgląd 8082 → Działki → wyszukać działkę lub wskazać ją przez PPM → dodać do raportu → zapisać widok mapy → zmienić zakładkę i wrócić → pobrać PDF. [Scenariusz](../reports/m4f-report-pdf.md).
 
@@ -107,11 +109,10 @@ Sprawdzenie właściciela (opcjonalne dla tej poprawki): w PowerShell w folderze
 
 ## Następna praca
 
-1. M4d.2 jest w PR #17: 139 testów PASS, rzeczywisty smoke 11/11, offline + mobile 12/12. Szczegółowy [RAPORT](../reports/m4d2-planning.md) i instrukcja baseline pozostają do odbioru właściciela.
-2. Zrealizować dodany plan nowszego podkładu: porównanie źródeł i rekomendacja, bez usuwania opcji.
+1. Odbiór Ofert w lokalnym podglądzie. Po zatwierdzeniu rozpocząć M7 Podobne od macierzy funkcji i porównania URL-i.
+2. Zrealizować plan nowszego podkładu po uzgodnieniu kolejności z właścicielem.
 
 Przegląd oficjalnych źródeł wskazuje aktualną ortofotomapę GUGiK jako głównego kandydata [HIP do porównania dat w danym miejscu]. [Plan M4b.4, źródła i kryteria](imagery-freshness-plan.md) rozróżnia datę zdjęcia, publikację serwisu i rozdzielczość. Nie zmieniono jeszcze podkładu i nie wykonano dodatkowego ruchu mapowego.
-3. Po akceptacji M4e.2 kontynuować M4f, następnie M3b i dalszą roadmapę; każdy podetap osobnym PR, samodzielne merge po kontrolach D33, bez wdrożeń.
 
 ## Roadmapa i warunki zakończenia
 
@@ -139,7 +140,7 @@ Poniższy inwentarz pochodzi z odczytu frontów we wskazanych rewizjach i histor
 | Moduł i dowód | Funkcje wymagane w porcie | Małe podetapy / potrzeby |
 |---|---|---|
 | RCN, `85cb2f9`, `static/index.html:168–436`; `reports/m1a-code-review.md:B2` | Lokale, grunt niezabudowany i zabudowany; listy województwo/powiat/gmina/miejscowość, cała gmina, ulica; powierzchnia i cena, promień 100–5000 m i polygon z cofaniem, odrzucanie skrajnych, daty/suwaki/12–24 miesiące; rynek, funkcja, użytek, wszystkie typy budynków i prawa; podobne z tolerancją/zakresem i wagami; audyt filtrów, mapa, wykres czasu, tabela, średnie ulic i histogram; XLSX i Word | M5a macierz i klient URL; M5b wszystkie formularze i kontekst; M5c wyniki/mapa/wykresy/statystyki/podobne; M5d eksporty i regresja. Przed M5d ustalić sposób testu eksportów POST: obecne pozwolenie pomiarowe obejmuje GET. Nie usuwać eksportu z powodu ograniczenia testów. Pełną logikę JS i ewentualne dodatkowe opcje sprawdzić przed portem. |
-| Oferty, `596451b`, `index.html:73–91`; raport C1 | Cztery rodzaje, podpowiedzi i potwierdzenie miejscowości, promienie 0/1/2/5/10/20/30 km, brak filtra/procent 10–50%/zakres; sześć źródeł, duplikaty i przyjęte wyniki, sortowanie wszystkich kolumn, linki ofert | M6a macierz i klient; M6b wszystkie filtry, wynik wspólny i źródła; M6c sortowanie, błędy częściowe, regresja i weryfikacja eksportu. W odczytanej rewizji HTML nie znaleziono przycisku Excel — wzmiankę załącznika o eksporcie trzeba zweryfikować, nie ogłaszać parytetu bez dowodu. Backend produkcji ma inny punkt wejścia niż `npm start`. Ciężkie wyszukiwanie wyłącznie oszczędnie. |
+| Oferty, `596451b`, `index.html:73–91` i dodatki z `server.js:11` | Cztery rodzaje, podpowiedzi i potwierdzenie miejscowości, promienie 0/1/2/5/10/20/30 km, brak filtra/procent 10–50%/zakres, sześć portali, sortowanie, wybór ofert, kalkulator i XLSX | Gotowe do lokalnego odbioru. [Macierz opcji i adresów](parity-oferty.md) dokumentuje frontend faktycznie składany przez punkt wejścia usługi. |
 | Podobne, `a750201`, `index.html:269–317,644–674`; raport B3 | Analizowana nieruchomość i dowolne porównawcze, adres albo działka z listami jednostek, lokalizowanie/usuwanie; cena/data; przełączniki linii/adresu/ceny/daty; mapa/satelita, pokaż wszystkie | M7a macierz i dokładne URL-e; M7b edytor i lokalizowanie; M7c markery/linie/etykiety, błędy i regresja. Przed bezpośrednim geokodowaniem zweryfikować oficjalne zasady Nominatim i ograniczenia. |
 | Gminy, `c1b682c`, `index.html:27–30,110–111,195–228`; raport B4 | Gmina docelowa, kraj/województwo, trzy profile, ten sam typ; siedem wskaźników i ich lata, ranking/top20, szczegóły „dlaczego”, zaznaczanie i porównanie, objaśnienia, PDF | M8a pełny plik GUS/BDL z pochodzeniem i walidacją D9; M8b odwzorowanie wag/normalizacji/braków i ranking; M8c wszystkie filtry, porównanie i PDF. Siedem identyfikatorów BDL jest w źródłowym froncie. Spróbować publicznego BDL; pełny eksport właściciela tylko jako fallback. Brak logowania jest już decyzją ostateczną. |
 | M9, wymaganie właściciela i D10 | Kontekst lokalizacji, widoki zbiorcze i raport z wynikami modułów | M9a kontrakt wyników i źródeł, M9b widok zbiorczy, M9c raport. D10 nadal otwarte: odpowiedź właściciela z 2026-11-27 rozstrzygnęła logowanie, nie potwierdziła zakresu raportu. Rekomendacja: lokalizacja + wyniki pięciu modułów + źródła + oznaczenie braków. |

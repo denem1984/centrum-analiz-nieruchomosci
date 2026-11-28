@@ -5,10 +5,10 @@ import { MODULES, MODULE_BY_ID } from "./modules/registry.js";
 
 let activeModuleCleanup = null;
 
-function isRcnDemo() {
+function isModuleDemo(id) {
   const { hostname, search } = window.location;
   return ["localhost", "127.0.0.1", "[::1]"].includes(hostname)
-    && new URLSearchParams(search).get("rcn") === "demo";
+    && new URLSearchParams(search).get(id) === "demo";
 }
 
 export const MODULE_IDS = Object.freeze(MODULES.map((module) => module.id));
@@ -241,7 +241,8 @@ function renderCurrentView() {
     subscribeBackendStatus,
     setContext: setAppContext,
     providerConfig: { provider: "fixture" },
-    rcnDemo: isRcnDemo(),
+    rcnDemo: isModuleDemo("rcn"),
+    ofertyDemo: isModuleDemo("oferty"),
   };
   const cleanup = MODULE_BY_ID[route].mount(view, ctx);
   if (typeof cleanup === "function") activeModuleCleanup = cleanup;
@@ -268,7 +269,7 @@ function init() {
   });
   renderCurrentView();
   window.addEventListener("hashchange", renderCurrentView);
-  if (!isRcnDemo()) startHealthChecks();
+  if (!isModuleDemo("rcn") && !isModuleDemo("oferty")) startHealthChecks();
 }
 
 if (typeof document !== "undefined" && typeof window !== "undefined") {

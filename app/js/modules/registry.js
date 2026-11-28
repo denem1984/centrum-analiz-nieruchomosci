@@ -1,6 +1,7 @@
 import { mountLocationSearch } from "../location/search-ui.js";
 import { dzialkiModule } from "./dzialki/index.js";
 import { rcnModule } from "./rcn/index.js";
+import { offersModule } from "./oferty/index.js";
 
 function appendText(parent, tagName, text, className) {
   const element = document.createElement(tagName);
@@ -59,7 +60,7 @@ export const MODULES = Object.freeze([
   }),
   dzialkiModule,
   rcnModule,
-  moduleDefinition("oferty", "Oferty", "W przyszłości moduł wyszuka i porówna ceny ofertowe.", "Oferty"),
+  offersModule,
   moduleDefinition("podobne", "Podobne", "W przyszłości moduł pomoże porównać nieruchomości podobne.", "Podobne"),
   moduleDefinition("gminy", "Gminy", "W przyszłości moduł porówna gminy na podstawie pliku danych.", null),
 ]);
