@@ -31,4 +31,7 @@
 
 ## Metadane dostawy
 
-Uzupełnienie po zapisaniu implementacji i aktualizacji przypiętego podglądu.
+- Baza `4c445b92e8e1cc552bcd27fd603bfa3155ee2435` → implementacja `30494212a86a86e52f3ab7c5a861146478d29868`; 16 plików +205/-18. Późniejszy commit obejmuje wyłącznie metadane. [PR #26](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/26) zawiera dokładny końcowy diff i SHA merge.
+- `git diff --cached --check` PASS; `node scripts/check-no-secrets.mjs` PASS (122 pliki), `node scripts/check-no-secrets.mjs --history` PASS po implementacji (92 commity).
+- Czysty `.local/preview-m4e2` przełączono poleceniem `git -C .local/preview-m4e2 switch --detach 30494212a86a86e52f3ab7c5a861146478d29868`. Serwer działa dalej pod **http://localhost:8082/#/dzialki**. GET CSS i modułu HTTP 200; potwierdzono nową regułę przewijania i obserwator rozmiaru. Ctrl+F5 w przeglądarce wczytuje poprawkę. Restart serwera jak wcześniej: `node .local/preview-m4e2/scripts/serve.mjs --port 8082`.
+- Gałąź opublikowano i otwarto PR do main. Po zielonym CI dokładnej głowy agent scala zgodnie z D33; wynik i SHA są widoczne w PR oraz podane w komunikacie końcowym. M4f pozostaje nierozpoczęte.
