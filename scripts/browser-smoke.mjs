@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createStaticServer } from "./serve.mjs";
+import { openSmokeBudget, validateSmokeTask } from "./smoke-budget.mjs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, "..");
@@ -1333,6 +1334,7 @@ async function runBrowserSmoke() {
 
   const argv = process.argv.slice(2);
   const checkBrowserOnly = argv.includes("--check-browser");
+  const smokeTask = checkBrowserOnly ? null : validateSmokeTask(getArg(argv, "--task"));
   const requestedPort = getArg(argv, "--port");
   const egibLayersMode = argv.includes("--egib-layers");
   const egibRequestLimitProvided = argv.some((value) => value === "--max-egib-backend-requests"
@@ -1418,6 +1420,7 @@ async function runBrowserSmoke() {
   let runError = null;
   let runReport = null;
   let browserStderr = "";
+  let taskBudget = null;
   let kiegBudgetState = null;
   let kiegBudgetRequestsReserved = 0;
   let m4d1cBudgetExceeded = false;
@@ -1461,7 +1464,11 @@ async function runBrowserSmoke() {
     const browserArgs = buildBrowserLaunchArgs({
       headed, profile, compact: Boolean(tileExperimentArgs || kiegReliabilityMode || kiegExperimentMode),
     });
-    if (!checkBrowserOnly) kiegBudgetState = await reserveM4d1cBrowserLaunch(kiegBudgetStatePath);
+    if (!checkBrowserOnly) {
+      taskBudget = await openSmokeBudget(join(REPO_ROOT, ".local-results", "budgets", smokeTask + ".json"), smokeTask);
+      if (!await taskBudget.reserveLaunch()) throw new Error("Wyczerpano limit czterech pełnych uruchomień zadania.");
+      if (kiegExperimentMode) kiegBudgetState = await reserveM4d1cBrowserLaunch(kiegBudgetStatePath);
+    }
     browser = spawn(selectedBrowser, browserArgs, { stdio: ["ignore", "ignore", "pipe"], windowsHide: !headed });
     browser.stderr?.on("data", (chunk) => {
       browserStderr = (browserStderr + chunk.toString("utf8")).slice(-3000);
@@ -1676,7 +1683,9 @@ async function runBrowserSmoke() {
               allowed = false;
               kiegBudgetExceeded = true;
             } else {
-              const reservation = await reserveM4d1cKiegRequest(kiegBudgetStatePath);
+              const reservation = kiegExperimentMode
+                ? await reserveM4d1cKiegRequest(kiegBudgetStatePath)
+                : { allowed: true, state: null };
               if (!reservation.allowed) {
                 allowed = false;
                 m4d1cBudgetExceeded = true;
@@ -1717,6 +1726,16 @@ async function runBrowserSmoke() {
               return;
             }
             orthophotoRequestCount += 1;
+          }
+          // Persist before dispatch; failed and redirected requests also consume budget.
+          // Local HTTP/CDP traffic is outside the external-service counters.
+          if (parsedRequestUrl && !appOrigins.includes(parsedRequestUrl.origin)
+              && !await taskBudget.reserveRequest(requestUrl)) {
+            blockedRequests.push({ scenario: currentScenario, kind: "task-budget", service: parsedRequestUrl.hostname });
+            await pageCdp.command("Fetch.failRequest", {
+              requestId: params.requestId, errorReason: "BlockedByClient",
+            }).catch(() => {});
+            return;
           }
           await pageCdp.command("Fetch.continueRequest", {
             requestId: params.requestId,
@@ -2624,6 +2643,10 @@ async function runBrowserSmoke() {
     const stability = standardScenarioMode ? await runArchiveStability(appOrigin) : null;
     const parcelSearch = standardScenarioMode && searchArgs ? await runParcelSearchScenario(appOrigin) : null;
     await Promise.all([...pendingFetchHandlers]);
+    if (runError) throw runError;
+    if (blockedRequests.some((request) => request.kind === "task-budget")) {
+      throw new Error("Osiągnięto budżet żądań zadania; wynik smoke nie może zostać uznany za PASS.");
+    }
     const scenarios = egibScenario ? [egibScenario] : tileExperiment ? tileExperiment.runs : kiegReliability ? kiegReliability.runs
       : kiegExperiment ? kiegExperiment.runs : [
       ...(beforeRun?.scenarios ?? []),
@@ -2921,6 +2944,10 @@ async function runBrowserSmoke() {
     }
     if (server) await new Promise((resolvePromise) => server.close(() => resolvePromise()));
     if (baselineServer) await new Promise((resolvePromise) => baselineServer.close(() => resolvePromise()));
+    if (taskBudget) {
+      await taskBudget.close().catch(() => { process.exitCode = 2; });
+      await writeFile(join(resultDir, "network-budget.json"), JSON.stringify(taskBudget.snapshot(), null, 2), "utf8").catch(() => {});
+    }
     try {
       if (dirname(resolve(profile)) !== resolve(tmpdir()) || !basename(profile).startsWith("m4b-browser-profile-")) {
         throw new Error("Profil nie znajduje się w oczekiwanym katalogu tymczasowym.");
