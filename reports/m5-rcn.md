@@ -28,4 +28,6 @@
 
 ## Metadane dostawy
 
-PR oraz wyniki końcowej kontroli zostaną uzupełnione przy dostawie.
+- [PR #30 otwarty do odbioru](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/30). Implementacja `2ebf2b6f073d2de0d85fefe60bb1da92b8026f90` obejmuje 21 plików, +4226 / −12 linii. [Końcowy SHA i zmiany per plik](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/30/files).
+- Końcowe testy 165/165 w 0,78 s, `git diff --cached --check`, `node scripts/check-no-secrets.mjs` i `node scripts/check-no-secrets.mjs --history` przeszły. `git push -u origin feat/m5-rcn` opublikował gałąź. GitHub potwierdził zieloną kontrolę `main` po #29.
+- Podgląd na porcie 8083 potwierdził HTTP 200 dla strony, wersji M5, szablonu, stylów, klienta, frontu, danych przykładowych i Chart.js.

@@ -4,7 +4,7 @@ Aktualizacja: 2026-11-28. Bieżące źródło stanu i kolejki akceptacji; starsz
 
 ## Obecnie: M5 — moduł RCN
 
-RCN ma natywną zakładkę z istniejącymi formularzami, obliczeniami i eksportami oraz z dotychczasowym API obsługującym źródło R2. [Podgląd RCN na danych przykładowych](http://localhost:8083/?rcn=demo#/rcn), [tryb danych RCN](http://localhost:8083/#/rcn), [test odbioru](../reports/m5-rcn.md) i [macierz parytetu](parity-rcn.md). Kolejka akceptacji obejmuje PR M5 i odbiór właściciela, w tym odpowiedź API, poligon w przeglądarce oraz zawartość eksportów. M6 czeka na zatwierdzenie.
+RCN ma natywną zakładkę z istniejącymi formularzami, obliczeniami i eksportami oraz z dotychczasowym API obsługującym źródło R2. [Podgląd RCN na danych przykładowych](http://localhost:8083/?rcn=demo#/rcn), [tryb danych RCN](http://localhost:8083/#/rcn), [test odbioru](../reports/m5-rcn.md) i [macierz parytetu](parity-rcn.md). Kolejka akceptacji obejmuje [PR #30](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/30) i odbiór właściciela, w tym odpowiedź API, poligon w przeglądarce oraz zawartość eksportów. M6 czeka na zatwierdzenie.
 
 D37 zatwierdzono i scalono w [PR #28](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/28) jako `5ea366c`. [Raport poprawek Działek](../reports/dzialki-planning-presentation.md).
 
