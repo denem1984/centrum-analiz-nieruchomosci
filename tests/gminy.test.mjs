@@ -37,7 +37,7 @@ test("identyfikatory BDL i TERC zachowują zera, a niekompletna gmina pozostaje 
   snapshot.complete -= 1;
   snapshot.excluded += 1;
   const parsed = readMunicipalities(snapshot, { demo: true });
-  const [missing] = findMunicipalities(parsed.municipalities, "przykladowo 01");
+  const [missing] = findMunicipalities(parsed.municipalities, "przykladowo, pow. 01");
   assert.equal(missing.name, "Przykładowo");
   assert.equal(missing.complete, false);
   assert.equal(findMunicipalities(parsed.municipalities, missing.id)[0].terc, missing.terc);
@@ -71,4 +71,25 @@ test("PDF porównania tworzy po jednej stronie na gminę i rozróżnia wartości
   assert.match(doc.output(), /^%PDF/);
   assert.ok(doc.output().length > 10_000);
   assert.equal(INDICATORS.length, 7);
+});
+
+test("lokalny plik GUS BDL zachowuje pokrycie katalogu i wszystkie sześć powiązań roku danych", async () => {
+  const file = new URL("../app/data/gminy/bdl.json", import.meta.url);
+  const snapshot = JSON.parse(await readFile(file, "utf8"));
+  const official = readMunicipalities(snapshot);
+  assert.equal(official.year, 2025);
+  assert.equal(official.municipalities.length, 2479);
+  assert.equal(official.full.length + official.excluded, 2479);
+  assert.equal(Object.keys(snapshot.tercCodeChanges).length, 6);
+  for (const [terc, referenceTerc] of Object.entries(snapshot.tercCodeChanges)) {
+    const [row] = findMunicipalities(official.municipalities, terc);
+    assert.equal(row.referenceTerc, referenceTerc);
+    assert.equal(row.kind, "2");
+    assert.equal(row.values.length, 7);
+  }
+  const [olsztyn] = findMunicipalities(official.municipalities, "2862011");
+  assert.equal(olsztyn.name, "Olsztyn");
+  assert.equal(olsztyn.complete, true);
+  const ranked = rankMunicipalities(official.full, olsztyn, { profile: "lokale", same: false, scope: "country" });
+  assert.equal(ranked.results.length, official.full.length - 1);
 });

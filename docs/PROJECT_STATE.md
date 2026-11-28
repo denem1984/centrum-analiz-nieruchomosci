@@ -2,9 +2,11 @@
 
 Aktualizacja: 2026-11-28. Bieżące źródło stanu i kolejki akceptacji; starsze raporty są dowodami historycznymi, nie bieżącą listą wykonanych funkcji.
 
-## Obecnie: M7 — Podobne do odbioru lokalnego
+## Obecnie: M8 — Gminy do odbioru lokalnego
 
-Podobne obejmują nieruchomość analizowaną i nieruchomości porównawcze lokalizowane po adresie lub działce. Mapa pokazuje markery, odległości i przeciągane etykiety. [Podgląd przykładowy](http://localhost:8085/?podobne=demo#/podobne) · [Tryb danych rzeczywistych](http://localhost:8085/#/podobne) · [Raport i próba ręczna](../reports/m7-podobne.md) · [Porównanie frontów](parity-podobne.md) · [Otwarty PR #33](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/33)
+Gminy mają trzy profile, ranking top 20, porównanie siedmiu wskaźników i PDF. Lokalny plik GUS BDL zawiera po siedem wartości za 2025 r. dla wszystkich 2479 gmin. [Tryb GUS BDL](http://localhost:8086/#/gminy) · [Podgląd przykładowy](http://localhost:8086/?gminy=demo#/gminy) · [Raport i próba ręczna](../reports/m8-gminy.md) · [Porównanie frontów](parity-gminy.md)
+
+Właściciel zatwierdził Podobne. [PR #33](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/33) scalono jako `ee1c113`. Moduł lokalizuje nieruchomości po adresie lub działce i pokazuje odległości w linii prostej. [Raport Podobnych](../reports/m7-podobne.md)
 
 Właściciel zatwierdził Oferty. [PR #32](https://github.com/denem1984/centrum-analiz-nieruchomosci/pull/32) scalono jako `7c267f9`. Zakładka ma wybór ofert, kalkulator i eksport XLSX. [Raport i próba ręczna](../reports/m6-oferty.md) · [Porównanie frontów](parity-oferty.md)
 
@@ -30,7 +32,7 @@ Jeśli serwer po zamknięciu komputera przestanie działać: w terminalu katalog
 
 **Aktualny podgląd M4f działa pod http://localhost:8082/#/dzialki.** Wznowienie z katalogu projektu poleceniem `node .local/preview-m4e2/scripts/serve.mjs --port 8082`. Start korzysta obecnie z jawnych fikstur. Docelowe wspólne wyszukiwanie według D39 wraca do planu M3c.
 
-**Szacunkowo około 60% projektu wykonane, około 40% pozostało.** Podobne dodają osiem punktów za port i testy lokalne. Próby na bieżących danych stanowią pozostałą część estymacji Ofert i Podobnych.
+**Szacunkowo około 70% projektu wykonane, około 30% pozostało.** Gminy dodają 10 punktów za kompletny plik danych, ranking, PDF i testy.
 
 | Obszar | Waga w szacunku | Zrealizowana część w punktach całości |
 |---|---:|---:|
@@ -40,13 +42,13 @@ Jeśli serwer po zamknięciu komputera przestanie działać: w terminalu katalog
 | RCN: adaptacja istniejącego kodu i prezentacja z obecnym R2 | 12 | 10 |
 | Oferty | 9 | 8 |
 | Podobne | 9 | 8 |
-| Gminy i dane wskaźników | 10 | 0 |
+| Gminy i dane wskaźników | 10 | 10 |
 | Raporty AI: odczyt mapy, internet, tekst i eksport | 9 | 0 |
 | Raport zbiorczy, pełna regresja i odbiór wdrożenia | 4 | 0 |
 | Wspólne wyszukiwanie Start i podłączenie modułów | 3 | 0 |
 | Dołączenie analizy Ofert do raportu RCN | 2 | 0 |
 
-Suma robocza 61/102, czyli około 60%. Przed M7 było 53/102.
+Suma robocza 71/102, czyli około 70%. Przed M8 było 61/102.
 
 Test właściciela: podgląd 8082 → Działki → wyszukać działkę lub wskazać ją przez PPM → dodać do raportu → zapisać widok mapy → zmienić zakładkę i wrócić → pobrać PDF. [Scenariusz](../reports/m4f-report-pdf.md).
 
@@ -64,7 +66,7 @@ Agent wykonuje plan, implementację, testy, dokumentację i PR-y oraz sam scala 
 - Kontekst ustawia wyszukiwanie; kliknięcie działki na mapie go nie zmienia. Bez trwałego zapisu analiz; pamięć modułów znika po odświeżeniu.
 - D39 (2026-11-28) przywraca wspólne wyszukiwanie ze Startu. Każdy moduł użyje odpowiedniej części wybranej lokalizacji i swoich filtrów. Rozbudowa kontekstu zachowa działanie odnośników v1. Formularze działające obecnie służą odbiorowi modułów przed integracją.
 - Backendów nie zmieniamy. Produkcyjny tryb RCN potwierdzony przez właściciela w CONFIG.md. Historyczne pomiary pierwszej odpowiedzi: 22–52 s; hipoteza zimnego startu, nie bieżący pomiar. UI ma obsługiwać do 120 s i licznik oczekiwania.
-- Gminy: plik danych (opcja B), bez Supabase. D5 zamknięte: **aplikacja w ogóle nie będzie miała logowania** (właściciel, 2026-11-27). D8 nie dotyczy. Nie jest to tylko zwolnienie na pierwszy odbiór.
+- Gminy używają pliku danych BDL z D41. D5 zamknięte: **aplikacja w ogóle nie będzie miała logowania** (właściciel, 2026-11-27). D8 nie dotyczy.
 - Lista PDF: pamięć aplikacji między zakładkami, czyszczona przy odświeżeniu (D15). TERC7→TERYT6 jest czystą funkcją; R=4/5→3 nadal [HIP] do walidacji na pełnym TERC.
 
 ## Potwierdzony punkt startowy
@@ -113,9 +115,9 @@ Sprawdzenie właściciela (opcjonalne dla tej poprawki): w PowerShell w folderze
 
 ## Następna praca
 
-1. Odbiór Podobnych w lokalnym podglądzie. Po zatwierdzeniu rozpocząć M8 Gminy.
+1. Odbiór Gmin w lokalnym podglądzie. Po zatwierdzeniu rozpocząć wspólne wyszukiwanie Start (M3c).
 2. Zrealizować plan nowszego podkładu po uzgodnieniu kolejności z właścicielem.
-3. Po M8 zrealizować wspólne wyszukiwanie Start (M3c), a następnie opcję dołączenia Ofert do raportu RCN w M9.
+3. Po M3c zrealizować opcję dołączenia Ofert do raportu RCN w M9.
 
 Przegląd oficjalnych źródeł wskazuje aktualną ortofotomapę GUGiK jako głównego kandydata [HIP do porównania dat w danym miejscu]. [Plan M4b.4, źródła i kryteria](imagery-freshness-plan.md) rozróżnia datę zdjęcia, publikację serwisu i rozdzielczość. Nie zmieniono jeszcze podkładu i nie wykonano dodatkowego ruchu mapowego.
 
@@ -147,7 +149,7 @@ Poniższy inwentarz pochodzi z odczytu frontów we wskazanych rewizjach i histor
 | RCN, `85cb2f9`, `static/index.html:168–436`; `reports/m1a-code-review.md:B2` | Lokale, grunt niezabudowany i zabudowany; listy województwo/powiat/gmina/miejscowość, cała gmina, ulica; powierzchnia i cena, promień 100–5000 m i polygon z cofaniem, odrzucanie skrajnych, daty/suwaki/12–24 miesiące; rynek, funkcja, użytek, wszystkie typy budynków i prawa; podobne z tolerancją/zakresem i wagami; audyt filtrów, mapa, wykres czasu, tabela, średnie ulic i histogram; XLSX i Word | M5a macierz i klient URL; M5b wszystkie formularze i kontekst; M5c wyniki/mapa/wykresy/statystyki/podobne; M5d eksporty i regresja. Przed M5d ustalić sposób testu eksportów POST: obecne pozwolenie pomiarowe obejmuje GET. Nie usuwać eksportu z powodu ograniczenia testów. Pełną logikę JS i ewentualne dodatkowe opcje sprawdzić przed portem. |
 | Oferty, `596451b`, `index.html:73–91` i dodatki z `server.js:11` | Cztery rodzaje, podpowiedzi i potwierdzenie miejscowości, promienie 0/1/2/5/10/20/30 km, brak filtra/procent 10–50%/zakres, sześć portali, sortowanie, wybór ofert, kalkulator i XLSX | Gotowe do lokalnego odbioru. [Macierz opcji i adresów](parity-oferty.md) dokumentuje frontend faktycznie składany przez punkt wejścia usługi. |
 | Podobne, `a750201`, `index.html:269–317,644–674`; raport B3 | Analizowana nieruchomość i dowolne porównawcze, adres albo działka z listami jednostek, cena, data, linie, etykiety, oba podkłady i „Pokaż wszystkie” | Gotowe do odbioru. [Macierz tras](parity-podobne.md) i [scenariusz](../reports/m7-podobne.md). D40 ustala geokoder UUG dla adresów. |
-| Gminy, `c1b682c`, `index.html:27–30,110–111,195–228`; raport B4 | Gmina docelowa, kraj/województwo, trzy profile, ten sam typ; siedem wskaźników i ich lata, ranking/top20, szczegóły „dlaczego”, zaznaczanie i porównanie, objaśnienia, PDF | M8a pełny plik GUS/BDL z pochodzeniem i walidacją D9; M8b odwzorowanie wag/normalizacji/braków i ranking; M8c wszystkie filtry, porównanie i PDF. Siedem identyfikatorów BDL jest w źródłowym froncie. Spróbować publicznego BDL; pełny eksport właściciela tylko jako fallback. Brak logowania jest już decyzją ostateczną. |
+| Gminy, `c1b682c`, `index.html:27–30,110–111,195–228`; raport B4 | Gmina docelowa, kraj/województwo, trzy profile, ten sam typ, siedem wskaźników, ranking top 20, porównanie i PDF | Lokalny plik BDL i mapowanie TERC według D41. [Macierz i adresy](parity-gminy.md). |
 | M9, D10 i D39 | Raport RCN z opcją dołączenia Ofert dla tej samej lokalizacji, widoki zbiorcze i raport z wynikami modułów | M9a kontrakt wyników po wspólnym wyszukiwaniu, M9b integracja RCN i Ofert, M9c widok i raport zbiorczy po potwierdzeniu pozostałego zakresu D10. |
 | M10, IMPLEMENTATION_PLAN.md | Podgląd statyczny, pełna macierz regresji, działanie z prawdziwego origin | Instrukcja klik po kliku dla właściciela, bez wykonywania wdrożenia przez agenta. Właściciel wybiera nazwę/domenę i ewentualny koszt hostingu. |
 
@@ -158,7 +160,7 @@ Poniższy inwentarz pochodzi z odczytu frontów we wskazanych rewizjach i histor
 - Ortofotomapa archiwalna: w historycznym pomiarze 67/144 GET-ów bez odpowiedzi po 35 s. Backlog M4b.3: limit czasu na kafelek i ocena 512 px. Nie uznawać awarii usługi za pusty poprawny wynik.
 - KIEG: V0 headless dawał ORB dla węzła 01, a frakcje wynosiły 0/12, 11/12 i 12/12. Wpływ User-Agent pozostaje [HIP]; nie zmieniamy nagłówków. Aktualny sprawdzian Edge/CDP nie testował usług KIEG. [Źródło: D23 i docs/dzialki-module.md]
 - Nowy budżet właściciela to 4 pełne smoke, 400 żądań Działek, 300 na usługę. `fix/smoke-task-budgets` dodaje wspólny licznik wymagający `--task`, utrwalany przed wysłaniem żądania; przekierowania KIEG dzielą licznik. Stary licznik M4d.1c jest używany dodatkowo tylko w historycznym eksperymencie, bez kasowania jego stanu. Nie zwiększa nowych limitów. Sprawdzian samego CDP nie zużywa budżetu usług.
-- D2/D9: nie ma pełnych plików TERC/SIMC ani pełnego zbioru wskaźników. 100 wierszy BDL i jeden niezależny match nie zamykają D9. Nie zgadywać rodzaju gminy ani mapowania.
+- D2/D9: pełny TERC i SIMC zweryfikowano w M3b. Rok i serie BDL Gmin są opisane w D41. Powiązanie modułów ze wspólnym wyszukiwaniem należy do M3c.
 - Klik działki a DenemContext: zachowujemy obecne zachowanie do osobnej decyzji. Trwałość analiz D11, zasady wyników ofert D12, zakres raportu D10 i domena/koszty nie są rozstrzygnięte.
 - Publiczne warunki usług Esri/GUGiK/Nominatim wymagają sprawdzenia u źródeł przed udostępnieniem nowych integracji. Nie dopisujemy nowych ustaleń bezpieczeństwa starych aplikacji.
 - Narzędzie odczytu starego frontu zwróciło także publiczną konfigurację dostępu. Nie kopiowano jej do plików, testów ani dokumentacji; nie wykonywano żadnych operacji z jej użyciem.

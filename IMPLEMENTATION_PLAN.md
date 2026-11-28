@@ -1,6 +1,6 @@
 # IMPLEMENTATION_PLAN.md — plan M0–M10
 
-**Stan na 2026-11-28.** Działki mają pomiary, niezależny panel i raport PDF M4f. Słowniki M3b, RCN M5 i Oferty M6 zatwierdzono i scalono. Podobne M7 są gotowe do odbioru lokalnego. [Stan projektu i testy](docs/PROJECT_STATE.md).
+**Stan na 2026-11-28.** Działki mają pomiary, niezależny panel i raport PDF M4f. Słowniki M3b, RCN M5, Oferty M6 i Podobne M7 zatwierdzono i scalono. Gminy M8 są gotowe do lokalnego odbioru. [Stan projektu i testy](docs/PROJECT_STATE.md)
 
 ## Kolejność dalszej realizacji
 
@@ -8,7 +8,7 @@
 
 Plan M4b.4 i przegląd oficjalnych źródeł: [docs/imagery-freshness-plan.md](docs/imagery-freshness-plan.md). Kandydat: aktualna ortofotomapa GUGiK z metadanymi; rekomendacja domyślnego źródła dopiero po porównaniu dat i szczegółu. To zaplanowane rozszerzenie, nie wykonana zamiana podkładu.
 
-M4d.2 → M4d.3 → M4e → M4f → M3b (słowniki) → M5–M8 (moduły) → M3c (wspólne wyszukiwanie w Start, D39) → M9 (w tym RCN z opcjonalną analizą Ofert) → M10. Osobne PR-y dla podetapów. Przed M8 spróbować odtworzyć plik wskaźników z publicznego BDL. D5 ustala aplikację bez logowania.
+M4d.2 → M4d.3 → M4e → M4f → M3b (słowniki) → M5–M8 (moduły) → M3c (wspólne wyszukiwanie w Start, D39) → M9 (w tym RCN z opcjonalną analizą Ofert) → M10. Osobne PR-y dla podetapów. M8 odtworzył plik wskaźników z publicznego BDL. D5 ustala aplikację bez logowania.
 
 M3c według D39 obejmuje formularz i mapę Startu, wspólną lokalizację jednostki, adresu lub działki, zachowanie odnośników v1 i podłączenie modułów. Kryterium odbioru to jedno wyszukanie, po którym RCN, Oferty, Działki, Podobne i Gminy użyją potrzebnych im pól. Test powinien objąć powtarzalne nazwy, brak wymaganego pola oraz zmianę lokalizacji po wykonaniu analizy. [Projekt formularza](docs/shared-location-start.md).
 
@@ -27,7 +27,7 @@ D30 wymaga podsumowania, lokalnego podglądu, estymacji i akceptacji po większy
 | **M5** | Pełny moduł RCN: trzy typy nieruchomości, wszystkie filtry i tryby przestrzenne, statystyki, podobne, mapa, wykresy, tabela i eksporty. Zależność: M3b. | Wszystkie opcje zinwentaryzowanego frontu są odwzorowane i sprawdzone; samo wyszukiwanie i podstawowe statystyki nie wystarczają. Plan podetapów w PROJECT_STATE.md. | Różny tryb źródła danych lub czas odpowiedzi; eksporty starego frontu używają POST, obecna zgoda sieciowa obejmuje GET. |
 | **M6** | Natywna zakładka Oferty z własnym formularzem, kalkulatorem i XLSX. [Raport i próba ręczna](reports/m6-oferty.md). | Test klienta porównuje adresy z istniejącym API. Test z atrapą DOM i Edge sprawdza wyniki, wybór ofert, porównanie i plik XLSX. | Odpowiedzi portali, zasięg geograficzny i zgodność wyników ze starym frontem pozostają do próby właściciela. D12 przed udostępnieniem dodatkowym użytkownikom. |
 | **M7** | Natywna zakładka Podobne z adresami GUGiK UUG oraz działkami z istniejącego API. [Raport i próba ręczna](reports/m7-podobne.md) | Formularze, kolejność jednostek, dokładny identyfikator działki, odległości, etykiety, przewijanie niezależne od mapy oraz widok mobilny sprawdzone lokalnie. | Bieżące odpowiedzi PRG i ULDK do sprawdzenia przez właściciela. Wspólna lokalizacja po M3c. |
-| **M8** | Gminy z plikiem danych (opcja B); bez Supabase i bez logowania (ostateczna D5). Agent próbuje odtworzyć dane z publicznego BDL; eksport właściciela jest wariantem awaryjnym. D9 musi być zwalidowane. Zależność: M3b. | Wszystkie filtry, profile, ranking, objaśnienia, porównania i PDF mają parytet; TERC wskazuje właściwą jednostkę BDL. | Brak pełnych wskaźników i lat lub niepotwierdzone mapowanie D9. |
+| **M8** | Gminy korzystają z lokalnego pliku siedmiu wskaźników GUS BDL oraz mapowania z M3b i D41. [Raport i próba ręczna](reports/m8-gminy.md) | Wybór gminy, trzy profile, kraj lub województwo, ten sam typ, top 20, objaśnienia, porównania i PDF. Weryfikacja TERC i BDL dla wspólnego roku danych. | Różnice ze starym eksportem przy innym roku referencyjnym. Wspólna lokalizacja po M3c. |
 | **M9** | Raport RCN z opcją dołączenia Ofert oraz widoki zbiorcze. Zależność od M3c i modułów źródłowych. Pozostały zakres D10 do ustalenia przed pracą. | RCN i Oferty są powiązane z tą samą lokalizacją. W raporcie widać osobne ceny transakcyjne i ofertowe, liczebności prób oraz filtry. Generowanie raportu RCN działa także przy pominięciu Ofert. | Różne zasięgi, okresy i kompletność danych. Zakres załącznika do ustalenia w M9, D12 przed szerszym udostępnieniem. |
 | **M10** | Podgląd wdrożeniowy i odbiór. Zależność: M9. | Właściciel odbiera działający podgląd, macierz regresji i instrukcję uruchomienia; ewentualne wdrożenie wymaga osobnej zgody właściciela. | Różnice między lokalnym buildem a środowiskiem podglądowym. |
 

@@ -79,7 +79,8 @@ export function findMunicipalities(municipalities, text) {
   if (/^\d+$/.test(normalized)) return municipalities.filter((row) => (
     row.id.startsWith(normalized) || row.terc.startsWith(normalized) || row.referenceTerc.startsWith(normalized)
   ));
-  const terms = normalized.split(" ");
+  const terms = normalized.split(/[ ,·]+/).filter((term) => term && term !== "pow." && term !== "woj.");
+  if (!terms.length) return [];
   return municipalities.filter((row) => terms.every((term) => row.search.includes(term)))
     .sort((a, b) => Number(normalizeQuery(b.name).startsWith(normalized)) - Number(normalizeQuery(a.name).startsWith(normalized)));
 }
